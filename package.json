@@ -1,0 +1,26 @@
+{
+  "name": "flowvision",
+  "version": "1.0.0",
+  "private": true,
+  "description": "一键分析项目流程图 · 可视化编辑 · AI 生成 · MCP 服务器同步",
+  "scripts": {
+    "dev": "turbo run dev --filter=!@flowvision/desktop",
+    "dev:desktop": "turbo run dev --filter=@flowvision/desktop",
+    "dev:all": "turbo run dev",
+    "build": "turbo run build",
+    "build:desktop": "turbo run build --filter=@flowvision/frontend --filter=@flowvision/backend && pnpm --filter @flowvision/desktop build",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.1.0"
+}
