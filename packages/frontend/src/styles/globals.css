@@ -1,0 +1,229 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局样式 - 基于 Architectural Workbench 设计系统 */
+
+@layer base {
+  /* 字体设置 */
+  body {
+    @apply font-body text-on-background bg-background;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  /* 选择文本样式 */
+  ::selection {
+    @apply bg-primary-fixed text-on-primary-fixed;
+  }
+
+  /* 自定义滚动条 */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-container-highest rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-outline-variant;
+  }
+}
+
+@layer components {
+  /* Material Symbols 图标样式 */
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+    font-size: 1.25rem;
+  }
+
+  /* 代码字体 */
+  .code-font {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.8125rem;
+  }
+
+  /* 玻璃效果 - 用于浮动控件 */
+  .glass-effect {
+    @apply bg-surface-container-lowest/85 backdrop-blur-md;
+  }
+
+  /* 幽灵边框 - 用于需要边框但要保持"无线"美学的地方 */
+  .ghost-border {
+    border: 1px solid rgb(194 198 216 / 0.15);
+  }
+
+  /* 细腻幽灵边框 */
+  .ghost-border-soft {
+    border: 1px solid rgb(194 198 216 / 0.1);
+  }
+
+  /* 面板标题栏 */
+  .workbench-panel-header {
+    @apply h-11 flex items-center justify-between px-4 text-on-surface-variant;
+    background: rgb(255 255 255 / 0.55);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgb(194 198 216 / 0.08);
+  }
+
+  /* 图标按钮 */
+  .icon-button-soft {
+    @apply inline-flex items-center justify-center rounded-xl text-on-surface-variant transition-all duration-200;
+    background: transparent;
+  }
+
+  .icon-button-soft:hover {
+    @apply text-primary bg-surface-container;
+  }
+
+  /* 美化下拉框 */
+  .styled-select {
+    @apply w-full rounded-xl bg-slate-50 py-2.5 px-4 text-sm outline-none ghost-border-soft transition-all duration-200;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-size: 16px;
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+    padding-right: 2.5rem;
+    cursor: pointer;
+  }
+
+  .styled-select:focus {
+    @apply ring-2 ring-primary/25;
+  }
+
+  /* 编辑器高亮行 */
+  .editor-highlight-line {
+    background: linear-gradient(90deg, rgb(0 80 203 / 0.12), rgb(0 80 203 / 0.04));
+    border-left: 2px solid theme('colors.primary');
+  }
+
+  /* 代码语法色 */
+  .code-token-keyword {
+    color: #2563eb;
+    font-weight: 600;
+  }
+
+  .code-token-function {
+    color: #0f766e;
+  }
+
+  .code-token-string {
+    color: #059669;
+  }
+
+  .code-token-number {
+    color: #b45309;
+  }
+
+  .code-token-dim {
+    color: rgb(66 70 86 / 0.45);
+  }
+
+  /* 渐变按钮 */
+  .gradient-button {
+    background: linear-gradient(45deg, theme('colors.primary'), theme('colors.primary-container'));
+    @apply text-on-primary rounded-xl;
+  }
+
+  /* 节点卡片顶部色条 */
+  .node-accent-primary {
+    @apply absolute -top-px left-4 right-4 h-1 bg-primary rounded-full;
+  }
+
+  .node-accent-secondary {
+    @apply absolute -top-px left-4 right-4 h-1 bg-secondary rounded-full;
+  }
+
+  .node-accent-tertiary {
+    @apply absolute -top-px left-4 right-4 h-1 bg-tertiary rounded-full;
+  }
+
+  /* 网格背景 - 用于画布 */
+  .grid-background {
+    background-image: radial-gradient(theme('colors.surface-container-highest') 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* 拖拽分割线手柄 */
+  .resize-handle {
+    @apply w-[3px] bg-transparent transition-colors duration-150 cursor-col-resize relative;
+  }
+
+  .resize-handle:hover,
+  .resize-handle[data-resize-handle-active] {
+    @apply bg-primary/40;
+  }
+
+  .resize-handle::after {
+    content: '';
+    @apply absolute inset-y-0 -left-1 -right-1;
+  }
+}
+
+/* 动画关键帧 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@layer utilities {
+  /* 文字大小工具类 - 基于设计系统 */
+  .text-display-sm {
+    font-size: 2.25rem;
+    font-weight: 600;
+  }
+
+  .text-headline-sm {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  .text-title-sm {
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  .text-body-md {
+    font-size: 0.875rem;
+    font-weight: 400;
+  }
+
+  .text-label-sm {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+}
