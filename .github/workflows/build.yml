@@ -1,0 +1,78 @@
+name: 构建桌面应用
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建前端和后端
+        run: pnpm turbo run build --filter=@flowvision/frontend --filter=@flowvision/backend
+
+      - name: 打包桌面应用
+        run: pnpm --filter @flowvision/desktop build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlowVision-${{ matrix.platform }}
+          path: |
+            packages/desktop/dist/*.exe
+            packages/desktop/dist/*.dmg
+            packages/desktop/dist/*.AppImage
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: 下载所有构建产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
