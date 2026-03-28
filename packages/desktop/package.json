@@ -2,6 +2,12 @@
   "name": "@flowvision/desktop",
   "version": "1.0.0",
   "private": true,
+  "description": "AI 驱动的智能流程图设计工具 — 桌面端",
+  "author": "YangXiaoMian",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YangXiaoMian/FlowVision.git"
+  },
   "main": "main.js",
   "scripts": {
     "dev": "electron .",
@@ -17,6 +23,7 @@
   "build": {
     "appId": "com.flowvision.app",
     "productName": "FlowVision",
+    "publish": null,
     "directories": {
       "output": "dist"
     },
