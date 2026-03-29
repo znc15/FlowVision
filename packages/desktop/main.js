@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, Menu, Tray, nativeImage, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, Menu, Tray, nativeImage, ipcMain, utilityProcess } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execPath: nodeExecPath } = require('child_process');
@@ -58,32 +58,45 @@ function saveDesktopSettings(next) {
 
 let desktopSettings = loadDesktopSettings();
 
-/** 查找 Node.js 可执行路径（Electron 内置的 node 不适合直接跑服务端） */
-function getNodePath() {
-  // 优先使用 Electron 自带的 node（electron 打包后 process.execPath 是 electron 自身）
-  // 用 child_process 的 execPath 获取底层 node
-  if (process.platform === 'win32') {
-    // Windows: 查找同目录下的 node.exe 或使用 PATH 中的 node
-    const electronDir = path.dirname(app.getPath('exe'));
-    const localNode = path.join(electronDir, 'node.exe');
-    try {
-      require('fs').accessSync(localNode);
-      return localNode;
-    } catch {
-      return 'node'; // 退回系统 PATH
-    }
-  }
-  return 'node';
+/** 等待后端健康检查通过 */
+function waitForBackendReady(port = 3001, maxRetries = 60, interval = 500) {
+  const http = require('http');
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const check = () => {
+      attempts++;
+      const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+        if (res.statusCode === 200) {
+          resolve(true);
+        } else if (attempts < maxRetries) {
+          setTimeout(check, interval);
+        } else {
+          reject(new Error('后端启动超时'));
+        }
+      });
+      req.on('error', () => {
+        if (attempts < maxRetries) {
+          setTimeout(check, interval);
+        } else {
+          reject(new Error('后端启动超时'));
+        }
+      });
+      req.end();
+    };
+    check();
+  });
 }
 
-/** 启动后端服务 */
-function startBackend() {
+/** 启动后端服务并等待就绪（使用 Electron 内置 Node.js 运行时） */
+async function startBackend() {
   if (isDev) return; // 开发模式由 turbo 启动
 
-  const backendDir = path.join(process.resourcesPath, 'backend');
-  const serverPath = path.join(backendDir, 'dist', 'server.js');
+  const backendDir = process.resourcesPath;
+  const serverPath = path.join(process.resourcesPath, 'backend', 'server.bundle.mjs');
 
-  backendProcess = spawn(getNodePath(), [serverPath], {
+  console.log('[desktop] 正在启动后端服务:', serverPath);
+
+  backendProcess = utilityProcess.fork(serverPath, [], {
     cwd: backendDir,
     env: { ...process.env, NODE_ENV: 'production', PORT: '3001' },
     stdio: 'pipe',
@@ -97,9 +110,18 @@ function startBackend() {
     console.error(`[backend] ${data}`);
   });
 
-  backendProcess.on('error', (err) => {
-    console.error('后端启动失败:', err);
+  backendProcess.on('exit', (code) => {
+    console.log(`[backend] 进程退出，退出码: ${code}`);
+    backendProcess = null;
   });
+
+  // 等待后端健康检查通过
+  try {
+    await waitForBackendReady();
+    console.log('[desktop] 后端服务已就绪');
+  } catch (err) {
+    console.error('[desktop] 等待后端就绪超时，继续启动前端:', err.message);
+  }
 }
 
 /** 停止后端服务 */
@@ -242,10 +264,10 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   setupIpc();
-  startBackend();
+  await startBackend();
   createTray();
   createWindow();
 });

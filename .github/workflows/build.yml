@@ -6,6 +6,9 @@ on:
       - main
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -14,6 +17,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -29,19 +33,26 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+
       - name: 安装 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: 安装 pnpm
-        uses: pnpm/action-setup@v4
+          cache: pnpm
 
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      - name: 运行测试
+        run: pnpm test
+
       - name: 构建前端和后端
         run: pnpm turbo run build --filter=@flowvision/frontend --filter=@flowvision/backend
+
+      - name: 打包后端为单文件
+        run: pnpm --filter @flowvision/backend build:bundle
 
       - name: 打包桌面应用
         run: pnpm --filter @flowvision/desktop build
@@ -54,9 +65,14 @@ jobs:
           name: FlowVision-${{ matrix.platform }}
           path: |
             packages/desktop/dist/*.exe
+            packages/desktop/dist/*.blockmap
             packages/desktop/dist/*.dmg
+            packages/desktop/dist/*.zip
             packages/desktop/dist/*.AppImage
+            packages/desktop/dist/*.snap
+            packages/desktop/dist/*.deb
           if-no-files-found: ignore
+          retention-days: 30
 
   release:
     needs: build
@@ -68,6 +84,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
       - name: 创建 Release
         uses: softprops/action-gh-release@v2

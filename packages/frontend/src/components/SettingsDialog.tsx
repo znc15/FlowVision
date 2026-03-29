@@ -27,6 +27,12 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [customModel, setCustomModel] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testResult, setTestResult] = useState('');
+  const [testMetrics, setTestMetrics] = useState<{
+    firstTokenMs: number;
+    totalMs: number;
+    tokenCount: number;
+    tokensPerSec: number;
+  } | null>(null);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'error'>('idle');
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -101,7 +107,9 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const handleTestModel = async () => {
     setTestStatus('testing');
     setTestResult('');
+    setTestMetrics(null);
     try {
+      const startTime = performance.now();
       const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,6 +133,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       if (!reader) throw new Error('无法获取响应流');
       const decoder = new TextDecoder();
       let reply = '';
+      let tokenCount = 0;
+      let firstTokenTime: number | null = null;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -134,18 +144,33 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           if (!line.startsWith('data: ')) continue;
           try {
             const event = JSON.parse(line.slice(6).trim());
-            if (event.type === 'chunk') reply += event.text;
+            if (event.type === 'chunk') {
+              if (firstTokenTime === null) firstTokenTime = performance.now();
+              reply += event.text;
+              tokenCount++;
+            }
             if (event.type === 'error') throw new Error(event.error);
           } catch (e) {
             if (e instanceof Error && e.message !== line.slice(6).trim()) throw e;
           }
         }
       }
+      const endTime = performance.now();
+      const totalMs = endTime - startTime;
+      const firstMs = firstTokenTime !== null ? firstTokenTime - startTime : totalMs;
+      const tps = tokenCount > 0 && totalMs > 0 ? (tokenCount / (totalMs / 1000)) : 0;
       setTestStatus('success');
       setTestResult(reply.slice(0, 200) || '连接成功');
+      setTestMetrics({
+        firstTokenMs: Math.round(firstMs),
+        totalMs: Math.round(totalMs),
+        tokenCount,
+        tokensPerSec: Math.round(tps * 10) / 10,
+      });
     } catch (e) {
       setTestStatus('error');
       setTestResult(e instanceof Error ? e.message : '测试失败');
+      setTestMetrics(null);
     }
   };
 
@@ -292,9 +317,20 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
               {/* Model */}
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                  模型
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    模型
+                  </label>
+                  <button
+                    onClick={() => store.fetchModels()}
+                    disabled={modelsLoading}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[10px] text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all duration-200 disabled:opacity-50"
+                    title="刷新模型列表"
+                  >
+                    <span className={`material-symbols-outlined text-sm ${modelsLoading ? 'animate-spin' : ''}`}>refresh</span>
+                    刷新
+                  </button>
+                </div>
                 {customModel ? (
                   <div className="flex gap-2">
                     <input
@@ -425,6 +461,26 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   }`}>
                     {testResult}
                   </p>
+                )}
+                {testMetrics && testStatus === 'success' && (
+                  <div className="grid grid-cols-4 gap-2 mt-2 p-2.5 rounded-lg bg-green-50/60 ghost-border-soft">
+                    <div className="text-center">
+                      <p className="text-[9px] text-slate-400">首字延迟</p>
+                      <p className="text-xs font-semibold text-slate-700">{testMetrics.firstTokenMs}<span className="text-[9px] font-normal text-slate-400">ms</span></p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-slate-400">总耗时</p>
+                      <p className="text-xs font-semibold text-slate-700">{(testMetrics.totalMs / 1000).toFixed(1)}<span className="text-[9px] font-normal text-slate-400">s</span></p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-slate-400">Token 数</p>
+                      <p className="text-xs font-semibold text-slate-700">{testMetrics.tokenCount}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-slate-400">速度</p>
+                      <p className="text-xs font-semibold text-slate-700">{testMetrics.tokensPerSec}<span className="text-[9px] font-normal text-slate-400">t/s</span></p>
+                    </div>
+                  </div>
                 )}
                 <p className="text-[10px] text-slate-400 mt-1">
                   发送 "say hi" 验证模型是否正常响应

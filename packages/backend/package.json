@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "build:bundle": "tsc && node esbuild.config.mjs",
     "start": "node dist/server.js",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^20.12.7",
     "@types/ws": "^8.5.10",
+    "esbuild": "^0.21.0",
     "tsx": "^4.7.3",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"

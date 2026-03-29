@@ -8,7 +8,7 @@
     "dev:desktop": "turbo run dev --filter=@flowvision/desktop",
     "dev:all": "turbo run dev",
     "build": "turbo run build",
-    "build:desktop": "turbo run build --filter=@flowvision/frontend --filter=@flowvision/backend && pnpm --filter @flowvision/desktop build",
+    "build:desktop": "turbo run build --filter=@flowvision/frontend --filter=@flowvision/backend && pnpm --filter @flowvision/backend build:bundle && pnpm --filter @flowvision/desktop build",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "lint": "turbo run lint",

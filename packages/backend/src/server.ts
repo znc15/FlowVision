@@ -13,19 +13,22 @@ import { AVAILABLE_PROVIDERS, listModels } from './routes/aiProvider';
 config();
 
 const PORT = parseInt(process.env.BACKEND_PORT || '3001', 10);
+const IS_PROD = process.env.NODE_ENV === 'production';
 
-// 创建 Fastify 实例
+// 创建 Fastify 实例（生产环境跳过 pino-pretty 动态加载）
 const server = Fastify({
-  logger: {
-    level: 'info',
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        translateTime: 'HH:MM:ss Z',
-        ignore: 'pid,hostname',
+  logger: IS_PROD
+    ? { level: 'info' }
+    : {
+        level: 'info',
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            translateTime: 'HH:MM:ss Z',
+            ignore: 'pid,hostname',
+          },
+        },
       },
-    },
-  },
 });
 
 // 注册插件

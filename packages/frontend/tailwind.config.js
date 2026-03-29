@@ -57,9 +57,9 @@ export default {
         "tertiary": "#006914"
       },
       fontFamily: {
-        "headline": ["Inter", "sans-serif"],
-        "body": ["Inter", "sans-serif"],
-        "label": ["Inter", "sans-serif"]
+        "headline": ["HarmonyOS_Regular", "sans-serif"],
+        "body": ["HarmonyOS_Regular", "sans-serif"],
+        "label": ["HarmonyOS_Regular", "sans-serif"]
       },
       borderRadius: {
         "DEFAULT": "0.125rem",

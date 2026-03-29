@@ -55,6 +55,12 @@ VS Code 等 AI 客户端实时同步操作流程图。
 </tr>
 </table>
 
+## 截图展示
+
+| 主界面 | 设置面板 |
+| ------ | -------- |
+| ![主界面截图](docs/screenshots/main.png) | ![设置面板截图](docs/screenshots/settings.png) |
+
 ## 快速开始
 
 ### Web 开发模式
