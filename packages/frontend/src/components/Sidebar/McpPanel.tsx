@@ -72,11 +72,32 @@ const MCP_EXAMPLES = [
 /** MCP 工具列表 */
 const MCP_TOOLS = [
   { name: 'get_graph', desc: '获取当前完整流程图结构', icon: 'share' },
-  { name: 'add_node', desc: '向流程图中添加一个新节点', icon: 'add_circle' },
+  { name: 'add_node', desc: '向流程图中添加新节点（支持 12 种类型）', icon: 'add_circle' },
   { name: 'remove_node', desc: '删除一个节点（级联删除关联边）', icon: 'remove_circle' },
   { name: 'connect_nodes', desc: '在两个节点之间创建连线', icon: 'link' },
   { name: 'update_node', desc: '修改指定节点的属性', icon: 'edit' },
   { name: 'apply_diff', desc: '批量应用 GraphDiff 到流程图', icon: 'difference' },
+  { name: 'list_nodes', desc: '列出所有节点摘要信息', icon: 'list' },
+  { name: 'get_node', desc: '获取指定节点详情及关联边', icon: 'info' },
+  { name: 'get_stats', desc: '获取流程图统计概览', icon: 'bar_chart' },
+  { name: 'clear_graph', desc: '清空整个画布', icon: 'delete_forever' },
+  { name: 'remove_edge', desc: '删除指定连线', icon: 'link_off' },
+];
+
+/** 支持的节点类型 */
+const NODE_TYPES = [
+  { type: 'process', label: '流程', icon: 'crop_square', color: 'text-blue-600 bg-blue-50' },
+  { type: 'decision', label: '判断', icon: 'diamond', color: 'text-amber-600 bg-amber-50' },
+  { type: 'start', label: '开始', icon: 'play_circle', color: 'text-green-600 bg-green-50' },
+  { type: 'end', label: '结束', icon: 'stop_circle', color: 'text-red-500 bg-red-50' },
+  { type: 'data', label: '数据', icon: 'database', color: 'text-purple-600 bg-purple-50' },
+  { type: 'subprocess', label: '子流程', icon: 'account_tree', color: 'text-teal-600 bg-teal-50' },
+  { type: 'delay', label: '延迟', icon: 'hourglass_top', color: 'text-orange-500 bg-orange-50' },
+  { type: 'document', label: '文档', icon: 'article', color: 'text-cyan-600 bg-cyan-50' },
+  { type: 'manual_input', label: '手动输入', icon: 'touch_app', color: 'text-pink-500 bg-pink-50' },
+  { type: 'annotation', label: '注释', icon: 'sticky_note_2', color: 'text-slate-600 bg-slate-50' },
+  { type: 'connector', label: '连接器', icon: 'radio_button_checked', color: 'text-indigo-500 bg-indigo-50' },
+  { type: 'group', label: '分组', icon: 'folder', color: 'text-slate-600 bg-slate-100' },
 ];
 
 function McpPanel() {
@@ -197,6 +218,21 @@ function McpPanel() {
                     </div>
                   </div>
                 )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 支持的节点类型 */}
+        <div>
+          <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            支持的节点类型
+          </label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {NODE_TYPES.map((nt) => (
+              <div key={nt.type} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-surface-container-highest/40 ghost-border-soft">
+                <span className={`material-symbols-outlined text-xs ${nt.color.split(' ')[0]}`}>{nt.icon}</span>
+                <span className="text-[10px] text-on-surface-variant">{nt.label}</span>
               </div>
             ))}
           </div>

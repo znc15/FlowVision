@@ -1,5 +1,66 @@
 import { GraphData, GraphNode } from '../types/graph';
 
+/** 导出所有应用数据（设置、对话、图数据）用于备份 */
+export function exportBackup(graph: GraphData) {
+  const backup: Record<string, any> = { _version: 1, _exportedAt: new Date().toISOString() };
+
+  // 收集所有 flowvision 相关的 localStorage 数据
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('flowvision-')) {
+      try {
+        backup[key] = JSON.parse(localStorage.getItem(key)!);
+      } catch {
+        backup[key] = localStorage.getItem(key);
+      }
+    }
+  }
+
+  // 包含当前画布数据
+  backup['flowvision-current-graph'] = graph;
+
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  triggerDownload(blob, `flowvision-backup-${new Date().toISOString().slice(0, 10)}.json`);
+}
+
+/** 从备份文件导入所有应用数据 */
+export function importBackup(): Promise<{ graph?: GraphData; restored: number } | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) { resolve(null); return; }
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!data._version) throw new Error('无效的备份文件');
+
+        let restored = 0;
+        let graph: GraphData | undefined;
+
+        for (const [key, value] of Object.entries(data)) {
+          if (key.startsWith('_')) continue;
+          if (key === 'flowvision-current-graph') {
+            graph = value as GraphData;
+            continue;
+          }
+          if (key.startsWith('flowvision-')) {
+            localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+            restored++;
+          }
+        }
+        resolve({ graph, restored });
+      } catch {
+        resolve(null);
+      }
+    };
+    input.click();
+  });
+}
+
 /** 将当前图数据导出为 JSON 文件并触发下载 */
 export function exportJSON(graph: GraphData, filename = 'flowvision-graph.json') {
   const json = JSON.stringify(graph, null, 2);
@@ -121,7 +182,7 @@ export function exportMarkdown(graph: GraphData, filename = 'flowvision-report.m
   triggerDownload(blob, filename);
 }
 
-/** 将 React Flow 视口导出为 PNG 图片 */
+/** 将完整流程图导出为 PNG 图片（包含所有节点，而非仅视口可见区域） */
 export async function exportPNG(filename = 'flowvision-graph.png') {
   const viewport = document.querySelector('.react-flow__viewport') as HTMLElement | null;
   if (!viewport) {
@@ -131,10 +192,43 @@ export async function exportPNG(filename = 'flowvision-graph.png') {
 
   const { toPng } = await import('html-to-image');
 
+  // 获取所有节点的边界，计算完整流程图范围
+  const nodeElements = viewport.querySelectorAll('.react-flow__node');
+  if (nodeElements.length === 0) {
+    console.error('画布上没有节点');
+    return;
+  }
+
+  // 计算所有节点的包围盒（相对于 viewport）
+  const vpRect = viewport.getBoundingClientRect();
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodeElements.forEach((node) => {
+    const rect = node.getBoundingClientRect();
+    minX = Math.min(minX, rect.left - vpRect.left);
+    minY = Math.min(minY, rect.top - vpRect.top);
+    maxX = Math.max(maxX, rect.right - vpRect.left);
+    maxY = Math.max(maxY, rect.bottom - vpRect.top);
+  });
+
+  // 添加内边距
+  const padding = 60;
+  minX -= padding;
+  minY -= padding;
+  maxX += padding;
+  maxY += padding;
+
+  const width = maxX - minX;
+  const height = maxY - minY;
+
   const dataUrl = await toPng(viewport, {
     backgroundColor: '#fafafa',
     quality: 1,
     pixelRatio: 2,
+    width,
+    height,
+    style: {
+      transform: `translate(${-minX}px, ${-minY}px)`,
+    },
   });
 
   const res = await fetch(dataUrl);

@@ -3,6 +3,18 @@ import { GraphNode, GraphEdge, GraphData, GraphDiff } from '../types/graph';
 import { applyDiff } from '../utils/graphDiff';
 import { applyAutoLayout } from '../utils/layout';
 
+/** 清理边的 null handle 属性，避免 React Flow 报错 */
+function cleanEdge(edge: GraphEdge): GraphEdge {
+  const cleaned = { ...edge };
+  if ('sourceHandle' in cleaned && (cleaned.sourceHandle == null || cleaned.sourceHandle === 'null')) {
+    delete (cleaned as any).sourceHandle;
+  }
+  if ('targetHandle' in cleaned && (cleaned.targetHandle == null || cleaned.targetHandle === 'null')) {
+    delete (cleaned as any).targetHandle;
+  }
+  return cleaned;
+}
+
 interface GraphStore {
   // 状态
   nodes: GraphNode[];
@@ -45,7 +57,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
 
   addEdge: (edge) =>
     set((state) => ({
-      edges: [...state.edges, edge],
+      edges: [...state.edges, cleanEdge(edge)],
     })),
 
   removeEdge: (edgeId) =>
@@ -62,15 +74,16 @@ export const useGraphStore = create<GraphStore>((set) => ({
 
   replaceGraph: (graph) =>
     set(() => {
+      const sanitizedEdges = graph.edges.map(cleanEdge);
       // 对位于原点(0,0)的节点自动计算布局
       const hasUnpositioned = graph.nodes.some(
         (n) => !n.position || (n.position.x === 0 && n.position.y === 0)
       );
       if (hasUnpositioned && graph.nodes.length > 0) {
-        const laid = applyAutoLayout(graph);
+        const laid = applyAutoLayout({ nodes: graph.nodes, edges: sanitizedEdges });
         return { nodes: laid.nodes, edges: laid.edges };
       }
-      return { nodes: graph.nodes, edges: graph.edges };
+      return { nodes: graph.nodes, edges: sanitizedEdges };
     }),
 
   clear: () =>

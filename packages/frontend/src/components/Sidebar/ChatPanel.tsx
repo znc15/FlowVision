@@ -15,6 +15,16 @@ const PRESET_TEMPLATES = [
   { icon: 'rocket_launch', label: 'CI/CD 流程', prompt: '生成一个 CI/CD 部署流程图，包含代码提交、构建、测试、部署、监控' },
 ];
 
+/** 流程图类型模板 */
+const FLOWCHART_TYPES = [
+  { icon: 'schema', label: '基础流程图', prompt: '生成一个标准流程图，包含开始节点、多个处理步骤、判断分支（是/否）和结束节点，使用 start/process/decision/end 节点类型' },
+  { icon: 'hub', label: '系统架构图', prompt: '生成一个系统架构流程图，展示前端、后端、数据库、缓存、消息队列等组件之间的调用关系和数据流向' },
+  { icon: 'swap_horiz', label: '数据流程图', prompt: '生成一个数据流程图，使用 data 类型节点展示数据的采集、处理、转换、存储和输出的完整流向' },
+  { icon: 'person_pin_circle', label: '用户旅程图', prompt: '生成一个用户旅程流程图，从用户首次访问到完成核心操作的完整路径，包含各触点和决策节点' },
+  { icon: 'api', label: 'API 调用链', prompt: '生成一个 API 调用链流程图，展示客户端请求到服务端各层（路由、中间件、控制器、服务、数据库）的处理流程' },
+  { icon: 'autorenew', label: '状态机图', prompt: '生成一个状态机流程图，展示对象在各状态之间的转换条件和触发事件，使用 decision 节点表示状态' },
+];
+
 /** 节点类型对应的图标和颜色 */
 const NODE_TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
   start: { icon: 'play_circle', color: 'text-green-600 bg-green-50', label: '开始' },
@@ -354,11 +364,26 @@ function ChatPanel() {
         <div className="border-b border-slate-100 bg-slate-50/50 max-h-48 overflow-y-auto animate-[slideDown_200ms_ease-out]">
           {conversations.length === 0 ? (
             <p className="text-xs text-slate-400 text-center py-4">暂无历史对话</p>
-          ) : (
-            conversations.slice().reverse().map((conv) => (
+          ) : (<>
+            <div className="flex items-center justify-between px-5 py-2 border-b border-slate-100">
+              <span className="text-[10px] text-slate-400">{conversations.length} 条对话</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (conversations.length > 0) {
+                    conversations.forEach((c) => deleteConversation(c.id));
+                  }
+                }}
+                className="text-[10px] text-slate-400 hover:text-red-500 transition-colors duration-150 flex items-center gap-0.5"
+              >
+                <span className="material-symbols-outlined text-xs">delete_sweep</span>
+                清空全部
+              </button>
+            </div>
+            {conversations.slice().reverse().map((conv) => (
               <div
                 key={conv.id}
-                className={`flex items-center gap-2 px-5 py-2.5 cursor-pointer transition-all duration-150 hover:bg-slate-100/80 ${
+                className={`group flex items-center gap-2 px-5 py-2.5 cursor-pointer transition-all duration-150 hover:bg-slate-100/80 ${
                   conv.id === activeConversationId ? 'bg-primary/8 border-l-2 border-primary' : ''
                 }`}
                 onClick={() => { switchConversation(conv.id); setShowHistory(false); }}
@@ -377,8 +402,8 @@ function ChatPanel() {
                   <span className="material-symbols-outlined text-xs">close</span>
                 </button>
               </div>
-            ))
-          )}
+            ))}
+          </>)}
         </div>
       )}
 
@@ -389,10 +414,29 @@ function ChatPanel() {
             <div className="flex flex-col items-center text-center px-4 pt-4 mb-5">
               <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-3">chat</span>
               <p className="text-sm text-on-surface-variant">开始与 AI 对话</p>
-              <p className="text-xs text-on-surface-variant/60 mt-1 leading-relaxed">选择模板快速开始，或输入自定义描述</p>
+              <p className="text-xs text-on-surface-variant/60 mt-1 leading-relaxed">选择流程图类型快速开始，或输入自定义描述</p>
+            </div>
+            {/* 流程图类型选择 */}
+            <div className="w-full px-1 mb-4">
+              <p className="text-[10px] font-semibold text-on-surface-variant/50 uppercase tracking-widest mb-2 px-1">流程图类型</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {FLOWCHART_TYPES.map((tpl) => (
+                  <button
+                    key={tpl.label}
+                    onClick={() => void handleSend(tpl.prompt)}
+                    disabled={isLoading}
+                    className="flex flex-col items-center gap-1 p-2 rounded-lg bg-primary/5 hover:bg-primary/10 transition-all duration-200 text-center disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] ghost-border-soft"
+                  >
+                    <span className="material-symbols-outlined text-base text-primary">{tpl.icon}</span>
+                    <span className="text-[9px] text-on-surface-variant leading-tight">{tpl.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             {/* 预设模板网格 */}
-            <div className="grid grid-cols-2 gap-2 px-1">
+            <div className="w-full px-1">
+              <p className="text-[10px] font-semibold text-on-surface-variant/50 uppercase tracking-widest mb-2 px-1">场景模板</p>
+              <div className="grid grid-cols-2 gap-2">
               {PRESET_TEMPLATES.map((tpl) => (
                 <button
                   key={tpl.label}
@@ -404,6 +448,7 @@ function ChatPanel() {
                   <span className="text-[10px] text-on-surface-variant leading-tight">{tpl.label}</span>
                 </button>
               ))}
+            </div>
             </div>
           </div>
         ) : (

@@ -1,5 +1,17 @@
 import { GraphData, GraphDiff, GraphEdge, GraphNode } from '../types/graph';
 
+/** 清理边的 null handle 属性，避免 React Flow 报错 */
+function sanitizeEdge(edge: GraphEdge): GraphEdge {
+  const cleaned = { ...edge };
+  if ('sourceHandle' in cleaned && (cleaned.sourceHandle == null || (cleaned as any).sourceHandle === 'null')) {
+    delete (cleaned as any).sourceHandle;
+  }
+  if ('targetHandle' in cleaned && (cleaned.targetHandle == null || (cleaned as any).targetHandle === 'null')) {
+    delete (cleaned as any).targetHandle;
+  }
+  return cleaned;
+}
+
 /**
  * 在后端将 GraphDiff 应用到图结构
  * 保持与前端 graphDiff 的行为一致，但不依赖前端包
@@ -39,7 +51,9 @@ export function applyDiffToGraph(current: GraphData, diff: GraphDiff): GraphData
   nodes = [...nodes, ...newNodes];
 
   const existingEdgeIds = new Set(edges.map((edge) => edge.id));
-  const newEdges = diff.add.edges.filter((edge) => !existingEdgeIds.has(edge.id));
+  const newEdges = diff.add.edges
+    .filter((edge) => !existingEdgeIds.has(edge.id))
+    .map(sanitizeEdge);
   edges = [...edges, ...newEdges];
 
   return { ...current, nodes, edges };

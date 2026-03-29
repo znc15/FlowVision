@@ -9,6 +9,9 @@ import { connectNodesTool } from './tools/connectNodes.js';
 import { getGraphTool } from './tools/getGraph.js';
 import { removeNodeTool } from './tools/removeNode.js';
 import { updateNodeTool } from './tools/updateNode.js';
+import { graphState } from '../state/graphState.js';
+
+const ALL_NODE_TYPES = z.enum(['process', 'decision', 'start', 'end', 'data', 'group', 'subprocess', 'delay', 'document', 'manual_input', 'annotation', 'connector']);
 
 const server = new McpServer({
   name: 'flowvision-mcp',
@@ -32,7 +35,7 @@ server.tool(
   '向流程图中添加一个新节点',
   {
     id: z.string(),
-    type: z.enum(['process', 'decision', 'start', 'end', 'data', 'group']),
+    type: ALL_NODE_TYPES,
     label: z.string(),
     description: z.string().optional(),
     tags: z.array(z.string()).optional(),
@@ -131,7 +134,7 @@ server.tool(
     nodeId: z.string().describe('要修改的节点 ID'),
     label: z.string().optional().describe('新的显示名称'),
     description: z.string().optional().describe('新的节点说明'),
-    type: z.enum(['process', 'decision', 'start', 'end', 'data', 'group']).optional().describe('新的节点类型'),
+    type: ALL_NODE_TYPES.optional().describe('新的节点类型'),
     color: z.string().optional().describe('自定义颜色（hex 格式，如 "#FF6B6B"）'),
   },
   async (input) => {
@@ -148,6 +151,99 @@ server.tool(
 );
 
 async function main() {
+  // 注册额外工具
+  server.tool(
+    'list_nodes',
+    '列出所有节点的摘要信息（ID、类型、标签）',
+    {},
+    async () => {
+      const graph = graphState.getGraph();
+      const summary = graph.nodes.map((n) => ({
+        id: n.id,
+        type: n.type,
+        label: n.data.label,
+        description: n.data.description,
+        tags: n.data.tags,
+      }));
+      return {
+        content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }],
+      };
+    }
+  );
+
+  server.tool(
+    'get_node',
+    '获取指定节点的完整信息（包含位置、连线关系）',
+    {
+      nodeId: z.string().describe('节点 ID'),
+    },
+    async ({ nodeId }) => {
+      const graph = graphState.getGraph();
+      const node = graph.nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        return { content: [{ type: 'text', text: `未找到节点: ${nodeId}` }] };
+      }
+      const inEdges = graph.edges.filter((e) => e.target === nodeId);
+      const outEdges = graph.edges.filter((e) => e.source === nodeId);
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ node, inEdges, outEdges }, null, 2) }],
+      };
+    }
+  );
+
+  server.tool(
+    'get_stats',
+    '获取流程图统计信息（节点数、边数、类型分布）',
+    {},
+    async () => {
+      const graph = graphState.getGraph();
+      const typeCounts: Record<string, number> = {};
+      for (const n of graph.nodes) {
+        typeCounts[n.type] = (typeCounts[n.type] || 0) + 1;
+      }
+      const stats = {
+        totalNodes: graph.nodes.length,
+        totalEdges: graph.edges.length,
+        nodesByType: typeCounts,
+        isolatedNodes: graph.nodes.filter(
+          (n) => !graph.edges.some((e) => e.source === n.id || e.target === n.id)
+        ).map((n) => n.id),
+      };
+      return {
+        content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }],
+      };
+    }
+  );
+
+  server.tool(
+    'clear_graph',
+    '清空画布上的所有节点和连线',
+    {},
+    async () => {
+      graphState.clear();
+      broadcaster.broadcast({ type: 'graph:replace', payload: { nodes: [], edges: [] } });
+      return {
+        content: [{ type: 'text', text: '画布已清空' }],
+      };
+    }
+  );
+
+  server.tool(
+    'remove_edge',
+    '删除指定连线',
+    {
+      edgeId: z.string().describe('边 ID'),
+    },
+    async ({ edgeId }) => {
+      graphState.removeEdge(edgeId);
+      const graph = graphState.getGraph();
+      broadcaster.broadcast({ type: 'graph:replace', payload: graph });
+      return {
+        content: [{ type: 'text', text: JSON.stringify(graph, null, 2) }],
+      };
+    }
+  );
+
   broadcaster.broadcast({
     type: 'mcp:connected',
     payload: { clientName: 'flowvision-mcp' },

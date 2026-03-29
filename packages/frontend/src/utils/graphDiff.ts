@@ -1,5 +1,20 @@
-import { GraphData, GraphDiff } from '../types/graph';
+import { GraphData, GraphDiff, GraphEdge } from '../types/graph';
 import { applyAutoLayout } from './layout';
+
+/**
+ * 清理边的 sourceHandle/targetHandle 属性
+ * AI 生成的边可能带有 null 或 "null" 的 handle 引用，导致 React Flow 报错
+ */
+function sanitizeEdge(edge: GraphEdge): GraphEdge {
+  const cleaned = { ...edge };
+  if ('sourceHandle' in cleaned && (cleaned.sourceHandle == null || cleaned.sourceHandle === 'null')) {
+    delete (cleaned as any).sourceHandle;
+  }
+  if ('targetHandle' in cleaned && (cleaned.targetHandle == null || cleaned.targetHandle === 'null')) {
+    delete (cleaned as any).targetHandle;
+  }
+  return cleaned;
+}
 
 /**
  * 应用 GraphDiff 到当前图结构，返回新的图结构
@@ -42,7 +57,9 @@ export function applyDiff(current: GraphData, diff: GraphDiff): GraphData {
   nodes = [...nodes, ...newNodes];
 
   const existingEdgeIds = new Set(edges.map((e) => e.id));
-  const newEdges = diff.add.edges.filter((e) => !existingEdgeIds.has(e.id));
+  const newEdges = diff.add.edges
+    .filter((e) => !existingEdgeIds.has(e.id))
+    .map((e) => sanitizeEdge(e));
   edges = [...edges, ...newEdges];
 
   // 4. 应用自动布局（仅对新增节点计算位置）

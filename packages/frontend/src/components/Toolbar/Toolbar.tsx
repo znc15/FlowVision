@@ -103,7 +103,7 @@ function Toolbar({ onShowHistory }: ToolbarProps) {
   }, [shareUrl]);
 
   return (
-    <div className="flex items-center gap-1 bg-surface-container-lowest/92 backdrop-blur-md ghost-border-soft rounded-xl px-2 py-1 shadow-sm">
+    <div className="flex flex-wrap items-center gap-1 bg-surface-container-lowest/92 backdrop-blur-md ghost-border-soft rounded-xl px-2 py-1 shadow-sm">
       {/* 添加节点 */}
       {NODE_TEMPLATES.map((tpl) => (
         <button

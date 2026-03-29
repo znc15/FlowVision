@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSettingsStore, AIProvider } from '../store/settingsStore';
 import { useLogStore } from '../store/logStore';
+import { useGraphStore } from '../store/graphStore';
+import { exportBackup, importBackup } from '../utils/export';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -471,20 +473,46 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {[
                     {
-                      name: 'Claude CLI',
+                      name: 'Claude Code',
                       headers: { 'User-Agent': 'claude-cli/2.0.76 (external, cli)' },
+                      baseUrl: 'https://api.anthropic.com',
+                      providerHint: 'claude' as AIProvider,
+                      modelHint: 'claude-sonnet-4-20250514',
                     },
                     {
-                      name: 'OpenAI',
+                      name: 'Cursor',
+                      headers: { 'User-Agent': 'Cursor/0.50.0', 'HTTP-Referer': 'https://cursor.com' },
+                      baseUrl: '',
+                      providerHint: '' as AIProvider,
+                      modelHint: '',
+                    },
+                    {
+                      name: 'Windsurf',
+                      headers: { 'User-Agent': 'Windsurf/1.0', 'HTTP-Referer': 'https://codeium.com' },
+                      baseUrl: '',
+                      providerHint: '' as AIProvider,
+                      modelHint: '',
+                    },
+                    {
+                      name: 'OpenAI SDK',
                       headers: { 'User-Agent': 'OpenAI/v1 NodeBindings/4.0.0' },
+                      baseUrl: 'https://api.openai.com/v1',
+                      providerHint: 'openai' as AIProvider,
+                      modelHint: 'gpt-4.1',
                     },
                     {
                       name: 'Codex 代理',
                       headers: { 'HTTP-Referer': 'https://codex.openai.com', 'X-Title': 'Codex' },
+                      baseUrl: '',
+                      providerHint: '' as AIProvider,
+                      modelHint: '',
                     },
                     {
                       name: '清空',
                       headers: {},
+                      baseUrl: '',
+                      providerHint: '' as AIProvider,
+                      modelHint: '',
                     },
                   ].map((preset) => (
                     <button
@@ -493,6 +521,13 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                         setCustomHeaders(preset.headers as Record<string, string>);
                         setHeaderJsonText(Object.keys(preset.headers).length > 0 ? JSON.stringify(preset.headers, null, 2) : '{}');
                         setHeaderJsonError('');
+                        if (preset.baseUrl) setBaseURL(preset.baseUrl);
+                        if (preset.providerHint) {
+                          setProvider(preset.providerHint);
+                          store.setProvider(preset.providerHint);
+                          store.fetchModels();
+                        }
+                        if (preset.modelHint) setModel(preset.modelHint);
                       }}
                       className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all duration-200 ${
                         JSON.stringify(customHeaders) === JSON.stringify(preset.headers)
@@ -686,6 +721,66 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 - 标签尽量简短（≤6 个字）
 - 优先使用 process 和 decision 节点
 - 省略非核心的中间步骤` },
+                    { name: '需求文档生成', icon: 'description', prompt: `# 需求文档流程化专家
+
+## 角色
+你是一个**产品需求分析师**，擅长将需求文档转化为清晰的流程图。
+
+## 工作流程
+1. 解析用户提供的需求文档/PRD/用户故事
+2. 提取核心业务流程和数据流
+3. 识别判断点、异常分支、并行流程
+4. 生成完整的流程图
+
+## 节点规范
+- start: 流程触发条件
+- process: 具体操作步骤，附 description 说明业务规则
+- decision: 分支条件，边标签说明条件
+- data: 外部数据源或存储
+- end: 流程结果` },
+                    { name: 'UML 活动图风格', icon: 'schema', prompt: `# UML 活动图生成器
+
+## 角色
+你是一个 **UML 建模专家**，擅长使用标准 UML 活动图语义生成流程图。
+
+## 建模规范
+- 每个流程图必须有明确的 start 和 end 节点
+- 并行活动用 subprocess 节点表示同步栏
+- 注释节点说明关键约束和前置条件
+- 边标签使用守卫条件格式：[condition]
+- 复杂子流程用 subprocess 节点封装
+
+## 节点命名
+- 使用动词+对象 格式（如"验证用户"、"发送通知"）
+- description 填写前置/后置条件` },
+                    { name: '故障排查流程', icon: 'troubleshoot', prompt: `# 故障排查工程师
+
+## 角色
+你是一个**故障排查专家**，擅长生成系统化的问题诊断流程图。
+
+## 工作流程
+1. 用户描述问题现象
+2. 生成分步排查流程图：
+   - 问题现象确认 → 常见原因检查 → 深入诊断 → 解决方案
+3. decision 节点用于“是/否”检查
+4. 各分支的 end 节点说明最终解决方案
+
+## 节点要求
+- 每个检查步骤的 description 包含具体检查命令或方法
+- 用 tags 标注优先级（P0/P1/P2）
+- 尽可能覆盖常见故障场景` },
+                    { name: 'API 接口设计', icon: 'api', prompt: `# API 接口设计专家
+
+## 角色
+你是一个 **REST API 设计专家**，擅长将业务需求转化为 API 调用流程图。
+
+## 设计规范
+- 每个 API 端点用 process 节点，label 为 "HTTP_METHOD /path"
+- description 包含请求/响应的关键字段
+- data 节点表示数据库/缓存操作
+- decision 节点用于权限检查、参数校验
+- 用 tags 标注 HTTP 方法和资源类型
+- 包含错误处理分支（400/401/500）` },
                   ].map((tpl) => (
                     <button
                       key={tpl.name}
@@ -777,6 +872,46 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <span className="material-symbols-outlined text-base">update</span>
                   检查更新
                 </button>
+              </div>
+
+              {/* 数据备份与恢复 */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  数据管理
+                </label>
+                <p className="text-[10px] text-slate-400 -mt-1">
+                  备份所有设置、对话和画布数据，或从备份文件恢复
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const { nodes, edges } = useGraphStore.getState();
+                      exportBackup({ nodes, edges });
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-200"
+                  >
+                    <span className="material-symbols-outlined text-base">backup</span>
+                    导出备份
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const result = await importBackup();
+                      if (result) {
+                        store.load();
+                        if (result.graph) {
+                          useGraphStore.getState().replaceGraph(result.graph);
+                        }
+                        alert(`恢复成功！已还原 ${result.restored} 项设置数据${result.graph ? '和画布数据' : ''}。建议刷新页面。`);
+                      } else {
+                        alert('导入失败：无效的备份文件');
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-200"
+                  >
+                    <span className="material-symbols-outlined text-base">restore</span>
+                    导入备份
+                  </button>
+                </div>
               </div>
 
               {/* 桌面与界面行为 */}

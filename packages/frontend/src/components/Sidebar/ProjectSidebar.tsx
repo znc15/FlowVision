@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useGraphStore } from '../../store/graphStore';
 import { useLogStore } from '../../store/logStore';
+import { createIdleStreamTimeout } from '../../utils/streamTimeout';
+import { extractOverviewJsonText, formatStreamingOverviewText } from '../../utils/projectOverviewStream';
 
 /** AI 生成的项目概览数据 */
 interface ProjectOverview {
@@ -60,6 +62,8 @@ function ProjectSidebar() {
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
+  const [streamingOverviewText, setStreamingOverviewText] = useState('');
+  const [streamingCanvasText, setStreamingCanvasText] = useState('');
   const [generatingCanvas, setGeneratingCanvas] = useState(false);
   const [canvasError, setCanvasError] = useState('');
   const abortRef = useRef<AbortController | null>(null);
@@ -93,6 +97,7 @@ function ProjectSidebar() {
     if (!projectPath || generating) return;
     setGenerating(true);
     setGenError('');
+    setStreamingOverviewText('');
     useLogStore.getState().add('info', 'AI分析', `开始生成项目概览: ${projectPath}`);
 
     abortRef.current?.abort();
@@ -191,7 +196,10 @@ function ProjectSidebar() {
           if (!jsonStr) continue;
           try {
             const event = JSON.parse(jsonStr);
-            if (event.type === 'chunk') fullText += event.text;
+            if (event.type === 'chunk') {
+              fullText += event.text;
+              setStreamingOverviewText(formatStreamingOverviewText(fullText));
+            }
             if (event.type === 'error') throw new Error(event.error);
           } catch (e) {
             if (e instanceof Error && e.message !== jsonStr) throw e;
@@ -200,20 +208,14 @@ function ProjectSidebar() {
       }
 
       // 从响应文本中提取 JSON（去除 markdown 代码块包裹）
-      let jsonText = fullText;
-      // 去除 markdown 代码块标记
-      const fenceMatch = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-      if (fenceMatch) jsonText = fenceMatch[1];
-      // 提取最外层 JSON 对象
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('AI 未返回有效 JSON');
+      const jsonText = extractOverviewJsonText(fullText);
 
       let data: ProjectOverview;
       try {
-        data = JSON.parse(jsonMatch[0]);
+        data = JSON.parse(jsonText);
       } catch {
         // 尝试修复常见 JSON 错误（尾随逗号等）
-        const cleaned = jsonMatch[0].replace(/,\s*([\]\}])/g, '$1');
+        const cleaned = jsonText.replace(/,\s*([\]\}])/g, '$1');
         data = JSON.parse(cleaned);
       }
       setOverview(data);
@@ -235,6 +237,7 @@ function ProjectSidebar() {
     if (!overview || generatingCanvas) return;
     setGeneratingCanvas(true);
     setCanvasError('');
+    setStreamingCanvasText('');
 
     const { provider, apiKey, model, baseURL, customHeaders: customHeaders2, githubToken: githubToken2, httpProxy: httpProxy2 } = useSettingsStore.getState();
 
@@ -256,6 +259,9 @@ function ProjectSidebar() {
     } catch { /* 不阻断 */ }
 
     useLogStore.getState().add('info', 'AI分析', '开始生成架构流程图和调用链');
+
+    // 仅在流长时间无数据时中断，避免把慢任务误判为超时
+    const timeout = createIdleStreamTimeout(180000);
 
     const prompt = `根据以下项目信息和源代码，生成一个详细的项目架构调用链流程图：
 项目名称: ${overview.name}
@@ -294,6 +300,7 @@ ${fileContextStr}
           ...(Object.keys(customHeaders2).length > 0 && { customHeaders: customHeaders2 }),
           ...(httpProxy2 && { httpProxy: httpProxy2 }),
         }),
+        signal: timeout.signal,
       });
 
       if (!response.ok) {
@@ -307,10 +314,13 @@ ${fileContextStr}
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let fullText = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+
+        timeout.touch();
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -322,6 +332,10 @@ ${fileContextStr}
           if (!jsonStr) continue;
           try {
             const event = JSON.parse(jsonStr);
+            if (event.type === 'chunk') {
+              fullText += event.text;
+              setStreamingCanvasText(formatStreamingOverviewText(fullText, '正在流式输出架构图内容...'));
+            }
             if (event.type === 'error') {
               throw new Error(event.error || '生成失败');
             }
@@ -336,9 +350,15 @@ ${fileContextStr}
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : '架构图生成失败';
-      setCanvasError(msg);
-      useLogStore.getState().add('error', 'AI分析', `架构图生成失败: ${msg}`);
+      if ((e as Error).name === 'AbortError') {
+        setCanvasError('生成超时，请尝试简化项目或检查网络连接');
+        useLogStore.getState().add('error', 'AI分析', '架构图生成超时');
+      } else {
+        setCanvasError(msg);
+        useLogStore.getState().add('error', 'AI分析', `架构图生成失败: ${msg}`);
+      }
     } finally {
+      timeout.dispose();
       setGeneratingCanvas(false);
     }
   };
@@ -439,7 +459,7 @@ ${fileContextStr}
                 <button
                   onClick={handleGenerateCanvas}
                   disabled={generatingCanvas}
-                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors disabled:opacity-50 text-xs font-medium mt-2"
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors disabled:opacity-50 text-xs font-medium mt-2"
                 >
                   <span className={`material-symbols-outlined text-base ${generatingCanvas ? 'animate-spin' : ''}`}>
                     {generatingCanvas ? 'progress_activity' : 'account_tree'}
@@ -455,49 +475,63 @@ ${fileContextStr}
 
           {/* 可滚动内容区域 */}
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-          {/* 生成中进度指示器 */}
+          {/* 生成中流式输出 */}
           {generating && (
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="mb-6 rounded-2xl border border-primary/10 bg-[linear-gradient(180deg,rgba(0,80,203,0.06),rgba(255,255,255,0.94))] shadow-[0_12px_30px_rgba(15,23,42,0.06)] overflow-hidden">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-primary/10 bg-white/70 backdrop-blur-sm">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shadow-inner">
                   <span className="material-symbols-outlined text-primary text-base animate-spin">progress_activity</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-on-surface">正在分析项目...</p>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5">AI 正在阅读代码结构</p>
+                  <p className="text-xs font-semibold text-on-surface">实时分析输出</p>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5">AI 正在逐步返回项目概览内容</p>
                 </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/8 px-2 py-1 text-[10px] font-medium text-primary">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse"></span>
+                  Streaming
+                </span>
               </div>
-              <div className="space-y-2 ml-1">
-                {[
-                  { label: '扫描文件结构', done: true },
-                  { label: '读取关键文件', done: true },
-                  { label: '分析技术栈与依赖', active: true },
-                  { label: '识别核心模块', pending: true },
-                  { label: '评估架构与风险', pending: true },
-                  { label: '生成项目概览', pending: true },
-                ].map((step, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
-                    {step.done ? (
-                      <span className="material-symbols-outlined text-xs text-green-500" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    ) : step.active ? (
-                      <span className="material-symbols-outlined text-xs text-primary animate-pulse">radio_button_checked</span>
-                    ) : (
-                      <span className="material-symbols-outlined text-xs text-on-surface-variant/30">radio_button_unchecked</span>
-                    )}
-                    <span className={`text-[11px] ${step.done ? 'text-on-surface-variant/60 line-through' : step.active ? 'text-primary font-medium' : 'text-on-surface-variant/40'}`}>
-                      {step.label}
-                    </span>
+              <div className="px-4 py-4">
+                <div className="rounded-xl bg-slate-950 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/10 text-[10px] text-slate-400">
+                    <span className="material-symbols-outlined text-xs">terminal</span>
+                    项目分析流
                   </div>
-                ))}
-              </div>
-              <div className="mt-4 space-y-2.5 animate-pulse">
-                <div className="h-2.5 bg-surface-container-highest rounded w-3/4"></div>
-                <div className="h-2.5 bg-surface-container-highest rounded w-1/2"></div>
-                <div className="flex gap-2 mt-2">
-                  <div className="h-5 bg-surface-container-highest rounded-md w-14"></div>
-                  <div className="h-5 bg-surface-container-highest rounded-md w-18"></div>
-                  <div className="h-5 bg-surface-container-highest rounded-md w-12"></div>
+                  <pre className="max-h-[360px] overflow-auto px-3 py-3 text-[11px] leading-5 whitespace-pre-wrap break-words font-mono">{formatStreamingOverviewText(streamingOverviewText)}</pre>
                 </div>
+                <p className="mt-2 text-[10px] text-on-surface-variant/70">
+                  当前正在接收模型输出，完成后会自动切换为结构化概览卡片。
+                </p>
+              </div>
+            </div>
+          )}
+
+          {generatingCanvas && (
+            <div className="mb-6 rounded-2xl border border-secondary/15 bg-[linear-gradient(180deg,rgba(152,72,0,0.08),rgba(255,255,255,0.96))] shadow-[0_12px_30px_rgba(120,53,15,0.08)] overflow-hidden">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-secondary/10 bg-white/75 backdrop-blur-sm">
+                <div className="w-9 h-9 rounded-xl bg-secondary/10 flex items-center justify-center shadow-inner">
+                  <span className="material-symbols-outlined text-secondary text-base animate-spin">account_tree</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-on-surface">架构图实时输出</p>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5">AI 正在逐步生成节点、连线和调用链描述</p>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-1 text-[10px] font-medium text-secondary">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-secondary animate-pulse"></span>
+                  Streaming
+                </span>
+              </div>
+              <div className="px-4 py-4">
+                <div className="rounded-xl bg-slate-950 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/10 text-[10px] text-slate-400">
+                    <span className="material-symbols-outlined text-xs">account_tree</span>
+                    架构图生成流
+                  </div>
+                  <pre className="max-h-[360px] overflow-auto px-3 py-3 text-[11px] leading-5 whitespace-pre-wrap break-words font-mono">{formatStreamingOverviewText(streamingCanvasText, '正在流式输出架构图内容...')}</pre>
+                </div>
+                <p className="mt-2 text-[10px] text-on-surface-variant/70">
+                  当前正在接收架构图生成内容，完成后会自动写入画布并替换现有节点布局。
+                </p>
               </div>
             </div>
           )}
@@ -505,7 +539,8 @@ ${fileContextStr}
           {/* 技术栈 */}
           {!generating && displayOverview && displayOverview.techStack.length > 0 && (
             <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">code</span>
                 技术栈
               </label>
               <div className="flex flex-wrap gap-2">
@@ -520,8 +555,9 @@ ${fileContextStr}
 
           {/* 核心模块列表 */}
           {!generating && displayOverview && displayOverview.modules.length > 0 && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">widgets</span>
                 核心模块
               </label>
               <div className="space-y-2.5">
@@ -544,8 +580,9 @@ ${fileContextStr}
 
           {/* 架构模式 */}
           {!generating && displayOverview?.architecture && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">architecture</span>
                 架构模式
               </label>
               <div className="flex items-start gap-2 p-3 rounded-xl bg-surface-container-highest/40 ghost-border-soft">
@@ -557,8 +594,9 @@ ${fileContextStr}
 
           {/* 核心依赖 */}
           {!generating && displayOverview && displayOverview.dependencies && displayOverview.dependencies.length > 0 && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">link</span>
                 核心依赖
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -573,8 +611,9 @@ ${fileContextStr}
 
           {/* 项目指标 */}
           {!generating && displayOverview && displayOverview.metrics && displayOverview.metrics.length > 0 && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">monitoring</span>
                 项目指标
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -590,8 +629,9 @@ ${fileContextStr}
 
           {/* 代码质量评估 */}
           {!generating && displayOverview && displayOverview.codeQuality && displayOverview.codeQuality.length > 0 && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">verified</span>
                 质量评估
               </label>
               <div className="space-y-2">
@@ -611,8 +651,9 @@ ${fileContextStr}
 
           {/* 设计模式 */}
           {!generating && displayOverview && displayOverview.designPatterns && displayOverview.designPatterns.length > 0 && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">design_services</span>
                 设计模式
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -627,8 +668,9 @@ ${fileContextStr}
 
           {/* 入口文件 */}
           {!generating && displayOverview && displayOverview.entryPoints && displayOverview.entryPoints.length > 0 && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">login</span>
                 入口文件
               </label>
               <div className="space-y-1.5">
@@ -644,8 +686,9 @@ ${fileContextStr}
 
           {/* 构建工具 */}
           {!generating && displayOverview && displayOverview.buildTools && displayOverview.buildTools.length > 0 && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">build</span>
                 构建工具
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -661,18 +704,23 @@ ${fileContextStr}
 
           {/* 进度描述 */}
           {!generating && displayOverview?.progress && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-primary/50">trending_up</span>
                 进度概要
               </label>
-              <p className="text-xs text-primary leading-relaxed">{displayOverview.progress}</p>
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-primary/5 ghost-border-soft">
+                <span className="material-symbols-outlined text-base text-primary shrink-0 mt-0.5">info</span>
+                <p className="text-xs text-on-surface leading-relaxed">{displayOverview.progress}</p>
+              </div>
             </div>
           )}
 
           {/* 风险与技术债务 */}
           {!generating && displayOverview && displayOverview.risks && displayOverview.risks.length > 0 && (
-            <div className="mb-6">
-              <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-xs text-amber-500/70">warning</span>
                 风险提示
               </label>
               <div className="space-y-1.5">

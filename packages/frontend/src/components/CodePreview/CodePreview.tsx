@@ -122,7 +122,9 @@ function CodePreview({
       <div className="workbench-panel-header px-6 shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-xs font-semibold text-on-surface">{displayName}</span>
-          <span className="text-[10px] text-on-surface-variant/50">{filePath}</span>
+          {filePath && filePath !== displayName && !filePath.endsWith(`/${displayName}`) && (
+            <span className="text-[10px] text-on-surface-variant/50">{filePath}</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {isMarkdown && (
