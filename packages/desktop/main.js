@@ -1,11 +1,39 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, Menu, Tray, nativeImage, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn, execPath: nodeExecPath } = require('child_process');
 
 // 判断是否开发模式
 const isDev = !app.isPackaged;
 
 let backendProcess = null;
+let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+
+const DESKTOP_SETTINGS_PATH = path.join(app.getPath('userData'), 'desktop-settings.json');
+const DEFAULT_DESKTOP_SETTINGS = {
+  closeToTray: true,
+};
+
+function loadDesktopSettings() {
+  try {
+    const raw = fs.readFileSync(DESKTOP_SETTINGS_PATH, 'utf8');
+    return { ...DEFAULT_DESKTOP_SETTINGS, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_DESKTOP_SETTINGS };
+  }
+}
+
+function saveDesktopSettings(next) {
+  try {
+    fs.writeFileSync(DESKTOP_SETTINGS_PATH, JSON.stringify(next, null, 2), 'utf8');
+  } catch (error) {
+    console.error('保存桌面设置失败:', error);
+  }
+}
+
+let desktopSettings = loadDesktopSettings();
 
 /** 查找 Node.js 可执行路径（Electron 内置的 node 不适合直接跑服务端） */
 function getNodePath() {
@@ -59,6 +87,82 @@ function stopBackend() {
   }
 }
 
+function getTrayIconPath() {
+  if (isDev) {
+    return path.join(__dirname, '..', '..', 'logo', 'logo_32.png');
+  }
+  return path.join(process.resourcesPath, 'logo', 'logo_32.png');
+}
+
+function createTray() {
+  if (tray) return;
+
+  const iconPath = getTrayIconPath();
+  if (!fs.existsSync(iconPath)) return;
+
+  const icon = nativeImage.createFromPath(iconPath);
+  tray = new Tray(icon);
+  tray.setToolTip('FlowVision');
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: '显示窗口',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+          }
+        },
+      },
+      {
+        label: '退出',
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        },
+      },
+    ]),
+  );
+}
+
+function setupIpc() {
+  ipcMain.handle('window:minimize', () => {
+    if (mainWindow) mainWindow.minimize();
+  });
+
+  ipcMain.handle('window:toggleMaximize', () => {
+    if (!mainWindow) return false;
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+      return false;
+    }
+    mainWindow.maximize();
+    return true;
+  });
+
+  ipcMain.handle('window:close', () => {
+    if (mainWindow) mainWindow.close();
+  });
+
+  ipcMain.handle('window:isMaximized', () => {
+    return Boolean(mainWindow && mainWindow.isMaximized());
+  });
+
+  ipcMain.handle('desktop:getSettings', () => desktopSettings);
+
+  ipcMain.handle('desktop:setCloseToTray', (_event, enabled) => {
+    desktopSettings = { ...desktopSettings, closeToTray: Boolean(enabled) };
+    saveDesktopSettings(desktopSettings);
+    return desktopSettings;
+  });
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -66,12 +170,32 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 680,
     title: 'FlowVision',
-    titleBarStyle: 'hiddenInset',
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  mainWindow = win;
+
+  win.on('maximize', () => {
+    win.webContents.send('window:maximized-changed', true);
+  });
+
+  win.on('unmaximize', () => {
+    win.webContents.send('window:maximized-changed', false);
+  });
+
+  win.on('close', (event) => {
+    if (!isQuitting && desktopSettings.closeToTray) {
+      event.preventDefault();
+      if (!win.isMinimized()) {
+        win.minimize();
+      }
+    }
   });
 
   // 外部链接在系统浏览器打开
@@ -92,13 +216,16 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
+  setupIpc();
   startBackend();
+  createTray();
   createWindow();
 });
 
 app.on('window-all-closed', () => {
   stopBackend();
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' && isQuitting) {
     app.quit();
   }
 });
@@ -110,5 +237,6 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
+  isQuitting = true;
   stopBackend();
 });

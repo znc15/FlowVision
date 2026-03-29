@@ -10,10 +10,13 @@ import Canvas from './components/Canvas/Canvas';
 import TabBar from './components/Workbench/TabBar';
 import SettingsDialog from './components/SettingsDialog';
 import OnboardingGuide from './components/OnboardingGuide';
+import WindowTitleBar from './components/WindowTitleBar';
+import SystemStatusFloat from './components/SystemStatusFloat';
 import { useWebSocketSync } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { loadSharedGraph } from './utils/share';
 import { useGraphStore } from './store/graphStore';
+import { useSettingsStore } from './store/settingsStore';
 
 const LAYOUT_KEY = 'flowvision-layout';
 const DEFAULT_LAYOUT: Layout = {
@@ -36,6 +39,7 @@ function App() {
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const floatingSystemStatus = useSettingsStore((s) => s.floatingSystemStatus);
 
   // 当前项目路径（从 localStorage 读取，与 FileExplorer 共享）
   const [projectPath, setProjectPath] = useState(() => {
@@ -75,9 +79,11 @@ function App() {
     <div className="h-screen flex flex-col bg-background text-on-background">
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <OnboardingGuide />
+      <WindowTitleBar onOpenSettings={() => setSettingsOpen(true)} />
+      {floatingSystemStatus && <SystemStatusFloat />}
 
       {/* 主布局容器 - 4 栏水平排列 */}
-      <main className="flex flex-1 overflow-hidden bg-surface">
+      <main className="flex flex-1 overflow-hidden bg-surface pt-10">
         {/* 第 1 栏：左侧导航栏（固定宽度，在 PanelGroup 外） */}
         <SideNavBar
           activeTab={activeTab}

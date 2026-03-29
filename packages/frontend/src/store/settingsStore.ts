@@ -14,6 +14,8 @@ interface SettingsState {
   baseURL: string;
   systemPrompt: string;
   mcpEnabled: boolean;
+  closeToTrayOnClose: boolean;
+  floatingSystemStatus: boolean;
   models: ModelInfo[];
   modelsLoading: boolean;
   setProvider: (provider: AIProvider) => void;
@@ -22,6 +24,8 @@ interface SettingsState {
   setBaseURL: (baseURL: string) => void;
   setSystemPrompt: (systemPrompt: string) => void;
   setMcpEnabled: (enabled: boolean) => void;
+  setCloseToTrayOnClose: (enabled: boolean) => void;
+  setFloatingSystemStatus: (enabled: boolean) => void;
   fetchModels: () => Promise<void>;
   save: () => void;
   load: () => void;
@@ -44,7 +48,16 @@ function loadFromStorage(): Partial<SettingsState> {
   return {};
 }
 
-function saveToStorage(state: { provider: AIProvider; apiKey: string; model: string; baseURL: string; systemPrompt: string; mcpEnabled: boolean }) {
+function saveToStorage(state: {
+  provider: AIProvider;
+  apiKey: string;
+  model: string;
+  baseURL: string;
+  systemPrompt: string;
+  mcpEnabled: boolean;
+  closeToTrayOnClose: boolean;
+  floatingSystemStatus: boolean;
+}) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
@@ -61,43 +74,129 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     baseURL: stored.baseURL || '',
     systemPrompt: stored.systemPrompt || '',
     mcpEnabled: stored.mcpEnabled ?? true,
+    closeToTrayOnClose: stored.closeToTrayOnClose ?? true,
+    floatingSystemStatus: stored.floatingSystemStatus ?? true,
     models: [],
     modelsLoading: false,
 
     setProvider: (provider) => {
       set({ provider, model: DEFAULT_MODELS[provider] });
       const s = get();
-      saveToStorage({ provider, apiKey: s.apiKey, model: DEFAULT_MODELS[provider], baseURL: s.baseURL, systemPrompt: s.systemPrompt, mcpEnabled: s.mcpEnabled });
+      saveToStorage({
+        provider,
+        apiKey: s.apiKey,
+        model: DEFAULT_MODELS[provider],
+        baseURL: s.baseURL,
+        systemPrompt: s.systemPrompt,
+        mcpEnabled: s.mcpEnabled,
+        closeToTrayOnClose: s.closeToTrayOnClose,
+        floatingSystemStatus: s.floatingSystemStatus,
+      });
     },
 
     setApiKey: (apiKey) => {
       set({ apiKey });
       const s = get();
-      saveToStorage({ provider: s.provider, apiKey, model: s.model, baseURL: s.baseURL, systemPrompt: s.systemPrompt, mcpEnabled: s.mcpEnabled });
+      saveToStorage({
+        provider: s.provider,
+        apiKey,
+        model: s.model,
+        baseURL: s.baseURL,
+        systemPrompt: s.systemPrompt,
+        mcpEnabled: s.mcpEnabled,
+        closeToTrayOnClose: s.closeToTrayOnClose,
+        floatingSystemStatus: s.floatingSystemStatus,
+      });
     },
 
     setModel: (model) => {
       set({ model });
       const s = get();
-      saveToStorage({ provider: s.provider, apiKey: s.apiKey, model, baseURL: s.baseURL, systemPrompt: s.systemPrompt, mcpEnabled: s.mcpEnabled });
+      saveToStorage({
+        provider: s.provider,
+        apiKey: s.apiKey,
+        model,
+        baseURL: s.baseURL,
+        systemPrompt: s.systemPrompt,
+        mcpEnabled: s.mcpEnabled,
+        closeToTrayOnClose: s.closeToTrayOnClose,
+        floatingSystemStatus: s.floatingSystemStatus,
+      });
     },
 
     setBaseURL: (baseURL) => {
       set({ baseURL });
       const s = get();
-      saveToStorage({ provider: s.provider, apiKey: s.apiKey, model: s.model, baseURL, systemPrompt: s.systemPrompt, mcpEnabled: s.mcpEnabled });
+      saveToStorage({
+        provider: s.provider,
+        apiKey: s.apiKey,
+        model: s.model,
+        baseURL,
+        systemPrompt: s.systemPrompt,
+        mcpEnabled: s.mcpEnabled,
+        closeToTrayOnClose: s.closeToTrayOnClose,
+        floatingSystemStatus: s.floatingSystemStatus,
+      });
     },
 
     setSystemPrompt: (systemPrompt) => {
       set({ systemPrompt });
       const s = get();
-      saveToStorage({ provider: s.provider, apiKey: s.apiKey, model: s.model, baseURL: s.baseURL, systemPrompt, mcpEnabled: s.mcpEnabled });
+      saveToStorage({
+        provider: s.provider,
+        apiKey: s.apiKey,
+        model: s.model,
+        baseURL: s.baseURL,
+        systemPrompt,
+        mcpEnabled: s.mcpEnabled,
+        closeToTrayOnClose: s.closeToTrayOnClose,
+        floatingSystemStatus: s.floatingSystemStatus,
+      });
     },
 
     setMcpEnabled: (mcpEnabled) => {
       set({ mcpEnabled });
       const s = get();
-      saveToStorage({ provider: s.provider, apiKey: s.apiKey, model: s.model, baseURL: s.baseURL, systemPrompt: s.systemPrompt, mcpEnabled });
+      saveToStorage({
+        provider: s.provider,
+        apiKey: s.apiKey,
+        model: s.model,
+        baseURL: s.baseURL,
+        systemPrompt: s.systemPrompt,
+        mcpEnabled,
+        closeToTrayOnClose: s.closeToTrayOnClose,
+        floatingSystemStatus: s.floatingSystemStatus,
+      });
+    },
+
+    setCloseToTrayOnClose: (closeToTrayOnClose) => {
+      set({ closeToTrayOnClose });
+      const s = get();
+      saveToStorage({
+        provider: s.provider,
+        apiKey: s.apiKey,
+        model: s.model,
+        baseURL: s.baseURL,
+        systemPrompt: s.systemPrompt,
+        mcpEnabled: s.mcpEnabled,
+        closeToTrayOnClose,
+        floatingSystemStatus: s.floatingSystemStatus,
+      });
+    },
+
+    setFloatingSystemStatus: (floatingSystemStatus) => {
+      set({ floatingSystemStatus });
+      const s = get();
+      saveToStorage({
+        provider: s.provider,
+        apiKey: s.apiKey,
+        model: s.model,
+        baseURL: s.baseURL,
+        systemPrompt: s.systemPrompt,
+        mcpEnabled: s.mcpEnabled,
+        closeToTrayOnClose: s.closeToTrayOnClose,
+        floatingSystemStatus,
+      });
     },
 
     fetchModels: async () => {
@@ -120,8 +219,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     },
 
     save: () => {
-      const { provider, apiKey, model, baseURL, systemPrompt, mcpEnabled } = get();
-      saveToStorage({ provider, apiKey, model, baseURL, systemPrompt, mcpEnabled });
+      const { provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeToTrayOnClose, floatingSystemStatus } = get();
+      saveToStorage({ provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeToTrayOnClose, floatingSystemStatus });
     },
 
     load: () => {
@@ -133,6 +232,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           model: stored.model || DEFAULT_MODELS[stored.provider],
           baseURL: stored.baseURL || '',
           systemPrompt: stored.systemPrompt || '',
+          mcpEnabled: stored.mcpEnabled ?? true,
+          closeToTrayOnClose: stored.closeToTrayOnClose ?? true,
+          floatingSystemStatus: stored.floatingSystemStatus ?? true,
         });
       }
     },

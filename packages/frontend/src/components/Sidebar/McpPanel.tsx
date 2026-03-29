@@ -110,29 +110,26 @@ function McpPanel() {
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
         {/* MCP 开关 */}
-        <div className="flex items-center justify-between p-4 rounded-xl bg-surface-container-highest/60 ghost-border-soft">
-          <div className="flex items-center gap-3">
+        <div className="settings-switch-row bg-surface-container-highest/60 rounded-xl ghost-border-soft p-4">
+          <div className="flex items-center gap-3 min-w-0">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mcpEnabled ? 'bg-primary/10' : 'bg-slate-100'}`}>
               <span className={`material-symbols-outlined text-xl ${mcpEnabled ? 'text-primary' : 'text-slate-400'}`}>
                 hub
               </span>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold text-on-surface">MCP 服务器</p>
-              <p className="text-[10px] text-on-surface-variant mt-0.5">
+              <p className="text-[10px] text-on-surface-variant mt-0.5 truncate">
                 {mcpEnabled ? '已启用 · 可通过 MCP 协议同步流程图' : '未启用'}
               </p>
             </div>
           </div>
           <button
             onClick={handleToggleMcp}
-            className={`relative w-11 h-6 rounded-full transition-all duration-200 ${
-              mcpEnabled ? 'bg-primary' : 'bg-slate-300'
-            }`}
+            className={`switch-control ${mcpEnabled ? 'switch-control-on' : 'switch-control-off'}`}
+            aria-label="切换 MCP 服务"
           >
-            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
-              mcpEnabled ? 'translate-x-5' : ''
-            }`}></span>
+            <span className={`switch-thumb ${mcpEnabled ? 'translate-x-5' : ''}`}></span>
           </button>
         </div>
 

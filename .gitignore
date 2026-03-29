@@ -48,3 +48,4 @@ flow.js
 .ace-tool/
 .claude/
 design/
+packages/desktop/dist-test/*

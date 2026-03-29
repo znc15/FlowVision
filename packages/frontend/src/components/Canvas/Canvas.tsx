@@ -164,7 +164,7 @@ function Canvas() {
 
       {/* 顶部工具栏 */}
       <div className="absolute top-0 left-0 right-0 workbench-panel-header px-6 z-10">
-        <span className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant">
+        <span className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant bg-slate-200/70 px-2 py-1 rounded-md">
           执行流程架构
         </span>
         <div className="ml-auto flex items-center gap-4">
@@ -213,8 +213,8 @@ function Canvas() {
           className="bg-surface"
         >
           {/* 网格背景 - 双层点阵 */}
-          <Background variant={BackgroundVariant.Dots} gap={20} size={0.8} color="#d4d6da" />
-          <Background id="bg-large" variant={BackgroundVariant.Dots} gap={100} size={1.6} color="#c2c6d8" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="#8b96a8" />
+          <Background id="bg-large" variant={BackgroundVariant.Dots} gap={100} size={2.1} color="#6f7c90" />
 
           {/* 缩略地图 */}
           <MiniMap
@@ -255,7 +255,7 @@ function Canvas() {
       )}
 
       {/* 状态栏 */}
-      <div className="absolute bottom-0 left-0 right-0 h-7 bg-surface-container-lowest/95 backdrop-blur-sm border-t border-outline-variant/8 flex items-center px-6 justify-between text-[10px] font-medium text-on-surface-variant/70 z-10">
+      <div className="absolute bottom-0 left-0 right-0 h-7 bg-surface-container-lowest/95 backdrop-blur-sm border-t border-outline-variant/30 flex items-center px-6 justify-between text-[10px] font-medium text-on-surface-variant/80 z-10">
         <div className="flex gap-4">
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 运行中

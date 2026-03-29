@@ -9,6 +9,7 @@
   body {
     @apply font-body text-on-background bg-background;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background-image: radial-gradient(circle at 12% 20%, rgb(196 202 215 / 0.2), transparent 36%), radial-gradient(circle at 85% 12%, rgb(160 169 186 / 0.16), transparent 28%);
   }
 
   /* 选择文本样式 */
@@ -67,9 +68,9 @@
   /* 面板标题栏 */
   .workbench-panel-header {
     @apply h-11 flex items-center justify-between px-4 text-on-surface-variant;
-    background: rgb(255 255 255 / 0.55);
+    background: rgb(241 244 248 / 0.86);
     backdrop-filter: blur(16px);
-    border-bottom: 1px solid rgb(194 198 216 / 0.08);
+    border-bottom: 1px solid rgb(132 141 160 / 0.18);
   }
 
   /* 图标按钮 */
@@ -79,7 +80,86 @@
   }
 
   .icon-button-soft:hover {
-    @apply text-primary bg-surface-container;
+    @apply text-primary bg-surface-container-high;
+  }
+
+  .switch-control {
+    @apply relative w-11 h-6 rounded-full transition-all duration-200 shrink-0;
+  }
+
+  .switch-control-on {
+    @apply bg-primary;
+  }
+
+  .switch-control-off {
+    @apply bg-slate-400;
+  }
+
+  .switch-thumb {
+    @apply absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200;
+  }
+
+  .settings-switch-row {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .settings-switch-title {
+    @apply text-sm font-semibold text-slate-700;
+  }
+
+  .settings-switch-desc {
+    @apply text-[11px] text-slate-500 mt-0.5 leading-relaxed;
+  }
+
+  .window-titlebar {
+    @apply fixed top-0 left-0 right-0 z-[60] h-10 flex items-center text-slate-200 border-b;
+    background: rgb(15 23 42 / 0.92);
+    border-color: rgb(51 65 85 / 0.8);
+  }
+
+  .window-titlebar-drag {
+    @apply flex-1 h-full px-3;
+  }
+
+  .window-titlebar-brand {
+    @apply h-full flex items-center gap-2.5 min-w-0;
+  }
+
+  .window-titlebar-logo {
+    @apply w-5 h-5 rounded-md shadow-sm;
+  }
+
+  .window-titlebar-title {
+    @apply text-xs font-semibold leading-none tracking-wide text-slate-100;
+  }
+
+  .window-titlebar-subtitle {
+    @apply text-[10px] leading-none text-slate-400 mt-0.5 truncate;
+  }
+
+  .window-titlebar-actions {
+    @apply flex items-center h-full;
+  }
+
+  .window-titlebar-btn {
+    @apply h-full w-11 inline-flex items-center justify-center text-slate-300 transition-colors duration-150;
+  }
+
+  .window-titlebar-btn:hover {
+    @apply bg-slate-700 text-white;
+  }
+
+  .window-titlebar-btn-close:hover {
+    @apply bg-red-600 text-white;
+  }
+
+  .system-status-float {
+    @apply fixed right-4 bottom-4 z-[55] px-3 py-2 rounded-xl ghost-border-soft shadow-[0_8px_24px_rgba(20,24,36,0.18)] min-w-[190px] backdrop-blur-sm;
+    background: rgb(241 245 249 / 0.96);
+  }
+
+  .system-status-restore {
+    @apply fixed right-4 bottom-4 z-[55] h-9 w-9 rounded-full bg-slate-800 text-slate-100 inline-flex items-center justify-center shadow-md hover:bg-slate-700 transition-colors;
   }
 
   /* 美化下拉框 */
@@ -147,7 +227,7 @@
 
   /* 网格背景 - 用于画布 */
   .grid-background {
-    background-image: radial-gradient(theme('colors.surface-container-highest') 1px, transparent 1px);
+    background-image: radial-gradient(rgb(131 139 155 / 0.6) 1.25px, transparent 1.25px);
     background-size: 24px 24px;
   }
 

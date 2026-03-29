@@ -23,6 +23,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [baseURL, setBaseURL] = useState(store.baseURL);
   const [systemPrompt, setSystemPrompt] = useState(store.systemPrompt);
   const [mcpEnabled, setMcpEnabled] = useState(store.mcpEnabled);
+  const [closeToTrayOnClose, setCloseToTrayOnClose] = useState(store.closeToTrayOnClose);
+  const [floatingSystemStatus, setFloatingSystemStatus] = useState(store.floatingSystemStatus);
   const [customModel, setCustomModel] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testResult, setTestResult] = useState('');
@@ -41,9 +43,19 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       setBaseURL(store.baseURL);
       setSystemPrompt(store.systemPrompt);
       setMcpEnabled(store.mcpEnabled);
+      setCloseToTrayOnClose(store.closeToTrayOnClose);
+      setFloatingSystemStatus(store.floatingSystemStatus);
       setCustomModel(false);
       setActiveTab('ai');
       store.fetchModels();
+
+      if (window.electron?.desktop) {
+        window.electron.desktop.getSettings().then((desktopSettings) => {
+          if (typeof desktopSettings.closeToTray === 'boolean') {
+            setCloseToTrayOnClose(desktopSettings.closeToTray);
+          }
+        }).catch(() => undefined);
+      }
     }
   }, [open]);
 
@@ -75,7 +87,14 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     store.setBaseURL(baseURL);
     store.setSystemPrompt(systemPrompt);
     store.setMcpEnabled(mcpEnabled);
+    store.setCloseToTrayOnClose(closeToTrayOnClose);
+    store.setFloatingSystemStatus(floatingSystemStatus);
     store.save();
+
+    if (window.electron?.desktop) {
+      window.electron.desktop.setCloseToTray(closeToTrayOnClose).catch(() => undefined);
+    }
+
     onClose();
   };
 
@@ -165,7 +184,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={onClose} />
 
       {/* 弹窗 */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-[520px] h-[720px] max-h-[85vh] overflow-hidden ghost-border-soft animate-[scaleIn_250ms_ease-out] flex flex-col">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-[min(92vw,560px)] h-[min(82vh,740px)] overflow-hidden ghost-border-soft animate-[scaleIn_250ms_ease-out] flex flex-col">
         {/* 标题 */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
@@ -178,12 +197,12 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         </div>
 
         {/* 标签页切换 */}
-        <div className="flex gap-1 px-6 pt-4 pb-2">
+        <div className="flex flex-wrap gap-1 px-6 pt-4 pb-2">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-200 ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-primary text-white shadow-md'
                   : 'text-slate-500 hover:bg-slate-100'
@@ -531,6 +550,41 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   </span>
                   {updateStatus === 'checking' ? '检查中...' : updateStatus === 'latest' ? '已是最新版本' : updateStatus === 'error' ? '检查失败' : '检查更新'}
                 </button>
+              </div>
+
+              {/* 桌面与界面行为 */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  桌面行为
+                </label>
+
+                <div className="settings-switch-row">
+                  <div className="min-w-0">
+                    <p className="settings-switch-title">关闭窗口时最小化到任务栏</p>
+                    <p className="settings-switch-desc">启用后点击右上角关闭不会直接退出应用。</p>
+                  </div>
+                  <button
+                    onClick={() => setCloseToTrayOnClose((v) => !v)}
+                    className={`switch-control ${closeToTrayOnClose ? 'switch-control-on' : 'switch-control-off'}`}
+                    aria-label="关闭窗口时最小化到任务栏"
+                  >
+                    <span className={`switch-thumb ${closeToTrayOnClose ? 'translate-x-5' : ''}`}></span>
+                  </button>
+                </div>
+
+                <div className="settings-switch-row">
+                  <div className="min-w-0">
+                    <p className="settings-switch-title">显示浮动系统状态</p>
+                    <p className="settings-switch-desc">无项目时也会显示后端与 MCP 客户端状态。</p>
+                  </div>
+                  <button
+                    onClick={() => setFloatingSystemStatus((v) => !v)}
+                    className={`switch-control ${floatingSystemStatus ? 'switch-control-on' : 'switch-control-off'}`}
+                    aria-label="显示浮动系统状态"
+                  >
+                    <span className={`switch-thumb ${floatingSystemStatus ? 'translate-x-5' : ''}`}></span>
+                  </button>
+                </div>
               </div>
 
               {/* GitHub 链接 */}

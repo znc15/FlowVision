@@ -345,6 +345,22 @@ ${overview.progress ? `进度: ${overview.progress}` : ''}
           <p className="text-[10px] text-on-surface-variant/60">
             通过左侧文件浏览器打开项目
           </p>
+
+          <div className="mt-5 w-full max-w-[220px] rounded-xl bg-surface-container-high/70 ghost-border-soft p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold text-on-surface">系统状态</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                backendStatus === 'online'
+                  ? 'bg-green-100 text-green-700'
+                  : backendStatus === 'offline'
+                  ? 'bg-red-100 text-red-600'
+                  : 'bg-amber-100 text-amber-700'
+              }`}>
+                {backendStatus === 'online' ? '在线' : backendStatus === 'offline' ? '离线' : '检测中'}
+              </span>
+            </div>
+            <p className="mt-1 text-[10px] text-on-surface-variant">MCP 客户端: {clientCount}</p>
+          </div>
         </div>
       )}
 
