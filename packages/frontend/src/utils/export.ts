@@ -1,4 +1,5 @@
 import { GraphData, GraphNode } from '../types/graph';
+import { getExportFontEmbedCss } from './exportFonts';
 
 /** 导出所有应用数据（设置、对话、图数据）用于备份 */
 export function exportBackup(graph: GraphData) {
@@ -219,6 +220,7 @@ export async function exportPNG(filename = 'flowvision-graph.png') {
 
   const width = maxX - minX;
   const height = maxY - minY;
+  const fontEmbedCSS = await getExportFontEmbedCss();
 
   const dataUrl = await toPng(viewport, {
     backgroundColor: '#fafafa',
@@ -226,6 +228,8 @@ export async function exportPNG(filename = 'flowvision-graph.png') {
     pixelRatio: 2,
     width,
     height,
+    fontEmbedCSS,
+    preferredFontFormat: 'woff2',
     style: {
       transform: `translate(${-minX}px, ${-minY}px)`,
     },
