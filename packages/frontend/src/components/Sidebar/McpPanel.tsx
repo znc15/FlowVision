@@ -104,7 +104,6 @@ function McpPanel() {
       <div className="workbench-panel-header px-5">
         <div>
           <h2 className="text-title-sm font-semibold text-on-surface">MCP 服务器</h2>
-          <p className="text-[10px] text-on-surface-variant mt-1">Model Context Protocol 集成配置</p>
         </div>
       </div>
 

@@ -13,6 +13,7 @@ import { AVAILABLE_PROVIDERS, listModels } from './routes/aiProvider';
 config();
 
 const PORT = parseInt(process.env.BACKEND_PORT || '3001', 10);
+const HOST = process.env.BACKEND_HOST || '127.0.0.1';
 const IS_PROD = process.env.NODE_ENV === 'production';
 
 // 创建 Fastify 实例（生产环境跳过 pino-pretty 动态加载）
@@ -212,16 +213,16 @@ server.register(async (fastify) => {
 // ===== 启动服务器 =====
 
 try {
-  await server.listen({ port: PORT, host: '0.0.0.0' });
+  await server.listen({ port: PORT, host: HOST });
   console.log(`
 ╔═══════════════════════════════════════════════════════╗
 ║                                                       ║
 ║   🎨 FlowVision 后端服务器已启动 喵～                  ║
 ║                                                       ║
-║   HTTP:      http://localhost:${PORT}                    ║
-║   WebSocket: ws://localhost:${PORT}/ws                   ║
+║   HTTP:      http://${HOST}:${PORT}                    ║
+║   WebSocket: ws://${HOST}:${PORT}/ws                   ║
 ║                                                       ║
-║   健康检查:  http://localhost:${PORT}/health             ║
+║   健康检查:  http://${HOST}:${PORT}/health             ║
 ║                                                       ║
 ╚═══════════════════════════════════════════════════════╝
   `);

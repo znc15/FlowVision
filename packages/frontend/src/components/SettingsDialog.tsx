@@ -8,7 +8,7 @@ interface SettingsDialogProps {
 
 const PROVIDER_OPTIONS: { id: AIProvider; name: string; defaultModel: string }[] = [
   { id: 'claude', name: 'Claude', defaultModel: 'claude-sonnet-4-20250514' },
-  { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4o' },
+  { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4.1' },
 ];
 
 type SettingsTab = 'ai' | 'prompt' | 'about' | 'status';
@@ -23,7 +23,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [baseURL, setBaseURL] = useState(store.baseURL);
   const [systemPrompt, setSystemPrompt] = useState(store.systemPrompt);
   const [mcpEnabled, setMcpEnabled] = useState(store.mcpEnabled);
-  const [closeToTrayOnClose, setCloseToTrayOnClose] = useState(store.closeToTrayOnClose);
+  const [closeAction, setCloseAction] = useState<'ask' | 'minimize' | 'quit'>(store.closeAction);
+  const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(store.customHeaders);
   const [customModel, setCustomModel] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testResult, setTestResult] = useState('');
@@ -37,6 +38,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [clientCount, setClientCount] = useState(0);
+  const [backendHost, setBackendHost] = useState('127.0.0.1');
 
   const models = useSettingsStore((s) => s.models);
   const modelsLoading = useSettingsStore((s) => s.modelsLoading);
@@ -50,15 +52,19 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       setBaseURL(store.baseURL);
       setSystemPrompt(store.systemPrompt);
       setMcpEnabled(store.mcpEnabled);
-      setCloseToTrayOnClose(store.closeToTrayOnClose);
+      setCloseAction(store.closeAction);
+      setCustomHeaders(store.customHeaders);
       setCustomModel(false);
       setActiveTab('ai');
       store.fetchModels();
 
       if (window.electron?.desktop) {
         window.electron.desktop.getSettings().then((desktopSettings) => {
-          if (typeof desktopSettings.closeToTray === 'boolean') {
-            setCloseToTrayOnClose(desktopSettings.closeToTray);
+          if (desktopSettings.closeAction) {
+            setCloseAction(desktopSettings.closeAction);
+          }
+          if (desktopSettings.backendHost) {
+            setBackendHost(desktopSettings.backendHost);
           }
         }).catch(() => undefined);
       }
@@ -93,11 +99,12 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     store.setBaseURL(baseURL);
     store.setSystemPrompt(systemPrompt);
     store.setMcpEnabled(mcpEnabled);
-    store.setCloseToTrayOnClose(closeToTrayOnClose);
+    store.setCloseAction(closeAction);
+    store.setCustomHeaders(customHeaders);
     store.save();
 
     if (window.electron?.desktop) {
-      window.electron.desktop.setCloseToTray(closeToTrayOnClose).catch(() => undefined);
+      window.electron.desktop.setCloseAction(closeAction).catch(() => undefined);
     }
 
     onClose();
@@ -123,6 +130,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           ...(apiKey && { apiKey }),
           ...(model && { model }),
           ...(baseURL && { baseURL }),
+          ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
         }),
       });
       if (!response.ok) {
@@ -434,6 +442,81 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </p>
               </div>
 
+              {/* 自定义请求头 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  请求头 <span className="text-slate-400 font-normal">(可选)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {[
+                    {
+                      name: 'Codex 代理',
+                      headers: { 'HTTP-Referer': 'https://codex.openai.com', 'X-Title': 'Codex' },
+                    },
+                    {
+                      name: 'Claude Code 代理',
+                      headers: { 'HTTP-Referer': 'https://claude.ai', 'X-Title': 'Claude Code' },
+                    },
+                    {
+                      name: '清空',
+                      headers: {},
+                    },
+                  ].map((preset) => (
+                    <button
+                      key={preset.name}
+                      onClick={() => setCustomHeaders(preset.headers as Record<string, string>)}
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all duration-200 ${
+                        JSON.stringify(customHeaders) === JSON.stringify(preset.headers)
+                          ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
+                          : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+                {Object.keys(customHeaders).length > 0 && (
+                  <div className="space-y-1.5 mb-2">
+                    {Object.entries(customHeaders).map(([key, value]) => (
+                      <div key={key} className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={key}
+                          readOnly
+                          className="flex-1 rounded-lg bg-slate-50 py-1.5 px-3 text-[11px] text-slate-700 outline-none ghost-border-soft font-mono"
+                        />
+                        <input
+                          type="text"
+                          value={value}
+                          onChange={(e) => setCustomHeaders({ ...customHeaders, [key]: e.target.value })}
+                          className="flex-1 rounded-lg bg-slate-50 py-1.5 px-3 text-[11px] text-slate-700 outline-none ghost-border-soft font-mono focus:ring-2 focus:ring-primary/25"
+                        />
+                        <button
+                          onClick={() => {
+                            const next = { ...customHeaders };
+                            delete next[key];
+                            setCustomHeaders(next);
+                          }}
+                          className="icon-button-soft h-7 w-7 shrink-0"
+                        >
+                          <span className="material-symbols-outlined text-sm text-slate-400">close</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    const key = `X-Custom-${Object.keys(customHeaders).length + 1}`;
+                    setCustomHeaders({ ...customHeaders, [key]: '' });
+                  }}
+                  className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-primary transition-colors duration-200"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                  添加请求头
+                </button>
+              </div>
+
               {/* 模型测试 */}
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
@@ -521,6 +604,12 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 ## 角色
 你是一个**系统架构分析师**，擅长深入分析系统设计。
 
+## 澄清提问（question 工具）
+在分析前，先向用户确认以下要点：
+- ❓ 系统的核心业务场景是什么？
+- ❓ 有哪些已知的技术约束或非功能需求？
+- ❓ 是否需要关注特定的集成点或外部依赖？
+
 ## 分析步骤
 1. **核心模块识别** — 列出系统的关键组成部分
 2. **数据流分析** — 描述模块间的数据流向
@@ -532,6 +621,9 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 - 使用 \`tags\` 标注技术栈或职责领域
 - decision 节点标注判断条件` },
                     { name: '简洁模式', icon: 'compress', prompt: `# 极简流程图生成器
+
+## 澄清提问（question 工具）
+如果用户描述不够清晰，先用 ❓ 提出 1-2 个关键问题确认核心流程，再生成简洁流程图。
 
 ## 规则
 - 只保留**最关键**的节点，避免冗余
@@ -647,18 +739,29 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   桌面行为
                 </label>
 
-                <div className="settings-switch-row">
-                  <div className="min-w-0">
-                    <p className="settings-switch-title">关闭窗口时最小化到任务栏</p>
-                    <p className="settings-switch-desc">启用后点击右上角关闭不会直接退出应用。</p>
+                <div>
+                  <p className="text-[13px] font-medium text-slate-700 mb-1">关闭窗口时</p>
+                  <p className="text-[11px] text-slate-400 mb-2">选择点击右上角关闭按钮的行为</p>
+                  <div className="flex gap-2">
+                    {([
+                      { value: 'ask' as const, label: '每次询问', icon: 'help' },
+                      { value: 'minimize' as const, label: '最小化', icon: 'minimize' },
+                      { value: 'quit' as const, label: '直接退出', icon: 'close' },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setCloseAction(opt.value)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-all duration-200 ${
+                          closeAction === opt.value
+                            ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
+                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[14px]">{opt.icon}</span>
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
-                  <button
-                    onClick={() => setCloseToTrayOnClose((v) => !v)}
-                    className={`switch-control ${closeToTrayOnClose ? 'switch-control-on' : 'switch-control-off'}`}
-                    aria-label="关闭窗口时最小化到任务栏"
-                  >
-                    <span className={`switch-thumb ${closeToTrayOnClose ? 'translate-x-5' : ''}`}></span>
-                  </button>
                 </div>
               </div>
 
@@ -702,6 +805,37 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     {backendStatus === 'online' ? '在线' : backendStatus === 'offline' ? '离线' : '检测中'}
                   </span>
                 </div>
+
+                {/* 后端监听地址 */}
+                {window.electron?.desktop && (
+                  <div className="mt-3 p-3 rounded-xl bg-slate-50 ghost-border-soft">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[13px] font-medium text-slate-700">监听地址</p>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mb-2">设为 0.0.0.0 可允许局域网访问，重启后生效</p>
+                    <div className="flex gap-2">
+                      {[
+                        { value: '127.0.0.1', label: '仅本机' },
+                        { value: '0.0.0.0', label: '局域网' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => {
+                            setBackendHost(opt.value);
+                            window.electron?.desktop?.setBackendHost(opt.value as '127.0.0.1' | '0.0.0.0').catch(() => undefined);
+                          }}
+                          className={`flex-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200 ${
+                            backendHost === opt.value
+                              ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
+                              : 'bg-white text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {opt.label} ({opt.value})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 连接客户端 */}

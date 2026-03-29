@@ -11,10 +11,11 @@ export function applyAutoLayout(graph: GraphData): GraphData {
   // 配置布局参数
   g.setGraph({
     rankdir: 'TB', // 从上到下布局
-    nodesep: 80, // 节点水平间距
-    ranksep: 120, // 层级垂直间距
-    marginx: 40,
-    marginy: 40,
+    nodesep: 120, // 节点水平间距
+    ranksep: 160, // 层级垂直间距
+    marginx: 60,
+    marginy: 60,
+    align: 'UL', // 对齐方式
   });
 
   g.setDefaultEdgeLabel(() => ({}));

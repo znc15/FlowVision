@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useState } from 'react';
+import Markdown from 'react-markdown';
 
 interface CodePreviewProps {
   /** 文件名 */
@@ -85,9 +86,14 @@ function CodePreview({
 
   const code = propCode ?? fetchedCode;
   const displayName = fileName ?? filePath?.split('/').pop() ?? '未选择文件';
+  const isMarkdown = /\.md$/i.test(displayName);
   const lines = useMemo(() => code.split('\n'), [code]);
 
   const [copied, setCopied] = useState(false);
+  const [showMarkdownSource, setShowMarkdownSource] = useState(false);
+
+  // 切换文件时重置 markdown 源码模式
+  useEffect(() => { setShowMarkdownSource(false); }, [filePath]);
 
   const handleCopyCode = () => {
     if (!code) return;
@@ -116,6 +122,17 @@ function CodePreview({
           <span className="text-[10px] text-on-surface-variant/50">{filePath}</span>
         </div>
         <div className="flex items-center gap-2">
+          {isMarkdown && (
+            <button
+              className={`icon-button-soft h-8 w-8 ${!showMarkdownSource ? 'text-primary' : ''}`}
+              onClick={() => setShowMarkdownSource((v) => !v)}
+              title={showMarkdownSource ? '预览 Markdown' : '查看源码'}
+            >
+              <span className="material-symbols-outlined text-sm">
+                {showMarkdownSource ? 'visibility' : 'code'}
+              </span>
+            </button>
+          )}
           <button className="icon-button-soft h-8 w-8" onClick={handleDownload} title="下载文件">
             <span className="material-symbols-outlined text-sm">download</span>
           </button>
@@ -131,6 +148,17 @@ function CodePreview({
           <div className="flex-1 flex items-center justify-center text-xs text-on-surface-variant">加载中...</div>
         ) : !code ? (
           <div className="flex-1 flex items-center justify-center text-xs text-on-surface-variant">选择文件以预览代码</div>
+        ) : isMarkdown && !showMarkdownSource ? (
+          <div className="flex-1 overflow-auto px-6 py-4 prose prose-sm prose-slate max-w-none
+            prose-headings:text-on-surface prose-p:text-on-surface/80 prose-a:text-primary
+            prose-code:bg-surface-container-high prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+            prose-pre:bg-surface-container-high prose-pre:text-on-surface/90
+            prose-blockquote:border-primary/30 prose-blockquote:text-on-surface-variant
+            prose-img:rounded-lg prose-hr:border-outline-variant/30
+            prose-th:text-on-surface prose-td:text-on-surface/80
+            prose-li:text-on-surface/80">
+            <Markdown>{code}</Markdown>
+          </div>
         ) : (
         <>
         {/* 行号 */}

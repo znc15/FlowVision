@@ -14,7 +14,8 @@ interface SettingsState {
   baseURL: string;
   systemPrompt: string;
   mcpEnabled: boolean;
-  closeToTrayOnClose: boolean;
+  closeAction: 'ask' | 'minimize' | 'quit';
+  customHeaders: Record<string, string>;
   models: ModelInfo[];
   modelsLoading: boolean;
   setProvider: (provider: AIProvider) => void;
@@ -23,7 +24,8 @@ interface SettingsState {
   setBaseURL: (baseURL: string) => void;
   setSystemPrompt: (systemPrompt: string) => void;
   setMcpEnabled: (enabled: boolean) => void;
-  setCloseToTrayOnClose: (enabled: boolean) => void;
+  setCloseAction: (action: 'ask' | 'minimize' | 'quit') => void;
+  setCustomHeaders: (headers: Record<string, string>) => void;
   fetchModels: () => Promise<void>;
   save: () => void;
   load: () => void;
@@ -33,7 +35,7 @@ const STORAGE_KEY = 'flowvision-settings';
 
 const DEFAULT_MODELS: Record<AIProvider, string> = {
   claude: 'claude-sonnet-4-20250514',
-  openai: 'gpt-4o',
+  openai: 'gpt-4.1',
 };
 
 function loadFromStorage(): Partial<SettingsState> {
@@ -53,7 +55,8 @@ function saveToStorage(state: {
   baseURL: string;
   systemPrompt: string;
   mcpEnabled: boolean;
-  closeToTrayOnClose: boolean;
+  closeAction: 'ask' | 'minimize' | 'quit';
+  customHeaders: Record<string, string>;
 }) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -71,7 +74,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     baseURL: stored.baseURL || '',
     systemPrompt: stored.systemPrompt || '',
     mcpEnabled: stored.mcpEnabled ?? true,
-    closeToTrayOnClose: stored.closeToTrayOnClose ?? true,
+    closeAction: (stored as any).closeAction || 'ask',
+    customHeaders: (stored as any).customHeaders || {},
     models: [],
     modelsLoading: false,
 
@@ -85,7 +89,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         baseURL: s.baseURL,
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
-        closeToTrayOnClose: s.closeToTrayOnClose,
+        closeAction: s.closeAction,
+        customHeaders: s.customHeaders,
       });
     },
 
@@ -99,7 +104,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         baseURL: s.baseURL,
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
-        closeToTrayOnClose: s.closeToTrayOnClose,
+        closeAction: s.closeAction,
+        customHeaders: s.customHeaders,
       });
     },
 
@@ -113,7 +119,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         baseURL: s.baseURL,
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
-        closeToTrayOnClose: s.closeToTrayOnClose,
+        closeAction: s.closeAction,
+        customHeaders: s.customHeaders,
       });
     },
 
@@ -127,7 +134,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         baseURL,
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
-        closeToTrayOnClose: s.closeToTrayOnClose,
+        closeAction: s.closeAction,
+        customHeaders: s.customHeaders,
       });
     },
 
@@ -141,7 +149,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         baseURL: s.baseURL,
         systemPrompt,
         mcpEnabled: s.mcpEnabled,
-        closeToTrayOnClose: s.closeToTrayOnClose,
+        closeAction: s.closeAction,
+        customHeaders: s.customHeaders,
       });
     },
 
@@ -155,12 +164,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         baseURL: s.baseURL,
         systemPrompt: s.systemPrompt,
         mcpEnabled,
-        closeToTrayOnClose: s.closeToTrayOnClose,
+        closeAction: s.closeAction,
+        customHeaders: s.customHeaders,
       });
     },
 
-    setCloseToTrayOnClose: (closeToTrayOnClose) => {
-      set({ closeToTrayOnClose });
+    setCloseAction: (closeAction) => {
+      set({ closeAction });
       const s = get();
       saveToStorage({
         provider: s.provider,
@@ -169,7 +179,23 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         baseURL: s.baseURL,
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
-        closeToTrayOnClose,
+        closeAction,
+        customHeaders: s.customHeaders,
+      });
+    },
+
+    setCustomHeaders: (customHeaders) => {
+      set({ customHeaders });
+      const s = get();
+      saveToStorage({
+        provider: s.provider,
+        apiKey: s.apiKey,
+        model: s.model,
+        baseURL: s.baseURL,
+        systemPrompt: s.systemPrompt,
+        mcpEnabled: s.mcpEnabled,
+        closeAction: s.closeAction,
+        customHeaders,
       });
     },
 
@@ -193,8 +219,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     },
 
     save: () => {
-      const { provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeToTrayOnClose } = get();
-      saveToStorage({ provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeToTrayOnClose });
+      const { provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeAction, customHeaders } = get();
+      saveToStorage({ provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeAction, customHeaders });
     },
 
     load: () => {
@@ -207,7 +233,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           baseURL: stored.baseURL || '',
           systemPrompt: stored.systemPrompt || '',
           mcpEnabled: stored.mcpEnabled ?? true,
-          closeToTrayOnClose: stored.closeToTrayOnClose ?? true,
+          closeAction: (stored as any).closeAction || 'ask',
+          customHeaders: (stored as any).customHeaders || {},
         });
       }
     },

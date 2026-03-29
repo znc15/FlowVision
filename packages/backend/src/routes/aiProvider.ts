@@ -7,6 +7,7 @@ export interface ProviderConfig {
   apiKey: string;
   model?: string;
   baseURL?: string;
+  customHeaders?: Record<string, string>;
 }
 
 // 生成结果
@@ -37,6 +38,7 @@ class ClaudeProvider implements AIProvider {
     this.client = new Anthropic({
       apiKey: config.apiKey,
       ...(config.baseURL && { baseURL: config.baseURL }),
+      ...(config.customHeaders && { defaultHeaders: config.customHeaders }),
     });
     this.model = config.model || 'claude-sonnet-4-20250514';
   }
@@ -108,6 +110,7 @@ class ClaudeProvider implements AIProvider {
       { id: 'claude-haiku-4-20250414', name: 'Claude Haiku 4' },
       { id: 'claude-opus-4-20250414', name: 'Claude Opus 4' },
       { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet (Thinking)' },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
     ];
   }
 }
@@ -121,8 +124,9 @@ class OpenAIProvider implements AIProvider {
     this.client = new OpenAI({
       apiKey: config.apiKey,
       ...(config.baseURL && { baseURL: config.baseURL }),
+      ...(config.customHeaders && { defaultHeaders: config.customHeaders }),
     });
-    this.model = config.model || 'gpt-4o';
+    this.model = config.model || 'gpt-4.1';
   }
 
   async generate(system: string, userMessage: string, maxTokens = 4096): Promise<GenerateResult> {
@@ -180,9 +184,12 @@ class OpenAIProvider implements AIProvider {
     } catch {
       // 获取失败时返回默认列表
       return [
+        { id: 'gpt-4.1', name: 'GPT-4.1' },
+        { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
+        { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano' },
         { id: 'gpt-4o', name: 'GPT-4o' },
         { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+        { id: 'o3-mini', name: 'o3-mini' },
       ];
     }
   }
@@ -191,7 +198,7 @@ class OpenAIProvider implements AIProvider {
 // 默认模型映射
 const DEFAULT_MODELS: Record<string, string> = {
   claude: 'claude-sonnet-4-20250514',
-  openai: 'gpt-4o',
+  openai: 'gpt-4.1',
 };
 
 /**
@@ -221,6 +228,7 @@ export function createProvider(config?: Partial<ProviderConfig>): AIProvider {
     apiKey,
     model: config?.model || DEFAULT_MODELS[provider],
     baseURL: config?.baseURL,
+    customHeaders: config?.customHeaders,
   };
 
   if (provider === 'openai') {
@@ -247,9 +255,12 @@ export async function listModels(config?: Partial<ProviderConfig>): Promise<Mode
     const p = config?.provider || 'claude';
     if (p === 'openai') {
       return [
+        { id: 'gpt-4.1', name: 'GPT-4.1' },
+        { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
+        { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano' },
         { id: 'gpt-4o', name: 'GPT-4o' },
         { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+        { id: 'o3-mini', name: 'o3-mini' },
       ];
     }
     return [

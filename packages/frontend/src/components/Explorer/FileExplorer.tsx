@@ -67,8 +67,8 @@ function TreeItem({
             {isExpanded ? 'keyboard_arrow_down' : 'keyboard_arrow_right'}
           </span>
         ) : (
-          <span className={`material-symbols-outlined text-[18px] ml-[18px] ${isSelected ? 'text-primary/80' : 'text-slate-400'}`}>
-            description
+          <span className={`material-symbols-outlined text-[18px] ml-[18px] ${isSelected ? 'text-primary/80' : node.name.endsWith('.md') ? 'text-blue-500/70' : 'text-slate-400'}`}>
+            {node.name.endsWith('.md') ? 'article' : 'description'}
           </span>
         )}
 

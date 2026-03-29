@@ -2,7 +2,8 @@ import { memo, useCallback, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { useGraphStore } from '../../store/graphStore';
 import { useHistoryStore } from '../../store/historyStore';
-import { applyAutoLayout } from '../../utils/layout';
+import { useTabStore } from '../../store/tabStore';
+import { forceRelayout } from '../../utils/layout';
 import { NodeType, GraphNode } from '../../types/graph';
 import { exportJSON, exportPNG } from '../../utils/export';
 import { shareGraph } from '../../utils/share';
@@ -24,6 +25,15 @@ function Toolbar() {
   const { fitView, zoomIn, zoomOut } = useReactFlow();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  /** 保存当前画布到标签页 */
+  const handleSave = useCallback(() => {
+    const { activeTabId, saveTabGraph } = useTabStore.getState();
+    saveTabGraph(activeTabId, { nodes, edges });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }, [nodes, edges]);
 
   /** 添加新节点 */
   const handleAddNode = useCallback(
@@ -43,7 +53,7 @@ function Toolbar() {
 
   /** 自动布局 */
   const handleAutoLayout = useCallback(() => {
-    const graph = applyAutoLayout({ nodes, edges });
+    const graph = forceRelayout({ nodes, edges });
     useGraphStore.getState().replaceGraph(graph);
     pushHistory(graph);
     setTimeout(() => fitView({ padding: 0.2 }), 50);
@@ -111,6 +121,11 @@ function Toolbar() {
       </button>
 
       <div className="w-px h-5 bg-outline-variant mx-1" />
+
+      {/* 保存 */}
+      <button onClick={handleSave} className={`icon-button-soft h-8 w-8 ${saved ? 'text-green-600' : ''}`} title="保存画布 (Ctrl+S)">
+        <span className="material-symbols-outlined text-base">{saved ? 'check_circle' : 'save'}</span>
+      </button>
 
       {/* 导出 */}
       <button onClick={() => exportJSON({ nodes, edges })} className="icon-button-soft h-8 w-8" title="导出 JSON">

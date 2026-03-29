@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, Menu, Tray, nativeImage, ipcMain, utilityProcess } = require('electron');
+const { app, BrowserWindow, shell, Menu, Tray, nativeImage, ipcMain, utilityProcess, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execPath: nodeExecPath } = require('child_process');
@@ -36,7 +36,8 @@ function showOrCreateMainWindow() {
 
 const DESKTOP_SETTINGS_PATH = path.join(app.getPath('userData'), 'desktop-settings.json');
 const DEFAULT_DESKTOP_SETTINGS = {
-  closeToTray: true,
+  closeAction: 'ask', // 'ask' | 'minimize' | 'quit'
+  backendHost: '127.0.0.1', // '127.0.0.1' | '0.0.0.0'
 };
 
 function loadDesktopSettings() {
@@ -98,7 +99,7 @@ async function startBackend() {
 
   backendProcess = utilityProcess.fork(serverPath, [], {
     cwd: backendDir,
-    env: { ...process.env, NODE_ENV: 'production', PORT: '3001' },
+    env: { ...process.env, NODE_ENV: 'production', PORT: '3001', BACKEND_HOST: desktopSettings.backendHost || '127.0.0.1' },
     stdio: 'pipe',
   });
 
@@ -199,8 +200,18 @@ function setupIpc() {
 
   ipcMain.handle('desktop:getSettings', () => desktopSettings);
 
-  ipcMain.handle('desktop:setCloseToTray', (_event, enabled) => {
-    desktopSettings = { ...desktopSettings, closeToTray: Boolean(enabled) };
+  ipcMain.handle('desktop:setCloseAction', (_event, action) => {
+    const valid = ['ask', 'minimize', 'quit'];
+    if (!valid.includes(action)) return desktopSettings;
+    desktopSettings = { ...desktopSettings, closeAction: action };
+    saveDesktopSettings(desktopSettings);
+    return desktopSettings;
+  });
+
+  ipcMain.handle('desktop:setBackendHost', (_event, host) => {
+    const valid = ['127.0.0.1', '0.0.0.0'];
+    if (!valid.includes(host)) return desktopSettings;
+    desktopSettings = { ...desktopSettings, backendHost: host };
     saveDesktopSettings(desktopSettings);
     return desktopSettings;
   });
@@ -238,12 +249,50 @@ function createWindow() {
     win.webContents.send('window:maximized-changed', false);
   });
 
-  win.on('close', (event) => {
-    if (!isQuitting && desktopSettings.closeToTray) {
+  win.on('close', async (event) => {
+    if (isQuitting) return;
+
+    const action = desktopSettings.closeAction || 'ask';
+
+    if (action === 'minimize') {
       event.preventDefault();
-      if (!win.isMinimized()) {
-        win.minimize();
-      }
+      win.minimize();
+      return;
+    }
+
+    if (action === 'quit') {
+      isQuitting = true;
+      app.quit();
+      return;
+    }
+
+    // action === 'ask'：弹出询问对话框
+    event.preventDefault();
+    const { response, checkboxChecked } = await dialog.showMessageBox(win, {
+      type: 'question',
+      title: '关闭窗口',
+      message: '你想要退出应用还是最小化到任务栏？',
+      buttons: ['最小化', '退出应用', '取消'],
+      defaultId: 0,
+      cancelId: 2,
+      checkboxLabel: '记住我的选择',
+      checkboxChecked: false,
+    });
+
+    if (response === 2) return; // 取消
+
+    const chosenAction = response === 0 ? 'minimize' : 'quit';
+
+    if (checkboxChecked) {
+      desktopSettings = { ...desktopSettings, closeAction: chosenAction };
+      saveDesktopSettings(desktopSettings);
+    }
+
+    if (chosenAction === 'minimize') {
+      win.minimize();
+    } else {
+      isQuitting = true;
+      app.quit();
     }
   });
 

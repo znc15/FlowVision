@@ -14,8 +14,9 @@ declare global {
         onMaximizedChanged: (callback: (value: boolean) => void) => () => void;
       };
       desktop?: {
-        getSettings: () => Promise<{ closeToTray: boolean }>;
-        setCloseToTray: (enabled: boolean) => Promise<{ closeToTray: boolean }>;
+        getSettings: () => Promise<{ closeAction: 'ask' | 'minimize' | 'quit'; backendHost: string }>;
+        setCloseAction: (action: 'ask' | 'minimize' | 'quit') => Promise<{ closeAction: 'ask' | 'minimize' | 'quit'; backendHost: string }>;
+        setBackendHost: (host: '127.0.0.1' | '0.0.0.0') => Promise<{ closeAction: 'ask' | 'minimize' | 'quit'; backendHost: string }>;
       };
     };
   }

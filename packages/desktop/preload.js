@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electron', {
   },
   desktop: {
     getSettings: () => ipcRenderer.invoke('desktop:getSettings'),
-    setCloseToTray: (enabled) => ipcRenderer.invoke('desktop:setCloseToTray', enabled),
+    setCloseAction: (action) => ipcRenderer.invoke('desktop:setCloseAction', action),
+    setBackendHost: (host) => ipcRenderer.invoke('desktop:setBackendHost', host),
   },
 });

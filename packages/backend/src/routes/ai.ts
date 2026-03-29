@@ -18,7 +18,14 @@ const GRAPH_SYSTEM_PROMPT = `你是一个智能流程图设计助手。你可以
 **生成模式**：
 - 当用户明确要求生成或修改流程图时（如“生成一个XX流程图”、“画一个流程”、“创建流程图”），返回 GraphDiff JSON
 - 只返回合法 JSON，不包含任何解释文字或 markdown 代码块
+## 澄清提问（question 工具）
+在以下场景中，你**必须**先向用户提出澄清问题，而不是直接生成流程图：
+- 用户需求描述模糊或含糊不清时
+- 可能存在多种流程分支但用户未说明时
+- 涉及异常处理、边界条件但用户未提及时
+- 流程的起止点或关键决策条件不明确时
 
+提问格式：使用 ❓ 标记每个问题，一次提出 2-3 个关键问题，等待用户回答后再生成流程图。
 ## 判断标准
 - 明确的生成指令（“生成”、“画”、“创建”、“设计” + “流程图”）→ 直接生成 JSON
 - 描述需求、讨论方案、提出问题 → 自然语言回复
@@ -72,6 +79,8 @@ interface AIGenerateRequest {
   rawMode?: boolean;
   /** 是否启用模型思考能力 */
   thinking?: boolean;
+  /** 自定义请求头（传递给 AI Provider） */
+  customHeaders?: Record<string, string>;
 }
 
 function parseGraphDiff(rawText: string): GraphDiff {
@@ -111,7 +120,7 @@ export async function generateGraph(
       };
     }
 
-    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL });
+    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders: request.body.customHeaders });
     const userMessage = buildUserMessage(prompt, currentGraph, mode);
     const result = await aiProvider.generate(GRAPH_SYSTEM_PROMPT, userMessage);
 
@@ -149,7 +158,7 @@ export async function generateGraphStream(
   reply: FastifyReply
 ) {
   try {
-    const { prompt, currentGraph, mode = 'incremental', provider: providerName, apiKey, model, baseURL, systemPrompt, rawMode, thinking } = request.body;
+    const { prompt, currentGraph, mode = 'incremental', provider: providerName, apiKey, model, baseURL, systemPrompt, rawMode, thinking, customHeaders } = request.body;
 
     if (!prompt || prompt.trim().length === 0) {
       reply.code(400);
@@ -159,7 +168,7 @@ export async function generateGraphStream(
       };
     }
 
-    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL });
+    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders });
     const effectiveSystemPrompt = systemPrompt || GRAPH_SYSTEM_PROMPT;
     const userMessage = buildUserMessage(prompt, currentGraph, mode);
 

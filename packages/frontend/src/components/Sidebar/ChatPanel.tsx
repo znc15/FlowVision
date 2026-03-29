@@ -221,7 +221,7 @@ function ChatPanel() {
     const assistantId = addMessage({ role: 'assistant', content: '' });
     streamingMsgId.current = assistantId;
 
-    const { provider, apiKey, model, baseURL, systemPrompt: customSystemPrompt } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, systemPrompt: customSystemPrompt, customHeaders } = useSettingsStore.getState();
 
     try {
       const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
@@ -237,6 +237,7 @@ function ChatPanel() {
           ...(baseURL && { baseURL }),
           ...(customSystemPrompt && { systemPrompt: customSystemPrompt }),
           ...(thinkingEnabled && { thinking: true }),
+          ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
         }),
       });
 
@@ -319,7 +320,6 @@ function ChatPanel() {
       <div className="workbench-panel-header px-5">
         <div>
           <h2 className="text-title-sm font-semibold text-on-surface">AI 对话</h2>
-          <p className="text-[10px] text-on-surface-variant mt-1">通过自然语言生成和修改流程图</p>
         </div>
         <div className="flex items-center gap-1">
           <button

@@ -97,7 +97,7 @@ function ProjectSidebar() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const { provider, apiKey, model, baseURL } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, customHeaders } = useSettingsStore.getState();
 
     try {
       // 先获取项目上下文（文件树+关键文件内容）
@@ -155,6 +155,7 @@ function ProjectSidebar() {
           ...(apiKey && { apiKey }),
           ...(model && { model }),
           ...(baseURL && { baseURL }),
+          ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
         }),
         signal: controller.signal,
       });
@@ -215,7 +216,7 @@ function ProjectSidebar() {
     setGeneratingCanvas(true);
     setCanvasError('');
 
-    const { provider, apiKey, model, baseURL } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, customHeaders: customHeaders2 } = useSettingsStore.getState();
     const prompt = `根据以下项目信息，生成一个项目架构流程图：
 项目名称: ${overview.name}
 项目描述: ${overview.description}
@@ -238,6 +239,7 @@ ${overview.progress ? `进度: ${overview.progress}` : ''}
           ...(apiKey && { apiKey }),
           ...(model && { model }),
           ...(baseURL && { baseURL }),
+          ...(Object.keys(customHeaders2).length > 0 && { customHeaders: customHeaders2 }),
         }),
       });
 
