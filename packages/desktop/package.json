@@ -23,7 +23,7 @@
   "build": {
     "appId": "com.flowvision.app",
     "productName": "FlowVision",
-    "icon": "../../logo/logo_256.png",
+    "icon": "../../logo/logo_512.png",
     "publish": null,
     "directories": {
       "output": "dist"
@@ -49,15 +49,15 @@
       }
     ],
     "win": {
-      "icon": "../../logo/logo_256.png",
+      "icon": "../../logo/logo_512.png",
       "target": "nsis"
     },
     "mac": {
-      "icon": "../../logo/logo_256.png",
+      "icon": "../../logo/logo_512.png",
       "target": "dmg"
     },
     "linux": {
-      "icon": "../../logo/logo_256.png",
+      "icon": "../../logo/logo_512.png",
       "target": "AppImage"
     },
     "nsis": {
