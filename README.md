@@ -99,7 +99,12 @@ pnpm build:desktop
 | macOS   | `.dmg`      | 磁盘镜像    |
 | Linux   | `.AppImage` | 免安装运行  |
 
-> **自动构建**：推送 `v*` 标签会触发 GitHub Actions 自动编译三平台安装包，可在 [Releases](../../releases) 页面下载。
+> **自动构建**：推送版本号格式的标签（如 `1.0.0`）会触发 GitHub Actions 自动编译三平台安装包，可在 [Releases](../../releases) 页面下载。
+
+> **macOS 签名说明**：macOS 构建需要有效的 Apple 开发者证书，否则 `.dmg` 安装后会提示"未知开发者"，用户需在「系统设置 → 隐私与安全性」中手动允许打开。如需绕过，可在下载后执行：
+> ```bash
+> xattr -cr /Applications/FlowVision.app
+> ```
 
 ## 技术架构
 
