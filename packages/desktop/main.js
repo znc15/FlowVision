@@ -11,6 +11,29 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 
+function getAliveMainWindow() {
+  if (!mainWindow) return null;
+  if (mainWindow.isDestroyed()) {
+    mainWindow = null;
+    return null;
+  }
+  return mainWindow;
+}
+
+function showOrCreateMainWindow() {
+  const win = getAliveMainWindow();
+  if (win) {
+    if (win.isMinimized()) {
+      win.restore();
+    } else {
+      win.show();
+    }
+    win.focus();
+    return;
+  }
+  createWindow();
+}
+
 const DESKTOP_SETTINGS_PATH = path.join(app.getPath('userData'), 'desktop-settings.json');
 const DEFAULT_DESKTOP_SETTINGS = {
   closeToTray: true,
@@ -104,20 +127,14 @@ function createTray() {
   tray = new Tray(icon);
   tray.setToolTip('FlowVision');
   tray.on('double-click', () => {
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
+    showOrCreateMainWindow();
   });
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
         label: '显示窗口',
         click: () => {
-          if (mainWindow) {
-            mainWindow.show();
-            mainWindow.focus();
-          }
+          showOrCreateMainWindow();
         },
       },
       {
@@ -133,25 +150,29 @@ function createTray() {
 
 function setupIpc() {
   ipcMain.handle('window:minimize', () => {
-    if (mainWindow) mainWindow.minimize();
+    const win = getAliveMainWindow();
+    if (win) win.minimize();
   });
 
   ipcMain.handle('window:toggleMaximize', () => {
-    if (!mainWindow) return false;
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
+    const win = getAliveMainWindow();
+    if (!win) return false;
+    if (win.isMaximized()) {
+      win.unmaximize();
       return false;
     }
-    mainWindow.maximize();
+    win.maximize();
     return true;
   });
 
   ipcMain.handle('window:close', () => {
-    if (mainWindow) mainWindow.close();
+    const win = getAliveMainWindow();
+    if (win) win.close();
   });
 
   ipcMain.handle('window:isMaximized', () => {
-    return Boolean(mainWindow && mainWindow.isMaximized());
+    const win = getAliveMainWindow();
+    return Boolean(win && win.isMaximized());
   });
 
   ipcMain.handle('desktop:getSettings', () => desktopSettings);
@@ -180,6 +201,12 @@ function createWindow() {
   });
 
   mainWindow = win;
+
+  win.on('closed', () => {
+    if (mainWindow === win) {
+      mainWindow = null;
+    }
+  });
 
   win.on('maximize', () => {
     win.webContents.send('window:maximized-changed', true);

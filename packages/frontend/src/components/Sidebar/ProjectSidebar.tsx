@@ -56,12 +56,9 @@ function saveCachedOverview(projectPath: string, data: ProjectOverview) {
 }
 
 function ProjectSidebar() {
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
-  const [clientCount, setClientCount] = useState(0);
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
-  const [showModuleDetail, setShowModuleDetail] = useState(false);
   const [generatingCanvas, setGeneratingCanvas] = useState(false);
   const [canvasError, setCanvasError] = useState('');
   const abortRef = useRef<AbortController | null>(null);
@@ -89,27 +86,6 @@ function ProjectSidebar() {
       setOverview(null);
     }
   }, [projectPath]);
-
-  // 健康检查
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const res = await fetch('http://localhost:3001/health');
-        if (res.ok) {
-          const data = await res.json();
-          setBackendStatus('online');
-          setClientCount(data.clients ?? 0);
-        } else {
-          setBackendStatus('offline');
-        }
-      } catch {
-        setBackendStatus('offline');
-      }
-    };
-    checkHealth();
-    const timer = setInterval(checkHealth, 15000);
-    return () => clearInterval(timer);
-  }, []);
 
   /** AI 生成项目概览 */
   const handleGenerate = async () => {
@@ -345,22 +321,6 @@ ${overview.progress ? `进度: ${overview.progress}` : ''}
           <p className="text-[10px] text-on-surface-variant/60">
             通过左侧文件浏览器打开项目
           </p>
-
-          <div className="mt-5 w-full max-w-[220px] rounded-xl bg-surface-container-high/70 ghost-border-soft p-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-on-surface">系统状态</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
-                backendStatus === 'online'
-                  ? 'bg-green-100 text-green-700'
-                  : backendStatus === 'offline'
-                  ? 'bg-red-100 text-red-600'
-                  : 'bg-amber-100 text-amber-700'
-              }`}>
-                {backendStatus === 'online' ? '在线' : backendStatus === 'offline' ? '离线' : '检测中'}
-              </span>
-            </div>
-            <p className="mt-1 text-[10px] text-on-surface-variant">MCP 客户端: {clientCount}</p>
-          </div>
         </div>
       )}
 
@@ -382,15 +342,7 @@ ${overview.progress ? `进度: ${overview.progress}` : ''}
                     {displayOverview?.name || fallbackName}
                   </h2>
                 </div>
-                <span className={`text-[10px] px-1.5 py-0.5 font-bold rounded ${
-                  backendStatus === 'online'
-                    ? 'bg-green-100 text-green-700'
-                    : backendStatus === 'offline'
-                    ? 'bg-red-100 text-red-600'
-                    : 'bg-yellow-100 text-yellow-600'
-                }`}>
-                  {backendStatus === 'online' ? '在线' : backendStatus === 'offline' ? '离线' : '检测中'}
-                </span>
+
               </div>
               {displayOverview?.description && (
                 <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-2">
@@ -677,83 +629,10 @@ ${overview.progress ? `进度: ${overview.progress}` : ''}
           )}
           </div>
 
-          {/* 固定底部 —— 系统状态 */}
-          <div className="shrink-0 px-5 py-3 border-t border-outline-variant/8 bg-surface">
-            <div className="p-3 bg-primary-container/10 rounded-xl ghost-border-soft">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-bold text-primary-container uppercase tracking-wider">系统状态</p>
-                <button
-                  onClick={() => setShowModuleDetail(true)}
-                  className="text-[10px] text-primary hover:text-primary/80 font-medium transition-colors"
-                >
-                  详情
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${backendStatus === 'online' ? 'bg-green-500' : backendStatus === 'offline' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
-                <p className="text-[11px] text-on-surface-variant leading-tight">
-                  {backendStatus === 'online'
-                    ? `后端已连接 · ${clientCount} 个客户端`
-                    : backendStatus === 'offline'
-                    ? '后端未连接'
-                    : '检测中...'}
-                </p>
-              </div>
-            </div>
-          </div>
+
         </>
       )}
 
-      {/* 模块与系统详情弹窗 */}
-      {showModuleDetail && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => setShowModuleDetail(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-[380px] max-h-[70vh] overflow-y-auto ghost-border-soft animate-[scaleIn_250ms_ease-out]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-lg">monitoring</span>
-                系统详情
-              </h3>
-              <button onClick={() => setShowModuleDetail(false)} className="icon-button-soft h-7 w-7">
-                <span className="material-symbols-outlined text-base">close</span>
-              </button>
-            </div>
-
-            {/* 系统状态区 */}
-            <div className="px-5 py-4 border-b border-slate-50">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
-                连接状态
-              </label>
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
-                  <div className={`w-3 h-3 rounded-full ${backendStatus === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : backendStatus === 'offline' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'}`}></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-800">后端服务</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">localhost:3001</p>
-                  </div>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                    backendStatus === 'online' ? 'bg-green-50 text-green-600' : backendStatus === 'offline' ? 'bg-red-50 text-red-600' : 'bg-yellow-50 text-yellow-600'
-                  }`}>
-                    {backendStatus === 'online' ? '已连接' : backendStatus === 'offline' ? '离线' : '检测中'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
-                  <div className={`w-3 h-3 rounded-full ${backendStatus === 'online' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]' : 'bg-slate-300'}`}></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-800">WebSocket</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">{clientCount} 个活跃客户端</p>
-                  </div>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                    clientCount > 0 ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {clientCount > 0 ? '活跃' : '空闲'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

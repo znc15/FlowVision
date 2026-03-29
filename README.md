@@ -78,9 +78,14 @@ pnpm dev
 FlowVision 提供 Electron 桌面端，支持 Windows、macOS、Linux 三平台：
 
 ```bash
-# 构建桌面应用（自动编译前端和后端）
+# 1. 安装依赖
+pnpm install
+
+# 2. 构建桌面应用（会先编译前后端，再执行 electron-builder）
 pnpm build:desktop
 ```
+
+构建完成后，安装包输出在 `packages/desktop/dist/` 目录。
 
 | 平台    | 格式        | 说明        |
 | ------- | ----------- | ----------- |
@@ -188,3 +193,12 @@ FlowVision 暴露 6 个 MCP 工具，AI 客户端可直接操作流程图：
 ## 许可证
 
 [MIT](LICENSE)
+
+## 友情链接
+- [LinuxDo](https://linux.do/) - Linux.do论坛
+- [React](https://react.dev/) - React 官方文档
+- [Electron](https://www.electronjs.org/) - Electron 官方网站
+- [Vite](https://vite.dev/) - Vite 官方文档
+- [Fastify](https://fastify.dev/) - Fastify 官方文档
+- [Model Context Protocol](https://modelcontextprotocol.io/) - MCP 官方文档
+- [pnpm](https://pnpm.io/) - pnpm 官方文档

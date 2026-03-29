@@ -15,7 +15,6 @@ interface SettingsState {
   systemPrompt: string;
   mcpEnabled: boolean;
   closeToTrayOnClose: boolean;
-  floatingSystemStatus: boolean;
   models: ModelInfo[];
   modelsLoading: boolean;
   setProvider: (provider: AIProvider) => void;
@@ -25,7 +24,6 @@ interface SettingsState {
   setSystemPrompt: (systemPrompt: string) => void;
   setMcpEnabled: (enabled: boolean) => void;
   setCloseToTrayOnClose: (enabled: boolean) => void;
-  setFloatingSystemStatus: (enabled: boolean) => void;
   fetchModels: () => Promise<void>;
   save: () => void;
   load: () => void;
@@ -56,7 +54,6 @@ function saveToStorage(state: {
   systemPrompt: string;
   mcpEnabled: boolean;
   closeToTrayOnClose: boolean;
-  floatingSystemStatus: boolean;
 }) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -75,7 +72,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     systemPrompt: stored.systemPrompt || '',
     mcpEnabled: stored.mcpEnabled ?? true,
     closeToTrayOnClose: stored.closeToTrayOnClose ?? true,
-    floatingSystemStatus: stored.floatingSystemStatus ?? true,
     models: [],
     modelsLoading: false,
 
@@ -90,7 +86,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
         closeToTrayOnClose: s.closeToTrayOnClose,
-        floatingSystemStatus: s.floatingSystemStatus,
       });
     },
 
@@ -105,7 +100,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
         closeToTrayOnClose: s.closeToTrayOnClose,
-        floatingSystemStatus: s.floatingSystemStatus,
       });
     },
 
@@ -120,7 +114,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
         closeToTrayOnClose: s.closeToTrayOnClose,
-        floatingSystemStatus: s.floatingSystemStatus,
       });
     },
 
@@ -135,7 +128,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
         closeToTrayOnClose: s.closeToTrayOnClose,
-        floatingSystemStatus: s.floatingSystemStatus,
       });
     },
 
@@ -150,7 +142,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         systemPrompt,
         mcpEnabled: s.mcpEnabled,
         closeToTrayOnClose: s.closeToTrayOnClose,
-        floatingSystemStatus: s.floatingSystemStatus,
       });
     },
 
@@ -165,7 +156,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         systemPrompt: s.systemPrompt,
         mcpEnabled,
         closeToTrayOnClose: s.closeToTrayOnClose,
-        floatingSystemStatus: s.floatingSystemStatus,
       });
     },
 
@@ -180,22 +170,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         systemPrompt: s.systemPrompt,
         mcpEnabled: s.mcpEnabled,
         closeToTrayOnClose,
-        floatingSystemStatus: s.floatingSystemStatus,
-      });
-    },
-
-    setFloatingSystemStatus: (floatingSystemStatus) => {
-      set({ floatingSystemStatus });
-      const s = get();
-      saveToStorage({
-        provider: s.provider,
-        apiKey: s.apiKey,
-        model: s.model,
-        baseURL: s.baseURL,
-        systemPrompt: s.systemPrompt,
-        mcpEnabled: s.mcpEnabled,
-        closeToTrayOnClose: s.closeToTrayOnClose,
-        floatingSystemStatus,
       });
     },
 
@@ -219,8 +193,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     },
 
     save: () => {
-      const { provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeToTrayOnClose, floatingSystemStatus } = get();
-      saveToStorage({ provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeToTrayOnClose, floatingSystemStatus });
+      const { provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeToTrayOnClose } = get();
+      saveToStorage({ provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeToTrayOnClose });
     },
 
     load: () => {
@@ -234,7 +208,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           systemPrompt: stored.systemPrompt || '',
           mcpEnabled: stored.mcpEnabled ?? true,
           closeToTrayOnClose: stored.closeToTrayOnClose ?? true,
-          floatingSystemStatus: stored.floatingSystemStatus ?? true,
         });
       }
     },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSettingsStore, AIProvider } from '../store/settingsStore';
 
 interface SettingsDialogProps {
@@ -11,7 +11,7 @@ const PROVIDER_OPTIONS: { id: AIProvider; name: string; defaultModel: string }[]
   { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4o' },
 ];
 
-type SettingsTab = 'ai' | 'prompt' | 'about';
+type SettingsTab = 'ai' | 'prompt' | 'about' | 'status';
 
 function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const store = useSettingsStore();
@@ -24,12 +24,13 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [systemPrompt, setSystemPrompt] = useState(store.systemPrompt);
   const [mcpEnabled, setMcpEnabled] = useState(store.mcpEnabled);
   const [closeToTrayOnClose, setCloseToTrayOnClose] = useState(store.closeToTrayOnClose);
-  const [floatingSystemStatus, setFloatingSystemStatus] = useState(store.floatingSystemStatus);
   const [customModel, setCustomModel] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testResult, setTestResult] = useState('');
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'error'>('idle');
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [clientCount, setClientCount] = useState(0);
 
   const models = useSettingsStore((s) => s.models);
   const modelsLoading = useSettingsStore((s) => s.modelsLoading);
@@ -44,7 +45,6 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       setSystemPrompt(store.systemPrompt);
       setMcpEnabled(store.mcpEnabled);
       setCloseToTrayOnClose(store.closeToTrayOnClose);
-      setFloatingSystemStatus(store.floatingSystemStatus);
       setCustomModel(false);
       setActiveTab('ai');
       store.fetchModels();
@@ -88,7 +88,6 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     store.setSystemPrompt(systemPrompt);
     store.setMcpEnabled(mcpEnabled);
     store.setCloseToTrayOnClose(closeToTrayOnClose);
-    store.setFloatingSystemStatus(floatingSystemStatus);
     store.save();
 
     if (window.electron?.desktop) {
@@ -170,12 +169,46 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     setTimeout(() => setUpdateStatus('idle'), 3000);
   };
 
+  // 健康检查（系统状态 tab 使用）
+  useEffect(() => {
+    if (!open || activeTab !== 'status') return;
+    let mounted = true;
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('http://localhost:3001/health');
+        if (!mounted) return;
+        if (res.ok) {
+          const data = await res.json();
+          setBackendStatus('online');
+          setClientCount(data.clients ?? 0);
+        } else {
+          setBackendStatus('offline');
+          setClientCount(0);
+        }
+      } catch {
+        if (!mounted) return;
+        setBackendStatus('offline');
+        setClientCount(0);
+      }
+    };
+    checkHealth();
+    const timer = setInterval(checkHealth, 10000);
+    return () => { mounted = false; clearInterval(timer); };
+  }, [open, activeTab]);
+
+  const statusBadgeClass = useMemo(() => {
+    if (backendStatus === 'online') return 'bg-green-100 text-green-700';
+    if (backendStatus === 'offline') return 'bg-red-100 text-red-600';
+    return 'bg-amber-100 text-amber-700';
+  }, [backendStatus]);
+
   if (!open) return null;
 
   const TABS: { id: SettingsTab; icon: string; label: string }[] = [
     { id: 'ai', icon: 'smart_toy', label: 'AI 设置' },
     { id: 'prompt', icon: 'edit_note', label: '系统提示词' },
     { id: 'about', icon: 'info', label: '关于' },
+    { id: 'status', icon: 'monitor_heart', label: '系统状态' },
   ];
 
   return (
@@ -571,20 +604,6 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     <span className={`switch-thumb ${closeToTrayOnClose ? 'translate-x-5' : ''}`}></span>
                   </button>
                 </div>
-
-                <div className="settings-switch-row">
-                  <div className="min-w-0">
-                    <p className="settings-switch-title">显示浮动系统状态</p>
-                    <p className="settings-switch-desc">无项目时也会显示后端与 MCP 客户端状态。</p>
-                  </div>
-                  <button
-                    onClick={() => setFloatingSystemStatus((v) => !v)}
-                    className={`switch-control ${floatingSystemStatus ? 'switch-control-on' : 'switch-control-off'}`}
-                    aria-label="显示浮动系统状态"
-                  >
-                    <span className={`switch-thumb ${floatingSystemStatus ? 'translate-x-5' : ''}`}></span>
-                  </button>
-                </div>
               </div>
 
               {/* GitHub 链接 */}
@@ -606,6 +625,60 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               </div>
 
 
+            </div>
+          )}
+
+          {/* ===== 系统状态标签页 ===== */}
+          {activeTab === 'status' && (
+            <div className="space-y-6 animate-[fadeIn_200ms_ease-out]">
+              {/* 后端服务状态 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">
+                  后端服务
+                </label>
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 ghost-border-soft">
+                  <div className={`w-3 h-3 rounded-full ${backendStatus === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : backendStatus === 'offline' ? 'bg-red-500' : 'bg-amber-400 animate-pulse'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800">localhost:3001</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Fastify 后端服务</p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${statusBadgeClass}`}>
+                    {backendStatus === 'online' ? '在线' : backendStatus === 'offline' ? '离线' : '检测中'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 连接客户端 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">
+                  WebSocket 连接
+                </label>
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 ghost-border-soft">
+                  <span className="material-symbols-outlined text-xl text-slate-400">devices</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800">已连接客户端</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">前端及 MCP 客户端实时同步</p>
+                  </div>
+                  <span className="text-lg font-bold text-slate-700">{clientCount}</span>
+                </div>
+              </div>
+
+              {/* MCP 服务 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">
+                  MCP 服务
+                </label>
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 ghost-border-soft">
+                  <span className="material-symbols-outlined text-xl text-slate-400">hub</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800">MCP 端点</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">http://localhost:3001/mcp</p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${statusBadgeClass}`}>
+                    {backendStatus === 'online' ? '可用' : '不可用'}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>
