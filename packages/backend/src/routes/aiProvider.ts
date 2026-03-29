@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // AI Provider 配置
 export interface ProviderConfig {
@@ -8,6 +9,7 @@ export interface ProviderConfig {
   model?: string;
   baseURL?: string;
   customHeaders?: Record<string, string>;
+  httpProxy?: string;
 }
 
 // 生成结果
@@ -35,10 +37,12 @@ class ClaudeProvider implements AIProvider {
   private model: string;
 
   constructor(config: ProviderConfig) {
+    const httpAgent = config.httpProxy ? new HttpsProxyAgent(config.httpProxy) : undefined;
     this.client = new Anthropic({
       apiKey: config.apiKey,
       ...(config.baseURL && { baseURL: config.baseURL }),
       ...(config.customHeaders && { defaultHeaders: config.customHeaders }),
+      ...(httpAgent && { httpAgent }),
     });
     this.model = config.model || 'claude-sonnet-4-20250514';
   }
@@ -121,10 +125,12 @@ class OpenAIProvider implements AIProvider {
   private model: string;
 
   constructor(config: ProviderConfig) {
+    const httpAgent = config.httpProxy ? new HttpsProxyAgent(config.httpProxy) : undefined;
     this.client = new OpenAI({
       apiKey: config.apiKey,
       ...(config.baseURL && { baseURL: config.baseURL }),
       ...(config.customHeaders && { defaultHeaders: config.customHeaders }),
+      ...(httpAgent && { httpAgent }),
     });
     this.model = config.model || 'gpt-4.1';
   }
@@ -229,6 +235,7 @@ export function createProvider(config?: Partial<ProviderConfig>): AIProvider {
     model: config?.model || DEFAULT_MODELS[provider],
     baseURL: config?.baseURL,
     customHeaders: config?.customHeaders,
+    httpProxy: config?.httpProxy,
   };
 
   if (provider === 'openai') {

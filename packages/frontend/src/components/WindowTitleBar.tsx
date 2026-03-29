@@ -1,7 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 
-const logoSrc = `${import.meta.env.BASE_URL}logo/logo_32.png`;
-
 function WindowTitleBar() {
   const isElectron = Boolean(window.electron?.isElectron);
   const [maximized, setMaximized] = useState(false);
@@ -46,15 +44,7 @@ function WindowTitleBar() {
 
   return (
     <header className="window-titlebar">
-      <div className="window-titlebar-drag" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
-        <div className="window-titlebar-brand">
-          <img src={logoSrc} alt="FlowVision" className="window-titlebar-logo" />
-          <div className="min-w-0">
-            <p className="window-titlebar-title">FlowVision</p>
-            <p className="window-titlebar-subtitle">交互式流程图工具</p>
-          </div>
-        </div>
-      </div>
+      <div className="window-titlebar-drag" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
 
       <div className="window-titlebar-actions" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
         <button className="window-titlebar-btn" onClick={handleMinimize} title="最小化">

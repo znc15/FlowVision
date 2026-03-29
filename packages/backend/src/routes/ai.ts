@@ -81,6 +81,8 @@ interface AIGenerateRequest {
   thinking?: boolean;
   /** 自定义请求头（传递给 AI Provider） */
   customHeaders?: Record<string, string>;
+  /** HTTP 代理地址 */
+  httpProxy?: string;
 }
 
 function parseGraphDiff(rawText: string): GraphDiff {
@@ -120,7 +122,7 @@ export async function generateGraph(
       };
     }
 
-    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders: request.body.customHeaders });
+    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders: request.body.customHeaders, httpProxy: request.body.httpProxy });
     const userMessage = buildUserMessage(prompt, currentGraph, mode);
     const result = await aiProvider.generate(GRAPH_SYSTEM_PROMPT, userMessage);
 
@@ -158,7 +160,7 @@ export async function generateGraphStream(
   reply: FastifyReply
 ) {
   try {
-    const { prompt, currentGraph, mode = 'incremental', provider: providerName, apiKey, model, baseURL, systemPrompt, rawMode, thinking, customHeaders } = request.body;
+    const { prompt, currentGraph, mode = 'incremental', provider: providerName, apiKey, model, baseURL, systemPrompt, rawMode, thinking, customHeaders, httpProxy } = request.body;
 
     if (!prompt || prompt.trim().length === 0) {
       reply.code(400);
@@ -168,7 +170,7 @@ export async function generateGraphStream(
       };
     }
 
-    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders });
+    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders, httpProxy });
     const effectiveSystemPrompt = systemPrompt || GRAPH_SYSTEM_PROMPT;
     const userMessage = buildUserMessage(prompt, currentGraph, mode);
 

@@ -99,7 +99,7 @@ function ProjectSidebar() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const { provider, apiKey, model, baseURL, customHeaders, githubToken } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, customHeaders, githubToken, httpProxy } = useSettingsStore.getState();
 
     try {
       // 先获取项目上下文（文件树+关键文件内容）
@@ -160,6 +160,7 @@ function ProjectSidebar() {
           ...(model && { model }),
           ...(baseURL && { baseURL }),
           ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
+          ...(httpProxy && { httpProxy }),
         }),
         signal: controller.signal,
       });
@@ -198,11 +199,23 @@ function ProjectSidebar() {
         }
       }
 
-      // 从响应文本中提取 JSON
-      const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+      // 从响应文本中提取 JSON（去除 markdown 代码块包裹）
+      let jsonText = fullText;
+      // 去除 markdown 代码块标记
+      const fenceMatch = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+      if (fenceMatch) jsonText = fenceMatch[1];
+      // 提取最外层 JSON 对象
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('AI 未返回有效 JSON');
 
-      const data: ProjectOverview = JSON.parse(jsonMatch[0]);
+      let data: ProjectOverview;
+      try {
+        data = JSON.parse(jsonMatch[0]);
+      } catch {
+        // 尝试修复常见 JSON 错误（尾随逗号等）
+        const cleaned = jsonMatch[0].replace(/,\s*([\]\}])/g, '$1');
+        data = JSON.parse(cleaned);
+      }
       setOverview(data);
       saveCachedOverview(projectPath, data);
       useLogStore.getState().add('success', 'AI分析', `项目概览生成完成: ${data.name}`);
@@ -223,7 +236,7 @@ function ProjectSidebar() {
     setGeneratingCanvas(true);
     setCanvasError('');
 
-    const { provider, apiKey, model, baseURL, customHeaders: customHeaders2, githubToken: githubToken2 } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, customHeaders: customHeaders2, githubToken: githubToken2, httpProxy: httpProxy2 } = useSettingsStore.getState();
 
     // 获取项目文件上下文，为 AI 识别入口和调用链提供支撑
     let fileContextStr = '';
@@ -279,6 +292,7 @@ ${fileContextStr}
           ...(model && { model }),
           ...(baseURL && { baseURL }),
           ...(Object.keys(customHeaders2).length > 0 && { customHeaders: customHeaders2 }),
+          ...(httpProxy2 && { httpProxy: httpProxy2 }),
         }),
       });
 
@@ -496,7 +510,7 @@ ${fileContextStr}
               </label>
               <div className="flex flex-wrap gap-2">
                 {displayOverview.techStack.map((tech, i) => (
-                  <span key={tech} className="px-2 py-1 bg-surface-container-highest text-on-surface text-[11px] rounded flex items-center gap-1.5 ghost-border-soft">
+                  <span key={tech} className="px-2 py-1 bg-surface-container-highest text-on-surface text-xs rounded flex items-center gap-1.5 ghost-border-soft">
                     <span className={`w-1.5 h-1.5 rounded-full ${TAG_COLORS[i % TAG_COLORS.length]}`}></span> {tech}
                   </span>
                 ))}
@@ -516,13 +530,13 @@ ${fileContextStr}
                   return (
                     <div key={mod.name} className="flex items-center gap-3 py-1">
                       <div className={`w-2 h-2 rounded-full shrink-0 ${color.bg}`}></div>
-                      <span className="text-[11px] text-on-surface font-medium shrink-0">{mod.name}</span>
-                      <span className="text-[10px] text-on-surface-variant/60 truncate">{mod.status}</span>
+                      <span className="text-xs text-on-surface font-medium shrink-0">{mod.name}</span>
+                      <span className="text-[11px] text-on-surface-variant/60 truncate">{mod.status}</span>
                     </div>
                   );
                 })}
               </div>
-              <p className="text-[10px] text-on-surface-variant/50 mt-3">
+              <p className="text-[11px] text-on-surface-variant/50 mt-3">
                 已识别 {displayOverview.modules.length} 个模块
               </p>
             </div>
@@ -536,7 +550,7 @@ ${fileContextStr}
               </label>
               <div className="flex items-start gap-2 p-3 rounded-xl bg-surface-container-highest/40 ghost-border-soft">
                 <span className="material-symbols-outlined text-base text-primary shrink-0 mt-0.5">architecture</span>
-                <p className="text-[11px] text-on-surface leading-relaxed">{displayOverview.architecture}</p>
+                <p className="text-xs text-on-surface leading-relaxed">{displayOverview.architecture}</p>
               </div>
             </div>
           )}
@@ -549,7 +563,7 @@ ${fileContextStr}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {displayOverview.dependencies.map((dep) => (
-                  <span key={dep} className="px-2 py-0.5 bg-surface-container-highest/60 text-on-surface-variant text-[10px] rounded-md ghost-border-soft">
+                  <span key={dep} className="px-2 py-0.5 bg-surface-container-highest/60 text-on-surface-variant text-[11px] rounded-md ghost-border-soft">
                     {dep}
                   </span>
                 ))}
@@ -567,7 +581,7 @@ ${fileContextStr}
                 {displayOverview.metrics.map((m) => (
                   <div key={m.label} className="p-2.5 rounded-xl bg-surface-container-highest/30 ghost-border-soft text-center">
                     <p className="text-xs font-semibold text-on-surface">{m.value}</p>
-                    <p className="text-[9px] text-on-surface-variant/60 mt-0.5">{m.label}</p>
+                    <p className="text-[10px] text-on-surface-variant/60 mt-0.5">{m.label}</p>
                   </div>
                 ))}
               </div>
@@ -583,8 +597,8 @@ ${fileContextStr}
               <div className="space-y-2">
                 {displayOverview.codeQuality.map((q) => (
                   <div key={q.label} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-surface-container-highest/30 ghost-border-soft">
-                    <span className="text-[11px] text-on-surface">{q.label}</span>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    <span className="text-xs text-on-surface">{q.label}</span>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                       q.color === 'green' ? 'bg-green-100 text-green-700' :
                       q.color === 'yellow' ? 'bg-amber-100 text-amber-700' :
                       'bg-red-100 text-red-600'
@@ -603,7 +617,7 @@ ${fileContextStr}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {displayOverview.designPatterns.map((pattern) => (
-                  <span key={pattern} className="px-2 py-1 bg-indigo-50 text-indigo-600 text-[10px] rounded-md font-medium">
+                  <span key={pattern} className="px-2 py-1 bg-indigo-50 text-indigo-600 text-[11px] rounded-md font-medium">
                     {pattern}
                   </span>
                 ))}
@@ -621,7 +635,7 @@ ${fileContextStr}
                 {displayOverview.entryPoints.map((entry) => (
                   <div key={entry} className="flex items-center gap-2 py-1">
                     <span className="material-symbols-outlined text-xs text-on-surface-variant/50">description</span>
-                    <span className="text-[10px] text-on-surface-variant font-mono">{entry}</span>
+                    <span className="text-[11px] text-on-surface-variant font-mono">{entry}</span>
                   </div>
                 ))}
               </div>
@@ -636,8 +650,8 @@ ${fileContextStr}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {displayOverview.buildTools.map((tool) => (
-                  <span key={tool} className="px-2 py-0.5 bg-surface-container-highest/60 text-on-surface-variant text-[10px] rounded-md ghost-border-soft flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[10px]">build</span>
+                  <span key={tool} className="px-2 py-0.5 bg-surface-container-highest/60 text-on-surface-variant text-[11px] rounded-md ghost-border-soft flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[11px]">build</span>
                     {tool}
                   </span>
                 ))}
@@ -651,7 +665,7 @@ ${fileContextStr}
               <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
                 进度概要
               </label>
-              <p className="text-[11px] text-primary leading-relaxed">{displayOverview.progress}</p>
+              <p className="text-xs text-primary leading-relaxed">{displayOverview.progress}</p>
             </div>
           )}
 
@@ -665,7 +679,7 @@ ${fileContextStr}
                 {displayOverview.risks.map((risk, i) => (
                   <div key={i} className="flex items-start gap-2 py-1">
                     <span className="material-symbols-outlined text-xs text-amber-500 shrink-0 mt-0.5">warning</span>
-                    <p className="text-[10px] text-on-surface-variant leading-relaxed">{risk}</p>
+                    <p className="text-[11px] text-on-surface-variant leading-relaxed">{risk}</p>
                   </div>
                 ))}
               </div>

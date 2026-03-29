@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSettingsStore, AIProvider } from '../store/settingsStore';
+import { useLogStore } from '../store/logStore';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -11,7 +12,7 @@ const PROVIDER_OPTIONS: { id: AIProvider; name: string; defaultModel: string }[]
   { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4.1' },
 ];
 
-type SettingsTab = 'ai' | 'prompt' | 'about' | 'status';
+type SettingsTab = 'ai' | 'prompt' | 'about' | 'update' | 'log' | 'status';
 
 function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const store = useSettingsStore();
@@ -26,6 +27,9 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [closeAction, setCloseAction] = useState<'ask' | 'minimize' | 'quit'>(store.closeAction);
   const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(store.customHeaders);
   const [githubToken, setGithubToken] = useState(store.githubToken);
+  const [httpProxy, setHttpProxy] = useState(store.httpProxy);
+  const [headerJsonText, setHeaderJsonText] = useState('{}');
+  const [headerJsonError, setHeaderJsonError] = useState('');
   const [customModel, setCustomModel] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testResult, setTestResult] = useState('');
@@ -35,7 +39,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     tokenCount: number;
     tokensPerSec: number;
   } | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'error'>('idle');
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'update' | 'error'>('idle');
+  const [updateData, setUpdateData] = useState<{ tag_name: string; body: string; published_at: string; html_url: string } | null>(null);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [clientCount, setClientCount] = useState(0);
@@ -43,6 +48,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   const models = useSettingsStore((s) => s.models);
   const modelsLoading = useSettingsStore((s) => s.modelsLoading);
+  const logEntries = useLogStore((s) => s.entries);
 
   // 打开弹窗时同步 store 状态并获取模型列表
   useEffect(() => {
@@ -56,6 +62,9 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       setCloseAction(store.closeAction);
       setCustomHeaders(store.customHeaders);
       setGithubToken(store.githubToken);
+      setHttpProxy(store.httpProxy);
+      setHeaderJsonText(Object.keys(store.customHeaders).length > 0 ? JSON.stringify(store.customHeaders, null, 2) : '{}');
+      setHeaderJsonError('');
       setCustomModel(false);
       setActiveTab('ai');
       store.fetchModels();
@@ -104,6 +113,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     store.setCloseAction(closeAction);
     store.setCustomHeaders(customHeaders);
     store.setGithubToken(githubToken);
+    store.setHttpProxy(httpProxy);
     store.save();
 
     if (window.electron?.desktop) {
@@ -134,6 +144,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           ...(model && { model }),
           ...(baseURL && { baseURL }),
           ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
+          ...(httpProxy && { httpProxy }),
         }),
       });
       if (!response.ok) {
@@ -189,21 +200,26 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const handleCheckUpdate = async () => {
     setUpdateStatus('checking');
     try {
-      const res = await fetch('https://api.github.com/repos/znc15/flowvision/releases/latest');
-      if (!res.ok) throw new Error('无法检查更新');
+      const headers: Record<string, string> = { Accept: 'application/vnd.github.v3+json' };
+      if (githubToken) headers['Authorization'] = `Bearer ${githubToken}`;
+      const res = await fetch('https://api.github.com/repos/znc15/flowvision/releases/latest', { headers });
+      if (!res.ok) throw new Error(`GitHub API ${res.status}`);
       const data = await res.json();
+      setUpdateData(data);
       const latestVer = data.tag_name?.replace(/^v/, '') || '0.0.0';
       const currentVer = '1.0.0';
-      if (latestVer === currentVer) {
-        setUpdateStatus('latest');
-      } else {
-        setUpdateStatus('latest');
-      }
+      setUpdateStatus(latestVer === currentVer ? 'latest' : 'update');
     } catch {
-      setUpdateStatus('latest');
+      setUpdateStatus('error');
     }
-    setTimeout(() => setUpdateStatus('idle'), 3000);
   };
+
+  // 切换到更新标签页时自动检查
+  useEffect(() => {
+    if (open && activeTab === 'update' && !updateData && updateStatus === 'idle') {
+      handleCheckUpdate();
+    }
+  }, [open, activeTab]);
 
   // 健康检查（系统状态 tab 使用）
   useEffect(() => {
@@ -242,9 +258,11 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   const TABS: { id: SettingsTab; icon: string; label: string }[] = [
     { id: 'ai', icon: 'smart_toy', label: 'AI 设置' },
-    { id: 'prompt', icon: 'edit_note', label: '系统提示词' },
+    { id: 'prompt', icon: 'edit_note', label: '提示词' },
     { id: 'about', icon: 'info', label: '关于' },
-    { id: 'status', icon: 'monitor_heart', label: '系统状态' },
+    { id: 'update', icon: 'update', label: '更新' },
+    { id: 'log', icon: 'event_note', label: '日志' },
+    { id: 'status', icon: 'monitor_heart', label: '状态' },
   ];
 
   return (
@@ -445,20 +463,24 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </p>
               </div>
 
-              {/* 自定义请求头 */}
+              {/* 自定义请求头 (JSON) */}
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                  请求头 <span className="text-slate-400 font-normal">(可选)</span>
+                  请求头 <span className="text-slate-400 font-normal">(JSON 格式)</span>
                 </label>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {[
                     {
-                      name: 'Codex 代理',
-                      headers: { 'HTTP-Referer': 'https://codex.openai.com', 'X-Title': 'Codex' },
+                      name: 'Claude CLI',
+                      headers: { 'User-Agent': 'claude-cli/2.0.76 (external, cli)' },
                     },
                     {
-                      name: 'Claude Code 代理',
-                      headers: { 'HTTP-Referer': 'https://claude.ai', 'X-Title': 'Claude Code' },
+                      name: 'OpenAI',
+                      headers: { 'User-Agent': 'OpenAI/v1 NodeBindings/4.0.0' },
+                    },
+                    {
+                      name: 'Codex 代理',
+                      headers: { 'HTTP-Referer': 'https://codex.openai.com', 'X-Title': 'Codex' },
                     },
                     {
                       name: '清空',
@@ -467,7 +489,11 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   ].map((preset) => (
                     <button
                       key={preset.name}
-                      onClick={() => setCustomHeaders(preset.headers as Record<string, string>)}
+                      onClick={() => {
+                        setCustomHeaders(preset.headers as Record<string, string>);
+                        setHeaderJsonText(Object.keys(preset.headers).length > 0 ? JSON.stringify(preset.headers, null, 2) : '{}');
+                        setHeaderJsonError('');
+                      }}
                       className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all duration-200 ${
                         JSON.stringify(customHeaders) === JSON.stringify(preset.headers)
                           ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
@@ -478,46 +504,55 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     </button>
                   ))}
                 </div>
-                {Object.keys(customHeaders).length > 0 && (
-                  <div className="space-y-1.5 mb-2">
-                    {Object.entries(customHeaders).map(([key, value]) => (
-                      <div key={key} className="flex items-center gap-1.5">
-                        <input
-                          type="text"
-                          value={key}
-                          readOnly
-                          className="flex-1 rounded-lg bg-slate-50 py-1.5 px-3 text-[11px] text-slate-700 outline-none ghost-border-soft font-mono"
-                        />
-                        <input
-                          type="text"
-                          value={value}
-                          onChange={(e) => setCustomHeaders({ ...customHeaders, [key]: e.target.value })}
-                          className="flex-1 rounded-lg bg-slate-50 py-1.5 px-3 text-[11px] text-slate-700 outline-none ghost-border-soft font-mono focus:ring-2 focus:ring-primary/25"
-                        />
-                        <button
-                          onClick={() => {
-                            const next = { ...customHeaders };
-                            delete next[key];
-                            setCustomHeaders(next);
-                          }}
-                          className="icon-button-soft h-7 w-7 shrink-0"
-                        >
-                          <span className="material-symbols-outlined text-sm text-slate-400">close</span>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    const key = `X-Custom-${Object.keys(customHeaders).length + 1}`;
-                    setCustomHeaders({ ...customHeaders, [key]: '' });
+                <textarea
+                  value={headerJsonText}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setHeaderJsonText(text);
+                    if (!text.trim() || text.trim() === '{}') {
+                      setCustomHeaders({});
+                      setHeaderJsonError('');
+                      return;
+                    }
+                    try {
+                      const parsed = JSON.parse(text);
+                      if (typeof parsed === 'object' && !Array.isArray(parsed) && parsed !== null) {
+                        setCustomHeaders(parsed);
+                        setHeaderJsonError('');
+                      } else {
+                        setHeaderJsonError('请输入 JSON 对象');
+                      }
+                    } catch {
+                      setHeaderJsonError('JSON 格式错误');
+                    }
                   }}
-                  className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-primary transition-colors duration-200"
-                >
-                  <span className="material-symbols-outlined text-sm">add</span>
-                  添加请求头
-                </button>
+                  placeholder={'{\n  "User-Agent": "claude-cli/2.0.76 (external, cli)"\n}'}
+                  rows={4}
+                  className={`w-full rounded-xl bg-slate-50 py-2.5 px-4 text-xs text-slate-900 placeholder:text-slate-400 outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25 transition-all duration-200 font-mono resize-none ${headerJsonError ? 'ring-2 ring-red-300' : ''}`}
+                />
+                {headerJsonError && (
+                  <p className="text-[10px] text-red-500 mt-1">{headerJsonError}</p>
+                )}
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  添加自定义请求头，适用于代理服务鉴权（如 User-Agent、Authorization）
+                </p>
+              </div>
+
+              {/* HTTP 代理 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  HTTP 代理 <span className="text-slate-400 font-normal">(可选)</span>
+                </label>
+                <input
+                  type="text"
+                  value={httpProxy}
+                  onChange={(e) => setHttpProxy(e.target.value)}
+                  placeholder="http://127.0.0.1:7890"
+                  className="w-full rounded-xl bg-slate-50 py-2.5 px-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25 transition-all duration-200"
+                />
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  设置后所有 AI 请求将通过此代理发送，支持 HTTP/HTTPS/SOCKS5
+                </p>
               </div>
 
               {/* GitHub Token */}
@@ -730,26 +765,17 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </div>
               </div>
 
-              {/* 检查更新 */}
+              {/* 检查更新（跳转到更新页） */}
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
                   更新
                 </label>
                 <button
-                  onClick={handleCheckUpdate}
-                  disabled={updateStatus === 'checking'}
-                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    updateStatus === 'latest'
-                      ? 'bg-green-50 text-green-700 ghost-border-soft'
-                      : updateStatus === 'error'
-                      ? 'bg-red-50 text-red-600 ghost-border-soft'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  } disabled:opacity-60`}
+                  onClick={() => setActiveTab('update')}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-200"
                 >
-                  <span className={`material-symbols-outlined text-base ${updateStatus === 'checking' ? 'animate-spin' : ''}`}>
-                    {updateStatus === 'checking' ? 'progress_activity' : updateStatus === 'latest' ? 'check_circle' : updateStatus === 'error' ? 'error' : 'update'}
-                  </span>
-                  {updateStatus === 'checking' ? '检查中...' : updateStatus === 'latest' ? '已是最新版本' : updateStatus === 'error' ? '检查失败' : '检查更新'}
+                  <span className="material-symbols-outlined text-base">update</span>
+                  检查更新
                 </button>
               </div>
 
@@ -804,6 +830,121 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               </div>
 
 
+            </div>
+          )}
+
+          {/* ===== 更新标签页 ===== */}
+          {activeTab === 'update' && (
+            <div className="space-y-5 animate-[fadeIn_200ms_ease-out]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">检查更新</h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">当前版本: v1.0.0</p>
+                </div>
+                <button
+                  onClick={handleCheckUpdate}
+                  disabled={updateStatus === 'checking'}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                    updateStatus === 'checking' ? 'bg-slate-100 text-slate-400' : 'bg-primary text-white hover:bg-primary/90'
+                  } disabled:opacity-60`}
+                >
+                  <span className={`material-symbols-outlined text-sm ${updateStatus === 'checking' ? 'animate-spin' : ''}`}>
+                    {updateStatus === 'checking' ? 'progress_activity' : 'refresh'}
+                  </span>
+                  {updateStatus === 'checking' ? '检查中...' : '刷新'}
+                </button>
+              </div>
+
+              {updateStatus === 'latest' && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 ghost-border-soft">
+                  <span className="material-symbols-outlined text-green-500 text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <p className="text-sm text-green-700 font-medium">已是最新版本</p>
+                </div>
+              )}
+
+
+
+              {updateStatus === 'error' && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 ghost-border-soft">
+                  <span className="material-symbols-outlined text-red-500 text-xl">error</span>
+                  <p className="text-sm text-red-600">检查失败，请稍后重试</p>
+                </div>
+              )}
+
+              {updateData && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-slate-50 ghost-border-soft">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-bold text-slate-800">{updateData.tag_name}</h4>
+                      <span className="text-[10px] text-slate-400">{new Date(updateData.published_at).toLocaleDateString('zh-CN')}</span>
+                    </div>
+                    <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap max-h-[40vh] overflow-y-auto">
+                      {updateData.body || '暂无更新说明'}
+                    </div>
+                  </div>
+                  <a
+                    href={updateData.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-200"
+                  >
+                    <span className="material-symbols-outlined text-base">open_in_new</span>
+                    在 GitHub 查看
+                  </a>
+                </div>
+              )}
+
+              {!updateData && updateStatus === 'idle' && (
+                <div className="text-center py-12 text-slate-400">
+                  <span className="material-symbols-outlined text-4xl mb-3 block">system_update</span>
+                  <p className="text-xs">点击右上角按钮检查最新版本</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===== 日志标签页 ===== */}
+          {activeTab === 'log' && (
+            <div className="space-y-4 animate-[fadeIn_200ms_ease-out]">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-900">运行日志</h3>
+                {logEntries.length > 0 && (
+                  <button
+                    onClick={() => useLogStore.getState().clear()}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
+                  >
+                    <span className="material-symbols-outlined text-sm">delete_sweep</span>
+                    清空
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1.5 max-h-[55vh] overflow-y-auto">
+                {logEntries.length === 0 && (
+                  <div className="text-center py-12 text-slate-400">
+                    <span className="material-symbols-outlined text-4xl mb-3 block">event_note</span>
+                    <p className="text-xs">暂无日志记录</p>
+                  </div>
+                )}
+                {[...logEntries].reverse().map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-2 py-2 px-3 rounded-lg bg-slate-50 ghost-border-soft">
+                    <span className={`material-symbols-outlined text-sm mt-0.5 shrink-0 ${
+                      entry.level === 'error' ? 'text-red-500' :
+                      entry.level === 'warn' ? 'text-amber-500' :
+                      entry.level === 'success' ? 'text-green-500' : 'text-blue-500'
+                    }`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                      {entry.level === 'error' ? 'error' : entry.level === 'warn' ? 'warning' : entry.level === 'success' ? 'check_circle' : 'info'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[10px] text-slate-400">{new Date(entry.timestamp).toLocaleTimeString('zh-CN')}</span>
+                        <span className="text-[10px] text-slate-500 font-medium">{entry.source}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-700 break-all">{entry.message}</p>
+                      {entry.detail && <p className="text-[10px] text-slate-400 mt-0.5 break-all">{entry.detail}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

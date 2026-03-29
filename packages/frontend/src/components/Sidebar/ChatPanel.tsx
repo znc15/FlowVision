@@ -221,7 +221,7 @@ function ChatPanel() {
     const assistantId = addMessage({ role: 'assistant', content: '' });
     streamingMsgId.current = assistantId;
 
-    const { provider, apiKey, model, baseURL, systemPrompt: customSystemPrompt, customHeaders } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, systemPrompt: customSystemPrompt, customHeaders, httpProxy } = useSettingsStore.getState();
 
     try {
       const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
@@ -238,6 +238,7 @@ function ChatPanel() {
           ...(customSystemPrompt && { systemPrompt: customSystemPrompt }),
           ...(thinkingEnabled && { thinking: true }),
           ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
+          ...(httpProxy && { httpProxy }),
         }),
       });
 

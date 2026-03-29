@@ -16,6 +16,7 @@ import { useWebSocketSync } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { loadSharedGraph } from './utils/share';
 import { useGraphStore } from './store/graphStore';
+import { useSettingsStore } from './store/settingsStore';
 
 const LAYOUT_KEY = 'flowvision-layout';
 const DEFAULT_LAYOUT: Layout = {
@@ -59,6 +60,20 @@ function App() {
 
   useWebSocketSync();
   useKeyboardShortcuts();
+
+  // 非 Electron 模式下，closeAction 为 'ask' 时拦截页面关闭
+  useEffect(() => {
+    const isElectron = Boolean(window.electron?.isElectron);
+    if (isElectron) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const { closeAction } = useSettingsStore.getState();
+      if (closeAction === 'ask') {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   // 启动时检查分享链接
   useEffect(() => {

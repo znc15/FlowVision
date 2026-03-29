@@ -17,6 +17,7 @@ interface SettingsState {
   closeAction: 'ask' | 'minimize' | 'quit';
   customHeaders: Record<string, string>;
   githubToken: string;
+  httpProxy: string;
   models: ModelInfo[];
   modelsLoading: boolean;
   setProvider: (provider: AIProvider) => void;
@@ -28,6 +29,7 @@ interface SettingsState {
   setCloseAction: (action: 'ask' | 'minimize' | 'quit') => void;
   setCustomHeaders: (headers: Record<string, string>) => void;
   setGithubToken: (token: string) => void;
+  setHttpProxy: (proxy: string) => void;
   fetchModels: () => Promise<void>;
   save: () => void;
   load: () => void;
@@ -60,6 +62,7 @@ function saveToStorage(state: {
   closeAction: 'ask' | 'minimize' | 'quit';
   customHeaders: Record<string, string>;
   githubToken: string;
+  httpProxy: string;
 }) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -81,6 +84,7 @@ function persistState(get: () => SettingsState) {
     closeAction: s.closeAction,
     customHeaders: s.customHeaders,
     githubToken: s.githubToken,
+    httpProxy: s.httpProxy,
   });
 }
 
@@ -96,6 +100,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     closeAction: (stored as any).closeAction || 'ask',
     customHeaders: (stored as any).customHeaders || {},
     githubToken: (stored as any).githubToken || '',
+    httpProxy: (stored as any).httpProxy || '',
     models: [],
     modelsLoading: false,
 
@@ -144,6 +149,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       persistState(get);
     },
 
+    setHttpProxy: (httpProxy) => {
+      set({ httpProxy });
+      persistState(get);
+    },
+
     fetchModels: async () => {
       const { provider, apiKey, baseURL } = get();
       set({ modelsLoading: true });
@@ -180,6 +190,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           closeAction: (stored as any).closeAction || 'ask',
           customHeaders: (stored as any).customHeaders || {},
           githubToken: (stored as any).githubToken || '',
+          httpProxy: (stored as any).httpProxy || '',
         });
       }
     },
