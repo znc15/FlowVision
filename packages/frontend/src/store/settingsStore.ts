@@ -14,7 +14,7 @@ interface SettingsState {
   baseURL: string;
   systemPrompt: string;
   mcpEnabled: boolean;
-  closeAction: 'ask' | 'minimize' | 'quit';
+  closeAction: 'ask' | 'tray' | 'quit';
   customHeaders: Record<string, string>;
   githubToken: string;
   httpProxy: string;
@@ -26,7 +26,7 @@ interface SettingsState {
   setBaseURL: (baseURL: string) => void;
   setSystemPrompt: (systemPrompt: string) => void;
   setMcpEnabled: (enabled: boolean) => void;
-  setCloseAction: (action: 'ask' | 'minimize' | 'quit') => void;
+  setCloseAction: (action: 'ask' | 'tray' | 'quit') => void;
   setCustomHeaders: (headers: Record<string, string>) => void;
   setGithubToken: (token: string) => void;
   setHttpProxy: (proxy: string) => void;
@@ -59,7 +59,7 @@ function saveToStorage(state: {
   baseURL: string;
   systemPrompt: string;
   mcpEnabled: boolean;
-  closeAction: 'ask' | 'minimize' | 'quit';
+  closeAction: 'ask' | 'tray' | 'quit';
   customHeaders: Record<string, string>;
   githubToken: string;
   httpProxy: string;

@@ -36,7 +36,7 @@ function showOrCreateMainWindow() {
 
 const DESKTOP_SETTINGS_PATH = path.join(app.getPath('userData'), 'desktop-settings.json');
 const DEFAULT_DESKTOP_SETTINGS = {
-  closeAction: 'ask', // 'ask' | 'minimize' | 'quit'
+  closeAction: 'ask', // 'ask' | 'tray' | 'quit'
   backendHost: '127.0.0.1', // '127.0.0.1' | '0.0.0.0'
 };
 
@@ -201,7 +201,7 @@ function setupIpc() {
   ipcMain.handle('desktop:getSettings', () => desktopSettings);
 
   ipcMain.handle('desktop:setCloseAction', (_event, action) => {
-    const valid = ['ask', 'minimize', 'quit'];
+    const valid = ['ask', 'tray', 'quit'];
     if (!valid.includes(action)) return desktopSettings;
     desktopSettings = { ...desktopSettings, closeAction: action };
     saveDesktopSettings(desktopSettings);
@@ -254,9 +254,9 @@ function createWindow() {
 
     const action = desktopSettings.closeAction || 'ask';
 
-    if (action === 'minimize') {
+    if (action === 'tray') {
       event.preventDefault();
-      win.minimize();
+      win.hide();
       return;
     }
 
@@ -271,8 +271,8 @@ function createWindow() {
     const { response, checkboxChecked } = await dialog.showMessageBox(win, {
       type: 'question',
       title: '关闭窗口',
-      message: '你想要退出应用还是最小化到任务栏？',
-      buttons: ['最小化', '退出应用', '取消'],
+      message: '关闭窗口后如何处理？',
+      buttons: ['最小化到托盘', '退出应用', '取消'],
       defaultId: 0,
       cancelId: 2,
       checkboxLabel: '记住我的选择',
@@ -281,15 +281,17 @@ function createWindow() {
 
     if (response === 2) return; // 取消
 
-    const chosenAction = response === 0 ? 'minimize' : 'quit';
+    const chosenAction = response === 0 ? 'tray' : 'quit';
 
     if (checkboxChecked) {
       desktopSettings = { ...desktopSettings, closeAction: chosenAction };
       saveDesktopSettings(desktopSettings);
+      // 同步通知前端
+      win.webContents.send('desktop:closeAction-changed', chosenAction);
     }
 
-    if (chosenAction === 'minimize') {
-      win.minimize();
+    if (chosenAction === 'tray') {
+      win.hide();
     } else {
       isQuitting = true;
       app.quit();

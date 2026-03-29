@@ -64,7 +64,13 @@ function App() {
   // 非 Electron 模式下，closeAction 为 'ask' 时拦截页面关闭
   useEffect(() => {
     const isElectron = Boolean(window.electron?.isElectron);
-    if (isElectron) return;
+    if (isElectron) {
+      // 监听 Electron 主进程对关闭行为的更改（用户在原生对话框中勾选了"记住选择"）
+      const unsubscribe = window.electron?.desktop?.onCloseActionChanged?.((action) => {
+        useSettingsStore.getState().setCloseAction(action);
+      });
+      return () => unsubscribe?.();
+    }
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       const { closeAction } = useSettingsStore.getState();
       if (closeAction === 'ask') {

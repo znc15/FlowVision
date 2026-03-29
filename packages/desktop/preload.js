@@ -20,5 +20,10 @@ contextBridge.exposeInMainWorld('electron', {
     getSettings: () => ipcRenderer.invoke('desktop:getSettings'),
     setCloseAction: (action) => ipcRenderer.invoke('desktop:setCloseAction', action),
     setBackendHost: (host) => ipcRenderer.invoke('desktop:setBackendHost', host),
+    onCloseActionChanged: (callback) => {
+      const handler = (_event, action) => callback(action);
+      ipcRenderer.on('desktop:closeAction-changed', handler);
+      return () => ipcRenderer.removeListener('desktop:closeAction-changed', handler);
+    },
   },
 });

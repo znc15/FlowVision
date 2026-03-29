@@ -5,7 +5,7 @@ import { useHistoryStore } from '../../store/historyStore';
 import { useTabStore } from '../../store/tabStore';
 import { forceRelayout } from '../../utils/layout';
 import { NodeType, GraphNode } from '../../types/graph';
-import { exportJSON, exportPNG, exportMarkdown, importJSON } from '../../utils/export';
+import { exportJSON, exportPNG, exportMarkdown, importJSON, exportSystemPrompt } from '../../utils/export';
 import { shareGraph } from '../../utils/share';
 
 /** 节点模板 */
@@ -15,11 +15,21 @@ const NODE_TEMPLATES: { type: NodeType; label: string; icon: string }[] = [
   { type: 'data', label: '数据', icon: 'database' },
   { type: 'start', label: '开始', icon: 'play_circle' },
   { type: 'end', label: '结束', icon: 'stop_circle' },
+  { type: 'subprocess', label: '子流程', icon: 'account_tree' },
+  { type: 'delay', label: '延迟', icon: 'hourglass_top' },
+  { type: 'document', label: '文档', icon: 'article' },
+  { type: 'manual_input', label: '手动输入', icon: 'touch_app' },
+  { type: 'annotation', label: '注释', icon: 'sticky_note_2' },
+  { type: 'connector', label: '连接器', icon: 'radio_button_checked' },
 ];
 
 let nodeSeq = 0;
 
-function Toolbar() {
+interface ToolbarProps {
+  onShowHistory?: () => void;
+}
+
+function Toolbar({ onShowHistory }: ToolbarProps) {
   const { addNode, nodes, edges } = useGraphStore();
   const { pushHistory } = useHistoryStore();
   const { fitView, zoomIn, zoomOut } = useReactFlow();
@@ -148,6 +158,16 @@ function Toolbar() {
       </button>
       <button onClick={handleImport} className="icon-button-soft h-8 w-8" title="导入 JSON">
         <span className="material-symbols-outlined text-base">upload_file</span>
+      </button>
+      <button onClick={() => exportSystemPrompt({ nodes, edges })} className="icon-button-soft h-8 w-8" title="生成系统提示词">
+        <span className="material-symbols-outlined text-base">smart_toy</span>
+      </button>
+
+      <div className="w-px h-5 bg-outline-variant mx-1" />
+
+      {/* 版本历史 */}
+      <button onClick={onShowHistory} className="icon-button-soft h-8 w-8" title="版本历史">
+        <span className="material-symbols-outlined text-base">history</span>
       </button>
       <button
         onClick={handleShare}

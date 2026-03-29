@@ -62,7 +62,7 @@ const GRAPH_SYSTEM_PROMPT = `你是一个智能流程图设计助手。你可以
   "remove": { "nodeIds": [], "edgeIds": [] }
 }
 
-节点类型：process（流程步骤）| decision（判断分支）| start（开始）| end（结束）| data（数据）| group（分组）
+节点类型：process（流程步骤）| decision（判断分支）| start（开始）| end（结束）| data（数据）| group（分组）| subprocess（子流程）| delay（延迟/等待）| document（文档输出）| manual_input（手动输入）| annotation（注释说明）| connector（连接器/跳转点）
 label 使用简洁中文或英文，不超过 20 个字符。position 无需填写，由前端自动布局。`;
 
 interface AIGenerateRequest {

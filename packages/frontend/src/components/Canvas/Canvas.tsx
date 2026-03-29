@@ -24,9 +24,16 @@ import DecisionNode from './nodes/DecisionNode';
 import StartEndNode from './nodes/StartEndNode';
 import DataNode from './nodes/DataNode';
 import GroupNode from './nodes/GroupNode';
+import SubprocessNode from './nodes/SubprocessNode';
+import DelayNode from './nodes/DelayNode';
+import DocumentNode from './nodes/DocumentNode';
+import ManualInputNode from './nodes/ManualInputNode';
+import AnnotationNode from './nodes/AnnotationNode';
+import ConnectorNode from './nodes/ConnectorNode';
 import FlowEdge from './edges/FlowEdge';
 import Toolbar from '../Toolbar/Toolbar';
 import NodeEditDialog from './NodeEditDialog';
+import VersionHistoryDialog from '../VersionHistoryDialog';
 import { CanvasContext } from './CanvasContext';
 
 // 注册自定义节点类型
@@ -37,6 +44,12 @@ const nodeTypes = {
   end: StartEndNode,
   data: DataNode,
   group: GroupNode,
+  subprocess: SubprocessNode,
+  delay: DelayNode,
+  document: DocumentNode,
+  manual_input: ManualInputNode,
+  annotation: AnnotationNode,
+  connector: ConnectorNode,
 } as NodeTypes;
 
 // 注册自定义边类型
@@ -51,6 +64,7 @@ function Canvas() {
   const { previewNodes, previewEdges, isPreviewMode, clear: clearPreview } = usePreviewStore();
   const { undo, redo, canUndo, canRedo, pushHistory } = useHistoryStore();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // 合并正式节点和预览节点，确保所有节点都有有效 position
   const ensurePosition = (node: any) => ({
@@ -231,10 +245,13 @@ function Canvas() {
 
           {/* 工具栏 —— 必须在 ReactFlow 内部以使用 useReactFlow */}
           <Panel position="top-center" className="mt-1">
-            <Toolbar />
+            <Toolbar onShowHistory={() => setHistoryOpen(true)} />
           </Panel>
         </ReactFlow>
       </div>
+
+      {/* 版本历史对话框 */}
+      <VersionHistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} />
 
       {/* 预览确认按钮 */}
       {isPreviewMode && (

@@ -24,7 +24,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [baseURL, setBaseURL] = useState(store.baseURL);
   const [systemPrompt, setSystemPrompt] = useState(store.systemPrompt);
   const [mcpEnabled, setMcpEnabled] = useState(store.mcpEnabled);
-  const [closeAction, setCloseAction] = useState<'ask' | 'minimize' | 'quit'>(store.closeAction);
+  const [closeAction, setCloseAction] = useState<'ask' | 'tray' | 'quit'>(store.closeAction);
   const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(store.customHeaders);
   const [githubToken, setGithubToken] = useState(store.githubToken);
   const [httpProxy, setHttpProxy] = useState(store.httpProxy);
@@ -791,7 +791,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <div className="flex gap-2">
                     {([
                       { value: 'ask' as const, label: '每次询问', icon: 'help' },
-                      { value: 'minimize' as const, label: '最小化', icon: 'minimize' },
+                      { value: 'tray' as const, label: '最小化到托盘', icon: 'system_update_alt' },
                       { value: 'quit' as const, label: '直接退出', icon: 'close' },
                     ] as const).map((opt) => (
                       <button

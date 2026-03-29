@@ -1,5 +1,5 @@
 // ===== 节点类型 =====
-export type NodeType = 'process' | 'decision' | 'start' | 'end' | 'data' | 'group';
+export type NodeType = 'process' | 'decision' | 'start' | 'end' | 'data' | 'group' | 'subprocess' | 'delay' | 'document' | 'manual_input' | 'annotation' | 'connector';
 
 // ===== 节点定义 =====
 export interface GraphNode {

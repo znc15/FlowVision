@@ -1,6 +1,6 @@
 // 共享类型定义 - 与前端保持一致
 
-export type NodeType = 'process' | 'decision' | 'start' | 'end' | 'data' | 'group';
+export type NodeType = 'process' | 'decision' | 'start' | 'end' | 'data' | 'group' | 'subprocess' | 'delay' | 'document' | 'manual_input' | 'annotation' | 'connector';
 
 export interface GraphNode {
   id: string;
