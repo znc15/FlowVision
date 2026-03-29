@@ -1,6 +1,6 @@
 interface SideNavBarProps {
-  activeTab: 'project' | 'chat' | 'mcp';
-  onTabChange: (tab: 'project' | 'chat' | 'mcp') => void;
+  activeTab: 'project' | 'chat' | 'mcp' | 'log';
+  onTabChange: (tab: 'project' | 'chat' | 'mcp' | 'log') => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenSettings?: () => void;
@@ -42,6 +42,13 @@ function SideNavBar({ activeTab, onTabChange, collapsed = false, onToggleCollaps
           label="MCP"
           active={activeTab === 'mcp'}
           onClick={() => onTabChange('mcp')}
+          collapsed={collapsed}
+        />
+        <NavButton
+          icon="terminal"
+          label="Agent 日志"
+          active={activeTab === 'log'}
+          onClick={() => onTabChange('log')}
           collapsed={collapsed}
         />
       </nav>

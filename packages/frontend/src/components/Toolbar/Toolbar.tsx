@@ -5,7 +5,7 @@ import { useHistoryStore } from '../../store/historyStore';
 import { useTabStore } from '../../store/tabStore';
 import { forceRelayout } from '../../utils/layout';
 import { NodeType, GraphNode } from '../../types/graph';
-import { exportJSON, exportPNG } from '../../utils/export';
+import { exportJSON, exportPNG, exportMarkdown, importJSON } from '../../utils/export';
 import { shareGraph } from '../../utils/share';
 
 /** 节点模板 */
@@ -73,6 +73,15 @@ function Toolbar() {
     setTimeout(() => setCopied(false), 2000);
   }, [nodes, edges]);
 
+  /** 导入 JSON 文件 */
+  const handleImport = useCallback(async () => {
+    const data = await importJSON();
+    if (data) {
+      pushHistory({ nodes, edges });
+      useGraphStore.getState().replaceGraph(data);
+    }
+  }, [nodes, edges, pushHistory]);
+
   /** 复制链接 */
   const handleCopyLink = useCallback(async () => {
     if (!shareUrl) return;
@@ -133,6 +142,12 @@ function Toolbar() {
       </button>
       <button onClick={() => exportPNG()} className="icon-button-soft h-8 w-8" title="导出 PNG">
         <span className="material-symbols-outlined text-base">image</span>
+      </button>
+      <button onClick={() => exportMarkdown({ nodes, edges })} className="icon-button-soft h-8 w-8" title="导出 Markdown 报告">
+        <span className="material-symbols-outlined text-base">description</span>
+      </button>
+      <button onClick={handleImport} className="icon-button-soft h-8 w-8" title="导入 JSON">
+        <span className="material-symbols-outlined text-base">upload_file</span>
       </button>
       <button
         onClick={handleShare}

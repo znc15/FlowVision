@@ -85,7 +85,8 @@ export async function readFileContent(
 
   // GitHub 仓库路径：通过 GitHub API 获取文件内容
   if (projectPath.startsWith('github:')) {
-    return readGithubFileContent(projectPath, filePath, reply);
+    const token = (request.query as Record<string, string>).token;
+    return readGithubFileContent(projectPath, filePath, reply, token);
   }
 
   const absPath = join(projectPath, filePath);
@@ -115,7 +116,7 @@ export async function readFileContent(
 }
 
 /** 通过 GitHub API 读取文件内容 */
-async function readGithubFileContent(projectPath: string, filePath: string, reply: FastifyReply) {
+async function readGithubFileContent(projectPath: string, filePath: string, reply: FastifyReply, token?: string) {
   const repo = projectPath.replace('github:', '');
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
     reply.code(400);
@@ -127,6 +128,9 @@ async function readGithubFileContent(projectPath: string, filePath: string, repl
     Accept: 'application/vnd.github.v3+json',
     'User-Agent': 'FlowVision',
   };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   try {
     const response = await fetch(
@@ -252,7 +256,8 @@ export async function getFileContext(
 
   // GitHub 仓库路径：通过 GitHub API 获取上下文
   if (projectPath.startsWith('github:')) {
-    return getGithubFileContext(projectPath, reply);
+    const token = (request.query as Record<string, string>).token;
+    return getGithubFileContext(projectPath, reply, token);
   }
 
   try {
@@ -272,7 +277,7 @@ export async function getFileContext(
 }
 
 /** GitHub 仓库的 file-context：获取文件树和关键文件 */
-async function getGithubFileContext(projectPath: string, reply: FastifyReply) {
+async function getGithubFileContext(projectPath: string, reply: FastifyReply, token?: string) {
   const repo = projectPath.replace('github:', '');
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
     reply.code(400);
@@ -284,6 +289,9 @@ async function getGithubFileContext(projectPath: string, reply: FastifyReply) {
     Accept: 'application/vnd.github.v3+json',
     'User-Agent': 'FlowVision',
   };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   // 获取文件树
   const branchCandidates = ['main', 'master'];

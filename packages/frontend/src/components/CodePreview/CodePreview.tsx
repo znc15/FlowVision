@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
+import { useSettingsStore } from '../../store/settingsStore';
 
 interface CodePreviewProps {
   /** 文件名 */
@@ -75,6 +76,8 @@ function CodePreview({
     if (propCode || !projectPath || !filePath) return;
     setLoading(true);
     const params = new URLSearchParams({ projectPath, filePath });
+    const githubToken = useSettingsStore.getState().githubToken;
+    if (githubToken) params.set('token', githubToken);
     fetch(`http://localhost:3001/api/file-content?${params}`)
       .then((res) => res.json())
       .then((data) => {

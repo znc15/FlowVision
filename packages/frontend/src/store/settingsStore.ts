@@ -16,6 +16,7 @@ interface SettingsState {
   mcpEnabled: boolean;
   closeAction: 'ask' | 'minimize' | 'quit';
   customHeaders: Record<string, string>;
+  githubToken: string;
   models: ModelInfo[];
   modelsLoading: boolean;
   setProvider: (provider: AIProvider) => void;
@@ -26,6 +27,7 @@ interface SettingsState {
   setMcpEnabled: (enabled: boolean) => void;
   setCloseAction: (action: 'ask' | 'minimize' | 'quit') => void;
   setCustomHeaders: (headers: Record<string, string>) => void;
+  setGithubToken: (token: string) => void;
   fetchModels: () => Promise<void>;
   save: () => void;
   load: () => void;
@@ -57,12 +59,29 @@ function saveToStorage(state: {
   mcpEnabled: boolean;
   closeAction: 'ask' | 'minimize' | 'quit';
   customHeaders: Record<string, string>;
+  githubToken: string;
 }) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     // 写入失败
   }
+}
+
+/** 从当前 state 提取需持久化的字段并保存 */
+function persistState(get: () => SettingsState) {
+  const s = get();
+  saveToStorage({
+    provider: s.provider,
+    apiKey: s.apiKey,
+    model: s.model,
+    baseURL: s.baseURL,
+    systemPrompt: s.systemPrompt,
+    mcpEnabled: s.mcpEnabled,
+    closeAction: s.closeAction,
+    customHeaders: s.customHeaders,
+    githubToken: s.githubToken,
+  });
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => {
@@ -76,127 +95,53 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     mcpEnabled: stored.mcpEnabled ?? true,
     closeAction: (stored as any).closeAction || 'ask',
     customHeaders: (stored as any).customHeaders || {},
+    githubToken: (stored as any).githubToken || '',
     models: [],
     modelsLoading: false,
 
     setProvider: (provider) => {
       set({ provider, model: DEFAULT_MODELS[provider] });
-      const s = get();
-      saveToStorage({
-        provider,
-        apiKey: s.apiKey,
-        model: DEFAULT_MODELS[provider],
-        baseURL: s.baseURL,
-        systemPrompt: s.systemPrompt,
-        mcpEnabled: s.mcpEnabled,
-        closeAction: s.closeAction,
-        customHeaders: s.customHeaders,
-      });
+      persistState(get);
     },
 
     setApiKey: (apiKey) => {
       set({ apiKey });
-      const s = get();
-      saveToStorage({
-        provider: s.provider,
-        apiKey,
-        model: s.model,
-        baseURL: s.baseURL,
-        systemPrompt: s.systemPrompt,
-        mcpEnabled: s.mcpEnabled,
-        closeAction: s.closeAction,
-        customHeaders: s.customHeaders,
-      });
+      persistState(get);
     },
 
     setModel: (model) => {
       set({ model });
-      const s = get();
-      saveToStorage({
-        provider: s.provider,
-        apiKey: s.apiKey,
-        model,
-        baseURL: s.baseURL,
-        systemPrompt: s.systemPrompt,
-        mcpEnabled: s.mcpEnabled,
-        closeAction: s.closeAction,
-        customHeaders: s.customHeaders,
-      });
+      persistState(get);
     },
 
     setBaseURL: (baseURL) => {
       set({ baseURL });
-      const s = get();
-      saveToStorage({
-        provider: s.provider,
-        apiKey: s.apiKey,
-        model: s.model,
-        baseURL,
-        systemPrompt: s.systemPrompt,
-        mcpEnabled: s.mcpEnabled,
-        closeAction: s.closeAction,
-        customHeaders: s.customHeaders,
-      });
+      persistState(get);
     },
 
     setSystemPrompt: (systemPrompt) => {
       set({ systemPrompt });
-      const s = get();
-      saveToStorage({
-        provider: s.provider,
-        apiKey: s.apiKey,
-        model: s.model,
-        baseURL: s.baseURL,
-        systemPrompt,
-        mcpEnabled: s.mcpEnabled,
-        closeAction: s.closeAction,
-        customHeaders: s.customHeaders,
-      });
+      persistState(get);
     },
 
     setMcpEnabled: (mcpEnabled) => {
       set({ mcpEnabled });
-      const s = get();
-      saveToStorage({
-        provider: s.provider,
-        apiKey: s.apiKey,
-        model: s.model,
-        baseURL: s.baseURL,
-        systemPrompt: s.systemPrompt,
-        mcpEnabled,
-        closeAction: s.closeAction,
-        customHeaders: s.customHeaders,
-      });
+      persistState(get);
     },
 
     setCloseAction: (closeAction) => {
       set({ closeAction });
-      const s = get();
-      saveToStorage({
-        provider: s.provider,
-        apiKey: s.apiKey,
-        model: s.model,
-        baseURL: s.baseURL,
-        systemPrompt: s.systemPrompt,
-        mcpEnabled: s.mcpEnabled,
-        closeAction,
-        customHeaders: s.customHeaders,
-      });
+      persistState(get);
     },
 
     setCustomHeaders: (customHeaders) => {
       set({ customHeaders });
-      const s = get();
-      saveToStorage({
-        provider: s.provider,
-        apiKey: s.apiKey,
-        model: s.model,
-        baseURL: s.baseURL,
-        systemPrompt: s.systemPrompt,
-        mcpEnabled: s.mcpEnabled,
-        closeAction: s.closeAction,
-        customHeaders,
-      });
+      persistState(get);
+    },
+
+    setGithubToken: (githubToken) => {
+      set({ githubToken });
+      persistState(get);
     },
 
     fetchModels: async () => {
@@ -219,8 +164,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     },
 
     save: () => {
-      const { provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeAction, customHeaders } = get();
-      saveToStorage({ provider, apiKey, model, baseURL, systemPrompt, mcpEnabled, closeAction, customHeaders });
+      persistState(get);
     },
 
     load: () => {
@@ -235,6 +179,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           mcpEnabled: stored.mcpEnabled ?? true,
           closeAction: (stored as any).closeAction || 'ask',
           customHeaders: (stored as any).customHeaders || {},
+          githubToken: (stored as any).githubToken || '',
         });
       }
     },

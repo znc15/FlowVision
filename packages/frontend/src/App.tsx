@@ -4,6 +4,7 @@ import SideNavBar from './components/SideNavBar';
 import ProjectSidebar from './components/Sidebar/ProjectSidebar';
 import ChatPanel from './components/Sidebar/ChatPanel';
 import McpPanel from './components/Sidebar/McpPanel';
+import AgentLogPanel from './components/Sidebar/AgentLogPanel';
 import FileExplorer from './components/Explorer/FileExplorer';
 import CodePreview from './components/CodePreview/CodePreview';
 import Canvas from './components/Canvas/Canvas';
@@ -33,7 +34,7 @@ function loadLayout(): Layout | undefined {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'project' | 'chat' | 'mcp'>('project');
+  const [activeTab, setActiveTab] = useState<'project' | 'chat' | 'mcp' | 'log'>('project');
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
@@ -98,7 +99,7 @@ function App() {
           {/* 第 2 栏：项目信息侧边栏 / AI 对话面板 */}
           <Panel id="sidebar" defaultSize="18%" minSize="12%" maxSize="30%">
             <aside className="h-full bg-surface-container-low flex flex-col overflow-hidden ghost-border-soft border-y-0 border-l-0">
-              {activeTab === 'project' ? <ProjectSidebar /> : activeTab === 'chat' ? <ChatPanel /> : <McpPanel />}
+              {activeTab === 'project' ? <ProjectSidebar /> : activeTab === 'chat' ? <ChatPanel /> : activeTab === 'log' ? <AgentLogPanel /> : <McpPanel />}
             </aside>
           </Panel>
 

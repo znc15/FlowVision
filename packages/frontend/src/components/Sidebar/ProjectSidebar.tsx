@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useGraphStore } from '../../store/graphStore';
+import { useLogStore } from '../../store/logStore';
 
 /** AI 生成的项目概览数据 */
 interface ProjectOverview {
@@ -92,19 +93,22 @@ function ProjectSidebar() {
     if (!projectPath || generating) return;
     setGenerating(true);
     setGenError('');
+    useLogStore.getState().add('info', 'AI分析', `开始生成项目概览: ${projectPath}`);
 
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const { provider, apiKey, model, baseURL, customHeaders } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, customHeaders, githubToken } = useSettingsStore.getState();
 
     try {
       // 先获取项目上下文（文件树+关键文件内容）
       let fileContext = '';
       try {
+        const ctxParams = new URLSearchParams({ projectPath });
+        if (githubToken) ctxParams.set('token', githubToken);
         const ctxRes = await fetch(
-          `http://localhost:3001/api/file-context?projectPath=${encodeURIComponent(projectPath)}`,
+          `http://localhost:3001/api/file-context?${ctxParams}`,
           { signal: controller.signal },
         );
         if (ctxRes.ok) {
@@ -201,9 +205,12 @@ function ProjectSidebar() {
       const data: ProjectOverview = JSON.parse(jsonMatch[0]);
       setOverview(data);
       saveCachedOverview(projectPath, data);
+      useLogStore.getState().add('success', 'AI分析', `项目概览生成完成: ${data.name}`);
     } catch (e) {
       if ((e as Error).name !== 'AbortError') {
-        setGenError(e instanceof Error ? e.message : '生成失败');
+        const msg = e instanceof Error ? e.message : '生成失败';
+        setGenError(msg);
+        useLogStore.getState().add('error', 'AI分析', `项目概览生成失败: ${msg}`);
       }
     } finally {
       setGenerating(false);
@@ -216,16 +223,48 @@ function ProjectSidebar() {
     setGeneratingCanvas(true);
     setCanvasError('');
 
-    const { provider, apiKey, model, baseURL, customHeaders: customHeaders2 } = useSettingsStore.getState();
-    const prompt = `根据以下项目信息，生成一个项目架构流程图：
+    const { provider, apiKey, model, baseURL, customHeaders: customHeaders2, githubToken: githubToken2 } = useSettingsStore.getState();
+
+    // 获取项目文件上下文，为 AI 识别入口和调用链提供支撑
+    let fileContextStr = '';
+    try {
+      const ctxParams = new URLSearchParams({ projectPath });
+      if (githubToken2) ctxParams.set('token', githubToken2);
+      const ctxRes = await fetch(`http://localhost:3001/api/file-context?${ctxParams}`);
+      if (ctxRes.ok) {
+        const ctxData = await ctxRes.json();
+        if (ctxData.success && ctxData.data?.keyFiles?.length) {
+          fileContextStr = '\n\n关键源文件内容:\n' +
+            ctxData.data.keyFiles.map((f: { path: string; content: string }) =>
+              `--- ${f.path} ---\n${f.content.slice(0, 3000)}`
+            ).join('\n\n');
+        }
+      }
+    } catch { /* 不阻断 */ }
+
+    useLogStore.getState().add('info', 'AI分析', '开始生成架构流程图和调用链');
+
+    const prompt = `根据以下项目信息和源代码，生成一个详细的项目架构调用链流程图：
 项目名称: ${overview.name}
 项目描述: ${overview.description}
 技术栈: ${overview.techStack.join(', ')}
 核心模块: ${overview.modules.map((m) => `${m.name}(${m.status})`).join(', ')}
+${overview.entryPoints?.length ? `入口文件: ${overview.entryPoints.join(', ')}` : ''}
 ${overview.progress ? `进度: ${overview.progress}` : ''}
+${fileContextStr}
 
-请生成一个清晰的架构流程图，展示各核心模块之间的关系和数据流向。
-使用 start 节点表示入口，process 节点表示各模块，decision 节点表示关键判断，data 节点表示数据存储，end 节点表示输出。`;
+要求：
+1. 识别项目入口文件和入口函数，作为 start 节点
+2. 逐层展开关键调用链，用 process 节点表示核心函数/模块
+3. 用 decision 节点表示分支逻辑（如路由分发、条件处理）
+4. 用 data 节点表示数据源（数据库、API、配置文件等）
+5. 用 end 节点表示输出/终端
+6. 每个节点的 data.filePath 填写文件路径，data.lineStart 填写行号（如已知）
+7. 每个节点的 data.description 简要说明该函数/模块的职责
+8. 使用 data.tags 标注模块分类（如 ["入口", "路由"], ["核心逻辑"], ["数据层"]）
+9. 连线 label 标注调用方式或条件（如 "HTTP请求", "import", "事件触发"）
+
+生成一个清晰的、可逐层下钻探索的架构调用链全景图。`;
 
     try {
       const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
@@ -274,6 +313,7 @@ ${overview.progress ? `进度: ${overview.progress}` : ''}
             }
             if (event.type === 'done' && event.graph) {
               useGraphStore.getState().replaceGraph(event.graph);
+              useLogStore.getState().add('success', 'AI分析', `架构图生成完成，${event.graph.nodes?.length || 0} 个节点`);
             }
           } catch (e) {
             if (e instanceof Error && e.message !== jsonStr) throw e;
@@ -281,7 +321,9 @@ ${overview.progress ? `进度: ${overview.progress}` : ''}
         }
       }
     } catch (e) {
-      setCanvasError(e instanceof Error ? e.message : '架构图生成失败');
+      const msg = e instanceof Error ? e.message : '架构图生成失败';
+      setCanvasError(msg);
+      useLogStore.getState().add('error', 'AI分析', `架构图生成失败: ${msg}`);
     } finally {
       setGeneratingCanvas(false);
     }

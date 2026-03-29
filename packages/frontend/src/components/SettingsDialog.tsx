@@ -25,6 +25,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [mcpEnabled, setMcpEnabled] = useState(store.mcpEnabled);
   const [closeAction, setCloseAction] = useState<'ask' | 'minimize' | 'quit'>(store.closeAction);
   const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(store.customHeaders);
+  const [githubToken, setGithubToken] = useState(store.githubToken);
   const [customModel, setCustomModel] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testResult, setTestResult] = useState('');
@@ -54,6 +55,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       setMcpEnabled(store.mcpEnabled);
       setCloseAction(store.closeAction);
       setCustomHeaders(store.customHeaders);
+      setGithubToken(store.githubToken);
       setCustomModel(false);
       setActiveTab('ai');
       store.fetchModels();
@@ -101,6 +103,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     store.setMcpEnabled(mcpEnabled);
     store.setCloseAction(closeAction);
     store.setCustomHeaders(customHeaders);
+    store.setGithubToken(githubToken);
     store.save();
 
     if (window.electron?.desktop) {
@@ -515,6 +518,23 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <span className="material-symbols-outlined text-sm">add</span>
                   添加请求头
                 </button>
+              </div>
+
+              {/* GitHub Token */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  GitHub Token <span className="text-slate-400 font-normal">(可选)</span>
+                </label>
+                <input
+                  type="password"
+                  value={githubToken}
+                  onChange={(e) => setGithubToken(e.target.value)}
+                  placeholder="ghp_..."
+                  className="w-full rounded-xl bg-slate-50 py-2.5 px-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25 transition-all duration-200"
+                />
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  配置后可分析私有 GitHub 仓库，支持 Personal Access Token
+                </p>
               </div>
 
               {/* 模型测试 */}

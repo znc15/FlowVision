@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSettingsStore } from '../../store/settingsStore';
+import { useLogStore } from '../../store/logStore';
 
 /** 文件树节点数据结构 */
 export interface FileTreeNode {
@@ -245,16 +247,21 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
     setGithubLoading(true);
     setError('');
     try {
-      const res = await fetch(`http://localhost:3001/api/github-tree?repo=${encodeURIComponent(trimmed)}`);
+      const githubToken = useSettingsStore.getState().githubToken;
+      const params = new URLSearchParams({ repo: trimmed });
+      if (githubToken) params.set('token', githubToken);
+      const res = await fetch(`http://localhost:3001/api/github-tree?${params}`);
       const data = await res.json();
       if (data.success) {
         setFetchedTree(data.data);
         setIsGithub(true);
         setCurrentPath(`github:${trimmed}`);
         setShowGithubInput(false);
+        useLogStore.getState().add('success', 'GitHub导入', `仓库 ${trimmed} 导入成功`);
         try { localStorage.setItem(PROJECT_PATH_KEY, `github:${trimmed}`); } catch { /* 忽略 */ }
       } else {
         setError(data.error || 'GitHub 仓库加载失败');
+        useLogStore.getState().add('error', 'GitHub导入', data.error || 'GitHub 仓库加载失败');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : '获取 GitHub 仓库失败');
