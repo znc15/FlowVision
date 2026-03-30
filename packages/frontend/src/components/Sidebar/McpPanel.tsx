@@ -115,12 +115,17 @@ const MCP_TOOLS = [
   { name: 'list_nodes', desc: '列出所有节点摘要信息', icon: 'list', category: 'query' as const },
   { name: 'get_node', desc: '获取指定节点详情及关联边', icon: 'info', category: 'query' as const },
   { name: 'get_stats', desc: '获取流程图统计概览', icon: 'bar_chart', category: 'query' as const },
+  { name: 'search_nodes', desc: '按关键词搜索节点', icon: 'search', category: 'query' as const },
+  { name: 'get_subgraph', desc: '获取节点及其连通子图', icon: 'account_tree', category: 'query' as const },
   { name: 'add_node', desc: '向流程图中添加新节点（支持 12 种类型）', icon: 'add_circle', category: 'mutate' as const },
+  { name: 'batch_add_nodes', desc: '批量添加多个节点', icon: 'playlist_add', category: 'mutate' as const },
   { name: 'update_node', desc: '修改指定节点的属性', icon: 'edit', category: 'mutate' as const },
   { name: 'remove_node', desc: '删除一个节点（级联删除关联边）', icon: 'remove_circle', category: 'mutate' as const },
   { name: 'connect_nodes', desc: '在两个节点之间创建连线', icon: 'link', category: 'mutate' as const },
   { name: 'remove_edge', desc: '删除指定连线', icon: 'link_off', category: 'mutate' as const },
-  { name: 'apply_diff', desc: '批量应用 GraphDiff 到流程图', icon: 'difference', category: 'manage' as const },
+  { name: 'update_edge', desc: '修改连线标签、类型与动画', icon: 'edit_road', category: 'mutate' as const },
+  { name: 'apply_diff', desc: '批量应用 GraphDiff 到流程图（增 / 删 / 改）', icon: 'difference', category: 'manage' as const },
+  { name: 'export_graph', desc: '导出流程图为 Mermaid 格式文本', icon: 'output', category: 'manage' as const },
   { name: 'clear_graph', desc: '清空整个画布', icon: 'delete_forever', category: 'manage' as const },
 ];
 
