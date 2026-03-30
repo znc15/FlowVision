@@ -49,7 +49,7 @@ function TabBar() {
           key={tab.id}
           onClick={() => { if (editingTabId !== tab.id) handleSwitchTab(tab.id); }}
           onDoubleClick={() => handleDoubleClick(tab.id, tab.title)}
-          className={`group flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+          className={`group flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap select-none ${
             tab.id === activeTabId
               ? 'bg-primary-container/15 text-primary'
               : 'text-on-surface-variant hover:bg-surface-container-high/80'
@@ -73,6 +73,18 @@ function TabBar() {
             />
           ) : (
             <span>{tab.title}</span>
+          )}
+          {tab.id === activeTabId && editingTabId !== tab.id && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDoubleClick(tab.id, tab.title);
+              }}
+              className="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary cursor-pointer"
+              title="重命名"
+            >
+              edit
+            </span>
           )}
           {tabs.length > 1 && (
             <span

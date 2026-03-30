@@ -3,7 +3,6 @@ import { useEffect, useState, type CSSProperties } from 'react';
 function WindowTitleBar() {
   const isElectron = Boolean(window.electron?.isElectron);
   const [maximized, setMaximized] = useState(false);
-  const appVersion = window.electron?.appVersion || '1.0.0';
 
   useEffect(() => {
     if (!isElectron || !window.electron?.window) return;
@@ -60,7 +59,6 @@ function WindowTitleBar() {
         <div className="window-titlebar-logo">F</div>
         <div className="min-w-0">
           <div className="window-titlebar-title">FlowVision</div>
-          <div className="window-titlebar-subtitle">桌面流程画布 · v{appVersion}</div>
         </div>
       </div>
 

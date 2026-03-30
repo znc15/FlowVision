@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
@@ -15,9 +16,54 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
+import { useReactFlow } from '@xyflow/react';
 import { useGraphStore } from '../../store/graphStore';
 import { usePreviewStore } from '../../store/previewStore';
 import { useHistoryStore } from '../../store/historyStore';
+import { NodeType, GraphNode } from '../../types/graph';
+import { forceRelayout } from '../../utils/layout';
+
+const NODE_TEMPLATES: { type: NodeType; label: string; icon: string }[] = [
+  { type: 'process', label: '流程', icon: 'crop_square' },
+  { type: 'decision', label: '判断', icon: 'diamond' },
+  { type: 'data', label: '数据', icon: 'database' },
+  { type: 'start', label: '开始', icon: 'play_circle' },
+  { type: 'end', label: '结束', icon: 'stop_circle' },
+  { type: 'subprocess', label: '子流程', icon: 'account_tree' },
+  { type: 'delay', label: '延迟', icon: 'hourglass_top' },
+  { type: 'document', label: '文档', icon: 'article' },
+  { type: 'manual_input', label: '手动输入', icon: 'touch_app' },
+  { type: 'annotation', label: '注释', icon: 'sticky_note_2' },
+  { type: 'connector', label: '连接器', icon: 'radio_button_checked' },
+];
+let _nodeSeq = 0;
+
+/** 视图操作按钮（需在 ReactFlow 上下文内） */
+function ViewControls({ isFocusMode, onToggleFocusMode }: { isFocusMode: boolean; onToggleFocusMode?: () => void }) {
+  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const { nodes, edges } = useGraphStore();
+  const { pushHistory } = useHistoryStore();
+
+  const handleAutoLayout = useCallback(() => {
+    const graph = forceRelayout({ nodes, edges });
+    useGraphStore.getState().replaceGraph(graph);
+    pushHistory(graph);
+    setTimeout(() => fitView({ padding: 0.2 }), 50);
+  }, [nodes, edges, pushHistory, fitView]);
+
+  return (
+    <>
+      <div className="w-px h-5 bg-outline-variant/20 shrink-0 mx-1" />
+      <button type="button" onClick={() => zoomIn()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="放大"><span className="material-symbols-outlined text-base">zoom_in</span></button>
+      <button type="button" onClick={() => zoomOut()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="缩小"><span className="material-symbols-outlined text-base">zoom_out</span></button>
+      <button type="button" onClick={() => fitView({ padding: 0.2 })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="适应画布"><span className="material-symbols-outlined text-base">fit_screen</span></button>
+      <button type="button" onClick={handleAutoLayout} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="自动布局"><span className="material-symbols-outlined text-base">account_tree</span></button>
+      {onToggleFocusMode && (
+        <button type="button" onClick={onToggleFocusMode} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title={isFocusMode ? '退出画布全屏 (Esc)' : '画布全屏显示 (F11)'}><span className="material-symbols-outlined text-base">{isFocusMode ? 'fullscreen_exit' : 'fullscreen'}</span></button>
+      )}
+    </>
+  );
+}
 
 import ProcessNode from './nodes/ProcessNode';
 import DecisionNode from './nodes/DecisionNode';
@@ -67,9 +113,24 @@ interface CanvasProps {
 }
 
 function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: CanvasProps) {
-  const { nodes: graphNodes, edges: graphEdges, addEdge: addGraphEdge, updateNode } = useGraphStore();
+  const { nodes: graphNodes, edges: graphEdges, addEdge: addGraphEdge, updateNode, addNode } = useGraphStore();
   const { previewNodes, previewEdges, isPreviewMode, clear: clearPreview } = usePreviewStore();
   const { undo, redo, canUndo, canRedo, pushHistory } = useHistoryStore();
+
+  const handleAddNode = useCallback(
+    (type: NodeType) => {
+      const id = `node-${Date.now()}-${++_nodeSeq}`;
+      const newNode: GraphNode = {
+        id,
+        type,
+        position: { x: 100 + _nodeSeq * 30, y: 100 + _nodeSeq * 30 },
+        data: { label: `新${NODE_TEMPLATES.find((t) => t.type === type)?.label ?? '节点'}` },
+      };
+      addNode(newNode);
+      pushHistory({ nodes: [...graphNodes, newNode], edges: graphEdges });
+    },
+    [addNode, graphNodes, graphEdges, pushHistory],
+  );
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -191,35 +252,38 @@ function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: Canvas
   }, [clearPreview]);
 
   return (
+    <ReactFlowProvider>
     <CanvasContext.Provider value={{ openEditDialog: setEditingNodeId }}>
     <div className="relative w-full flex-1 min-h-0">
       {/* 节点编辑对话框 */}
       <NodeEditDialog nodeId={editingNodeId} onClose={() => setEditingNodeId(null)} />
 
       {/* 顶部工具栏 */}
-      <div className="absolute top-0 left-0 right-0 workbench-panel-header px-6 z-10">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant bg-slate-200/70 px-2 py-1 rounded-md">
-            执行流程架构
-          </span>
-          {isFocusMode && (
-            <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">
-              <span className="material-symbols-outlined text-[14px]">fullscreen</span>
-              画布全屏
-            </span>
-          )}
-        </div>
-        <div className="ml-auto flex items-center gap-4">
+      <div className="absolute top-0 left-0 right-0 workbench-panel-header z-10 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1 w-full min-w-max">
+          {NODE_TEMPLATES.map((tpl) => (
+            <button
+              key={tpl.type}
+              type="button"
+              onClick={() => handleAddNode(tpl.type)}
+              className="icon-button-soft h-8 w-8 rounded-xl shrink-0"
+              title={`添加${tpl.label}节点`}
+            >
+              <span className="material-symbols-outlined text-base">{tpl.icon}</span>
+            </button>
+          ))}
+          <ViewControls isFocusMode={isFocusMode} onToggleFocusMode={onToggleFocusMode} />
+          <div className="flex-1 min-w-4" />
           {/* 图例 */}
-          <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
+          <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant whitespace-nowrap shrink-0">
             <span className="w-2 h-2 rounded-full bg-primary"></span> 入口
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
+          <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant whitespace-nowrap shrink-0 ml-2">
             <span className="w-2 h-2 rounded-full bg-secondary"></span> 逻辑分支
           </div>
 
           {/* 撤销/重做 */}
-          <div className="flex items-center gap-1 ml-4">
+          <div className="flex items-center gap-1 ml-4 shrink-0">
             <button
               onClick={undo}
               disabled={!canUndo}
@@ -288,8 +352,6 @@ function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: Canvas
           <Panel position="top-center" className="mt-2 w-[min(1080px,calc(100%-2rem))]">
             <Toolbar
               onShowHistory={() => setHistoryOpen(true)}
-              isFocusMode={isFocusMode}
-              onToggleFocusMode={onToggleFocusMode}
             />
           </Panel>
         </ReactFlow>
@@ -329,6 +391,7 @@ function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: Canvas
       </div>
     </div>
     </CanvasContext.Provider>
+    </ReactFlowProvider>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLogStore, LogLevel } from '../../store/logStore';
+import { useLogStore, LogLevel, LogEntry } from '../../store/logStore';
 
 const LEVEL_STYLES: Record<LogLevel, { icon: string; color: string; bg: string }> = {
   info:    { icon: 'info', color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -35,13 +35,69 @@ function DetailContent({ detail }: { detail: string }) {
   }
 }
 
+/** 日志详情弹窗 */
+function LogDetailDialog({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
+  const style = LEVEL_STYLES[entry.level];
+  const time = new Date(entry.timestamp);
+  const fullTime = `${time.getFullYear()}-${(time.getMonth()+1).toString().padStart(2,'0')}-${time.getDate().toString().padStart(2,'0')} ${time.getHours().toString().padStart(2,'0')}:${time.getMinutes().toString().padStart(2,'0')}:${time.getSeconds().toString().padStart(2,'0')}.${time.getMilliseconds().toString().padStart(3,'0')}`;
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-start justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md mt-12 mx-4 rounded-2xl bg-white shadow-xl border border-outline-variant/20 overflow-hidden animate-[fadeIn_150ms_ease-out]" onClick={(e) => e.stopPropagation()}>
+        {/* 标题栏 */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-2">
+            <span className={`material-symbols-outlined text-base ${style.color}`}>{style.icon}</span>
+            <span className="text-sm font-semibold text-slate-800">日志详情</span>
+          </div>
+          <button onClick={onClose} className="icon-button-soft h-7 w-7">
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        </div>
+
+        {/* 元信息 */}
+        <div className="px-5 py-4 space-y-3 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${style.bg} ${style.color}`}>{entry.level}</span>
+            <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{entry.source}</span>
+          </div>
+          <p className="text-xs text-slate-800 leading-relaxed">{entry.message}</p>
+          <p className="text-[10px] text-slate-400 flex items-center gap-1">
+            <span className="material-symbols-outlined text-[11px]">schedule</span>
+            {fullTime}
+          </p>
+        </div>
+
+        {/* 详细内容 */}
+        {entry.detail && (
+          <div className="px-5 py-4 max-h-80 overflow-y-auto">
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="material-symbols-outlined text-xs text-slate-400">data_object</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">详细信息</span>
+            </div>
+            <DetailContent detail={entry.detail} />
+          </div>
+        )}
+
+        {/* 无详情提示 */}
+        {!entry.detail && (
+          <div className="px-5 py-6 text-center">
+            <span className="material-symbols-outlined text-2xl text-slate-300 mb-1 block">info</span>
+            <p className="text-[11px] text-slate-400">此日志没有附加详细信息</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AgentLogPanel() {
   const entries = useLogStore((s) => s.entries);
   const clear = useLogStore((s) => s.clear);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
 
   return (
-    <div className="h-full flex flex-col bg-surface-container-low">
+    <div className="h-full flex flex-col bg-surface-container-low relative">
       {/* 标题栏 */}
       <div className="workbench-panel-header px-4 shrink-0 flex items-center justify-between">
         <span className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant">
@@ -70,15 +126,14 @@ function AgentLogPanel() {
           <div className="divide-y divide-outline-variant/30">
             {entries.map((entry) => {
               const style = LEVEL_STYLES[entry.level];
-              const isExpanded = expandedId === entry.id;
               const time = new Date(entry.timestamp);
               const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}:${time.getSeconds().toString().padStart(2, '0')}`;
 
               return (
                 <div
                   key={entry.id}
-                  onClick={() => entry.detail && setExpandedId(isExpanded ? null : entry.id)}
-                  className={`px-4 py-2.5 ${entry.detail ? 'cursor-pointer hover:bg-surface-container-highest/40' : ''} ${isExpanded ? 'bg-surface-container-highest/20' : ''} transition-colors duration-100`}
+                  onClick={() => setSelectedEntry(entry)}
+                  className="px-4 py-2.5 cursor-pointer hover:bg-surface-container-highest/40 transition-colors duration-100"
                 >
                   <div className="flex items-start gap-2">
                     <span className={`material-symbols-outlined text-sm mt-0.5 shrink-0 ${style.color}`}>
@@ -94,22 +149,11 @@ function AgentLogPanel() {
                         </span>
                         <span className="text-[9px] text-on-surface-variant/30">{timeStr}</span>
                       </div>
-                      <p className="text-[11px] text-on-surface/80 mt-1 leading-relaxed">{entry.message}</p>
-                      {isExpanded && entry.detail && (
-                        <div className="mt-2 p-3 bg-surface-container-highest/40 rounded-lg border border-outline-variant/10">
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <span className="material-symbols-outlined text-xs text-on-surface-variant/40">data_object</span>
-                            <span className="text-[9px] font-bold text-on-surface-variant/40 uppercase tracking-wider">详细信息</span>
-                          </div>
-                          <DetailContent detail={entry.detail} />
-                        </div>
-                      )}
+                      <p className="text-[11px] text-on-surface/80 mt-1 leading-relaxed line-clamp-2">{entry.message}</p>
                     </div>
-                    {entry.detail && (
-                      <span className={`material-symbols-outlined text-xs text-on-surface-variant/30 mt-1 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}>
-                        expand_more
-                      </span>
-                    )}
+                    <span className="material-symbols-outlined text-xs text-on-surface-variant/30 mt-1 shrink-0">
+                      chevron_right
+                    </span>
                   </div>
                 </div>
               );
@@ -117,6 +161,11 @@ function AgentLogPanel() {
           </div>
         )}
       </div>
+
+      {/* 详情弹窗 */}
+      {selectedEntry && (
+        <LogDetailDialog entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+      )}
     </div>
   );
 }

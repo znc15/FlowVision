@@ -601,6 +601,22 @@ ${fileContextStr}
             </div>
           )}
 
+          {/* 项目分析流输出窗口 */}
+          {generating && streamingOverviewText && (
+            <div className="mb-6 rounded-2xl border border-primary/10 bg-white shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-sm">terminal</span>
+                  <span className="text-[11px] font-semibold text-slate-700">流式输出</span>
+                </div>
+                <span className="text-[9px] text-slate-400">{streamingOverviewText.length} 字符</span>
+              </div>
+              <div className="px-4 py-3 max-h-64 overflow-y-auto bg-slate-900 font-mono">
+                <pre className="text-[10px] text-green-400 leading-relaxed whitespace-pre-wrap break-words">{streamingOverviewText}</pre>
+              </div>
+            </div>
+          )}
+
           {/* Agent 工作日志 — 架构图生成 */}
           {generatingCanvas && (
             <div className="mb-6 rounded-2xl border border-secondary/15 bg-white shadow-sm overflow-hidden">

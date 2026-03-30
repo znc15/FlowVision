@@ -102,7 +102,7 @@
     @apply text-[11px] font-medium whitespace-nowrap;
   }
 
-  @container (max-width: 900px) {
+  @container (max-width: 700px) {
     .toolbar-label-text {
       @apply hidden;
     }

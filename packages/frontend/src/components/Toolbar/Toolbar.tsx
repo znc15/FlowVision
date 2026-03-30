@@ -3,38 +3,17 @@ import { useReactFlow } from '@xyflow/react';
 import { useGraphStore } from '../../store/graphStore';
 import { useHistoryStore } from '../../store/historyStore';
 import { useTabStore } from '../../store/tabStore';
-import { forceRelayout } from '../../utils/layout';
-import { NodeType, GraphNode } from '../../types/graph';
 import { exportJSON, exportPNG, exportMarkdown, importJSON, exportSystemPrompt } from '../../utils/export';
 import { shareGraph } from '../../utils/share';
 
-/** 节点模板 */
-const NODE_TEMPLATES: { type: NodeType; label: string; icon: string }[] = [
-  { type: 'process', label: '流程', icon: 'crop_square' },
-  { type: 'decision', label: '判断', icon: 'diamond' },
-  { type: 'data', label: '数据', icon: 'database' },
-  { type: 'start', label: '开始', icon: 'play_circle' },
-  { type: 'end', label: '结束', icon: 'stop_circle' },
-  { type: 'subprocess', label: '子流程', icon: 'account_tree' },
-  { type: 'delay', label: '延迟', icon: 'hourglass_top' },
-  { type: 'document', label: '文档', icon: 'article' },
-  { type: 'manual_input', label: '手动输入', icon: 'touch_app' },
-  { type: 'annotation', label: '注释', icon: 'sticky_note_2' },
-  { type: 'connector', label: '连接器', icon: 'radio_button_checked' },
-];
-
-let nodeSeq = 0;
-
 interface ToolbarProps {
   onShowHistory?: () => void;
-  isFocusMode?: boolean;
-  onToggleFocusMode?: () => void;
 }
 
-function Toolbar({ onShowHistory, isFocusMode = false, onToggleFocusMode }: ToolbarProps) {
-  const { addNode, nodes, edges } = useGraphStore();
+function Toolbar({ onShowHistory }: ToolbarProps) {
+  const { nodes, edges } = useGraphStore();
   const { pushHistory } = useHistoryStore();
-  const { fitView, zoomIn, zoomOut, getNodes, setViewport, toObject } = useReactFlow();
+  const { fitView, getNodes, setViewport, toObject } = useReactFlow();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -46,30 +25,6 @@ function Toolbar({ onShowHistory, isFocusMode = false, onToggleFocusMode }: Tool
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }, [nodes, edges]);
-
-  /** 添加新节点 */
-  const handleAddNode = useCallback(
-    (type: NodeType) => {
-      const id = `node-${Date.now()}-${++nodeSeq}`;
-      const newNode: GraphNode = {
-        id,
-        type,
-        position: { x: 100 + nodeSeq * 30, y: 100 + nodeSeq * 30 },
-        data: { label: `新${NODE_TEMPLATES.find((t) => t.type === type)?.label ?? '节点'}` },
-      };
-      addNode(newNode);
-      pushHistory({ nodes: [...nodes, newNode], edges });
-    },
-    [addNode, nodes, edges, pushHistory],
-  );
-
-  /** 自动布局 */
-  const handleAutoLayout = useCallback(() => {
-    const graph = forceRelayout({ nodes, edges });
-    useGraphStore.getState().replaceGraph(graph);
-    pushHistory(graph);
-    setTimeout(() => fitView({ padding: 0.2 }), 50);
-  }, [nodes, edges, pushHistory, fitView]);
 
   /** 清空画布 */
   const handleClear = useCallback(() => {
@@ -132,49 +87,6 @@ function Toolbar({ onShowHistory, isFocusMode = false, onToggleFocusMode }: Tool
   return (
     <div className="w-full rounded-2xl bg-surface-container-lowest/94 px-3 py-2 backdrop-blur-md ghost-border-soft shadow-[0_10px_30px_rgba(15,23,42,0.08)] overflow-hidden" style={{ containerType: 'inline-size' }}>
       <div className="flex flex-wrap items-center gap-2">
-        {/* 节点模板按钮组 */}
-        <div className="flex items-center gap-1">
-          {NODE_TEMPLATES.map((tpl) => (
-            <button
-              key={tpl.type}
-              type="button"
-              onClick={() => handleAddNode(tpl.type)}
-              className="icon-button-soft h-8 w-8 rounded-xl shrink-0"
-              title={`添加${tpl.label}节点`}
-            >
-              <span className="material-symbols-outlined text-base">{tpl.icon}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="w-px h-5 bg-outline-variant/20 shrink-0" />
-
-        {/* 视图操作组 */}
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={() => zoomIn()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="放大">
-            <span className="material-symbols-outlined text-base">zoom_in</span>
-          </button>
-          <button type="button" onClick={() => zoomOut()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="缩小">
-            <span className="material-symbols-outlined text-base">zoom_out</span>
-          </button>
-          <button type="button" onClick={() => fitView({ padding: 0.2 })} className="toolbar-label-btn" title="适应画布">
-            <span className="material-symbols-outlined text-base">fit_screen</span>
-            <span className="toolbar-label-text">适应画布</span>
-          </button>
-          <button type="button" onClick={handleAutoLayout} className="toolbar-label-btn" title="自动布局">
-            <span className="material-symbols-outlined text-base">account_tree</span>
-            <span className="toolbar-label-text">自动布局</span>
-          </button>
-          {onToggleFocusMode && (
-            <button type="button" onClick={onToggleFocusMode} className="toolbar-label-btn" title={isFocusMode ? '退出画布全屏 (Esc)' : '画布全屏显示 (F11)'}>
-              <span className="material-symbols-outlined text-base">{isFocusMode ? 'fullscreen_exit' : 'fullscreen'}</span>
-              <span className="toolbar-label-text">{isFocusMode ? '退出全屏' : '画布全屏'}</span>
-            </button>
-          )}
-        </div>
-
-        <div className="w-px h-5 bg-outline-variant/20 shrink-0" />
-
         {/* 文件操作组 */}
         <div className="flex items-center gap-1">
           <button type="button" onClick={handleClear} className="toolbar-label-btn" title="清空画布">

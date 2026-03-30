@@ -74,19 +74,19 @@ function SideNavBar({ activeTab, onTabChange, collapsed = false, onToggleCollaps
       <div className="space-y-1">
         {/* 一言 */}
         {hitokoto && !collapsed && (
-          <div className="hidden md:block px-2 py-2 mb-2 rounded-xl bg-primary/5 ghost-border-soft">
-            <p className="text-[9px] text-on-surface-variant/70 leading-relaxed italic line-clamp-3">
+          <div className="hidden md:block px-2 py-2 mb-2 rounded-xl bg-primary/10 ghost-border-soft">
+            <p className="text-[10px] text-on-surface-variant leading-relaxed italic line-clamp-3">
               「{hitokoto.text}」
             </p>
             {hitokoto.from && (
-              <p className="text-[8px] text-on-surface-variant/40 mt-1 text-right">—— {hitokoto.from}</p>
+              <p className="text-[9px] text-on-surface-variant/60 mt-1 text-right">—— {hitokoto.from}</p>
             )}
           </div>
         )}
         {hitokoto && collapsed && (
           <button
             type="button"
-            className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl text-on-surface-variant/40 hover:bg-primary/10 hover:text-primary transition-colors duration-150"
+            className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl text-on-surface-variant/70 hover:bg-primary/10 hover:text-primary transition-colors duration-150"
             title={`「${hitokoto.text}」—— ${hitokoto.from || ''}`}
           >
             <span className="material-symbols-outlined text-lg leading-none">format_quote</span>
