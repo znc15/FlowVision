@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSettingsStore, AIProvider } from '../store/settingsStore';
 import { useLogStore } from '../store/logStore';
 import { useGraphStore } from '../store/graphStore';
-import { exportBackup, importBackup, backupToWebDAV, restoreFromWebDAV } from '../utils/export';
+import { useTabStore } from '../store/tabStore';
+import { useChatStore } from '../store/chatStore';
+import { exportBackup, importBackup, backupToWebDAV, restoreFromWebDAV, exportChatHistory, exportSettings, exportCanvasTabs, exportLogs } from '../utils/export';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -19,6 +21,9 @@ type SettingsTab = 'ai' | 'prompt' | 'backup' | 'about' | 'update' | 'log' | 'st
 function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const store = useSettingsStore();
   const { nodes, edges } = useGraphStore();
+  const logEntries = useLogStore((s) => s.entries);
+  const canvasTabs = useTabStore((s) => s.tabs);
+  const chatConversations = useChatStore((s) => s.conversations);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('ai');
   const [provider, setProvider] = useState<AIProvider>(store.provider);
@@ -884,29 +889,40 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           {/* ===== 备份标签页 ===== */}
           {activeTab === 'backup' && (
             <div className="space-y-6 animate-[fadeIn_200ms_ease-out]">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="rounded-2xl bg-slate-50 p-4 ghost-border-soft">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">当前节点</p>
                   <p className="mt-2 text-2xl font-bold text-slate-800">{nodes.length}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">包含在备份文件中</p>
+                  <p className="text-[11px] text-slate-400 mt-1">画布节点数据</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4 ghost-border-soft">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">当前连线</p>
-                  <p className="mt-2 text-2xl font-bold text-slate-800">{edges.length}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">导入后会整体恢复</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">画布标签</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-800">{canvasTabs.length}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">所有标签页图数据</p>
                 </div>
-                <div className="rounded-2xl bg-primary/5 p-4 ring-1 ring-primary/10">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-primary/60">备份范围</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-800">设置、对话、画布</p>
-                  <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">导出为单个 JSON，适合迁移到另一台机器或回滚当前工作区。</p>
+                <div className="rounded-2xl bg-slate-50 p-4 ghost-border-soft">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI 对话</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-800">{chatConversations.length}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">对话记录数</p>
                 </div>
+                <div className="rounded-2xl bg-slate-50 p-4 ghost-border-soft">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Agent 日志</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-800">{logEntries.length}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">运行日志条数</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-primary/5 p-4 ring-1 ring-primary/10">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-primary/60">备份范围</p>
+                <p className="mt-2 text-sm font-semibold text-slate-800">设置 · 对话 · 画布 · 标签页 · 项目分析 · 布局</p>
+                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">完整备份包含所有 FlowVision 本地数据，导出为单个 JSON 文件。</p>
               </div>
 
               <div className="rounded-2xl bg-slate-50 p-5 ghost-border-soft space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">导出与恢复</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">完整备份</h3>
                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                    导出会保存当前设置、AI 对话和画布数据；导入会覆盖本地同名数据，建议操作前先导出一次备份。
+                    导出会保存所有本地数据；导入会覆盖本地同名数据，建议操作前先导出一次备份。
                   </p>
                 </div>
                 <div className="flex flex-col md:flex-row gap-3">
@@ -938,15 +954,55 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </div>
               </div>
 
+              <div className="rounded-2xl bg-slate-50 p-5 ghost-border-soft space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">单项导出</h3>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                    按数据类别单独导出，方便只迁移特定数据或与他人分享。
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => exportChatHistory()}
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all duration-200"
+                  >
+                    <span className="material-symbols-outlined text-sm">chat</span>
+                    AI 对话记录
+                  </button>
+                  <button
+                    onClick={() => exportSettings()}
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium bg-violet-50 text-violet-700 hover:bg-violet-100 transition-all duration-200"
+                  >
+                    <span className="material-symbols-outlined text-sm">settings</span>
+                    应用设置
+                  </button>
+                  <button
+                    onClick={() => exportCanvasTabs()}
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all duration-200"
+                  >
+                    <span className="material-symbols-outlined text-sm">dashboard</span>
+                    画布标签页
+                  </button>
+                  <button
+                    onClick={() => exportLogs(logEntries)}
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-all duration-200"
+                  >
+                    <span className="material-symbols-outlined text-sm">description</span>
+                    Agent 日志
+                  </button>
+                </div>
+              </div>
+
               <div className="rounded-2xl bg-amber-50/70 p-4 border border-amber-100 space-y-2">
                 <div className="flex items-center gap-2 text-amber-700">
                   <span className="material-symbols-outlined text-base">info</span>
                   <span className="text-sm font-semibold">恢复提示</span>
                 </div>
                 <ul className="text-[11px] leading-relaxed text-amber-800/90 space-y-1">
-                  <li>导入后会覆盖已有的 FlowVision 本地设置与缓存。</li>
+                  <li>完整备份导入后会覆盖已有的 FlowVision 本地设置与缓存。</li>
                   <li>如果包含画布数据，会立即替换当前画布内容。</li>
                   <li>跨设备恢复后，建议重新检查 AI Key、代理和桌面行为配置。</li>
+                  <li>单项导出仅包含对应类别的数据，不影响其他设置。</li>
                 </ul>
               </div>
 

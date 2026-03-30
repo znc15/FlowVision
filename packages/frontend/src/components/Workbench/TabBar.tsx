@@ -47,7 +47,7 @@ function TabBar() {
       {tabs.map((tab) => (
         <button
           key={tab.id}
-          onClick={() => handleSwitchTab(tab.id)}
+          onClick={() => { if (editingTabId !== tab.id) handleSwitchTab(tab.id); }}
           onDoubleClick={() => handleDoubleClick(tab.id, tab.title)}
           className={`group flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
             tab.id === activeTabId
@@ -67,7 +67,9 @@ function TabBar() {
                 if (e.key === 'Escape') setEditingTabId(null);
               }}
               onClick={(e) => e.stopPropagation()}
-              className="w-20 bg-transparent border-b border-primary/40 outline-none text-xs font-medium"
+              onDoubleClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="w-24 bg-transparent border-b border-primary/40 outline-none text-xs font-medium"
             />
           ) : (
             <span>{tab.title}</span>

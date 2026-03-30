@@ -55,8 +55,10 @@ function SubprocessNode({ id, data, selected }: NodeProps<FlowNode>) {
         <p className="text-[10px] text-on-surface-variant leading-snug">{data.description}</p>
       )}
 
-      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-primary" />
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-primary" />
+      <Handle type="target" position={Position.Top} id="top" className="w-3 h-3 !bg-primary" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className="w-3 h-3 !bg-primary" />
+      <Handle type="target" position={Position.Left} id="left" className="w-2.5 h-2.5 !bg-primary/60" />
+      <Handle type="source" position={Position.Right} id="right" className="w-2.5 h-2.5 !bg-primary/60" />
     </div>
   );
 }

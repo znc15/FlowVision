@@ -231,6 +231,45 @@ export function exportJSON(graph: GraphData, filename = 'flowvision-graph.json')
   triggerDownload(blob, filename);
 }
 
+/** 仅导出 AI 对话记录 */
+export function exportChatHistory() {
+  const raw = localStorage.getItem('flowvision-chat-conversations');
+  const data = raw ? JSON.parse(raw) : [];
+  const json = JSON.stringify({ _type: 'chat-history', _exportedAt: new Date().toISOString(), conversations: data }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  triggerDownload(blob, `flowvision-chat-${new Date().toISOString().slice(0, 10)}.json`);
+}
+
+/** 仅导出应用设置 */
+export function exportSettings() {
+  const raw = localStorage.getItem('flowvision-settings');
+  const data = raw ? JSON.parse(raw) : {};
+  const json = JSON.stringify({ _type: 'settings', _exportedAt: new Date().toISOString(), settings: data }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  triggerDownload(blob, `flowvision-settings-${new Date().toISOString().slice(0, 10)}.json`);
+}
+
+/** 导出画布标签数据（包含所有标签页的图数据） */
+export function exportCanvasTabs() {
+  const raw = localStorage.getItem('flowvision-tabs');
+  const data = raw ? JSON.parse(raw) : { tabs: [], activeTabId: '' };
+  const json = JSON.stringify({ _type: 'canvas-tabs', _exportedAt: new Date().toISOString(), ...data }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  triggerDownload(blob, `flowvision-tabs-${new Date().toISOString().slice(0, 10)}.json`);
+}
+
+/** 导出 Agent 日志（纯文本格式） */
+export function exportLogs(entries: Array<{ timestamp: number; level: string; source: string; message: string; detail?: string }>) {
+  const lines = entries.map((e) => {
+    const time = new Date(e.timestamp).toLocaleString('zh-CN');
+    const base = `[${time}] [${e.level.toUpperCase()}] [${e.source}] ${e.message}`;
+    return e.detail ? `${base}\n  详情: ${e.detail}` : base;
+  });
+  const text = lines.join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  triggerDownload(blob, `flowvision-logs-${new Date().toISOString().slice(0, 10)}.txt`);
+}
+
 /** 从 JSON 文件导入图数据 */
 export function importJSON(): Promise<GraphData | null> {
   return new Promise((resolve) => {

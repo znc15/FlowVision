@@ -244,6 +244,153 @@ async function main() {
     }
   );
 
+  server.tool(
+    'search_nodes',
+    '搜索节点（按标签、描述或标签关键词）',
+    {
+      query: z.string().describe('搜索关键词'),
+    },
+    async ({ query }) => {
+      const graph = graphState.getGraph();
+      const q = query.toLowerCase();
+      const results = graph.nodes.filter(
+        (n) =>
+          n.data.label.toLowerCase().includes(q) ||
+          (n.data.description && n.data.description.toLowerCase().includes(q)) ||
+          (n.data.tags && n.data.tags.some((t) => t.toLowerCase().includes(q)))
+      );
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ query, count: results.length, nodes: results }, null, 2),
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    'get_subgraph',
+    '获取指定节点及其直接相连节点构成的子图',
+    {
+      nodeId: z.string().describe('中心节点 ID'),
+      depth: z.number().optional().describe('遍历深度（默认 1）'),
+    },
+    async ({ nodeId, depth = 1 }) => {
+      const graph = graphState.getGraph();
+      const visited = new Set<string>();
+      const queue: { id: string; d: number }[] = [{ id: nodeId, d: 0 }];
+
+      while (queue.length > 0) {
+        const { id, d } = queue.shift()!;
+        if (visited.has(id) || d > depth) continue;
+        visited.add(id);
+        if (d < depth) {
+          for (const e of graph.edges) {
+            if (e.source === id && !visited.has(e.target)) queue.push({ id: e.target, d: d + 1 });
+            if (e.target === id && !visited.has(e.source)) queue.push({ id: e.source, d: d + 1 });
+          }
+        }
+      }
+
+      const subNodes = graph.nodes.filter((n) => visited.has(n.id));
+      const subEdges = graph.edges.filter((e) => visited.has(e.source) && visited.has(e.target));
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ nodes: subNodes, edges: subEdges }, null, 2),
+        }],
+      };
+    }
+  );
+
+  server.tool(
+    'update_edge',
+    '修改指定连线的属性',
+    {
+      edgeId: z.string().describe('边 ID'),
+      label: z.string().optional().describe('新标签'),
+      type: z.enum(['default', 'step', 'smoothstep', 'straight']).optional().describe('连线类型'),
+      animated: z.boolean().optional().describe('是否设为动画连线'),
+    },
+    async ({ edgeId, label, type, animated }) => {
+      const graph = graphState.getGraph();
+      const edge = graph.edges.find((e) => e.id === edgeId);
+      if (!edge) {
+        return { content: [{ type: 'text', text: `未找到连线: ${edgeId}` }] };
+      }
+      if (label !== undefined) edge.label = label;
+      if (type !== undefined) edge.type = type;
+      if (animated !== undefined) edge.animated = animated;
+      graphState.setGraph(graph);
+      broadcaster.broadcast({ type: 'graph:replace', payload: graph });
+      return {
+        content: [{ type: 'text', text: JSON.stringify(graph, null, 2) }],
+      };
+    }
+  );
+
+  server.tool(
+    'export_graph',
+    '导出流程图为 Mermaid 格式文本',
+    {},
+    async () => {
+      const graph = graphState.getGraph();
+      let mermaid = 'graph TD\n';
+      for (const n of graph.nodes) {
+        const label = n.data.label.replace(/"/g, "'");
+        if (n.type === 'decision') {
+          mermaid += `    ${n.id}{{"${label}"}}\n`;
+        } else if (n.type === 'start' || n.type === 'end') {
+          mermaid += `    ${n.id}(["${label}"])\n`;
+        } else if (n.type === 'data') {
+          mermaid += `    ${n.id}[/"${label}"/]\n`;
+        } else {
+          mermaid += `    ${n.id}["${label}"]\n`;
+        }
+      }
+      for (const e of graph.edges) {
+        const lbl = e.label ? `|${e.label.replace(/"/g, "'")}|` : '';
+        mermaid += `    ${e.source} -->${lbl} ${e.target}\n`;
+      }
+      return {
+        content: [{ type: 'text', text: mermaid }],
+      };
+    }
+  );
+
+  server.tool(
+    'batch_add_nodes',
+    '批量添加多个节点（不含连线）',
+    {
+      nodes: z.array(z.object({
+        id: z.string(),
+        type: ALL_NODE_TYPES,
+        label: z.string(),
+        description: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+      })),
+    },
+    async ({ nodes: inputNodes }) => {
+      for (const n of inputNodes) {
+        graphState.addNode({
+          id: n.id,
+          type: n.type,
+          position: { x: Math.random() * 600, y: Math.random() * 400 },
+          data: {
+            label: n.label,
+            description: n.description,
+            tags: n.tags,
+          },
+        });
+      }
+      const graph = graphState.getGraph();
+      broadcaster.broadcast({ type: 'graph:replace', payload: graph });
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ added: inputNodes.length, graph }, null, 2) }],
+      };
+    }
+  );
+
   broadcaster.broadcast({
     type: 'mcp:connected',
     payload: { clientName: 'flowvision-mcp' },

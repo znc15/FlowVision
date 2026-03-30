@@ -37,8 +37,10 @@ function StartEndNode({ id, data, selected }: NodeProps<FlowNode>) {
         )}
       </div>
 
-      {!isStart && <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-tertiary" />}
-      {isStart && <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-tertiary" />}
+      {!isStart && <Handle type="target" position={Position.Top} id="top" className="w-3 h-3 !bg-tertiary" />}
+      {isStart && <Handle type="source" position={Position.Bottom} id="bottom" className="w-3 h-3 !bg-tertiary" />}
+      <Handle type="target" position={Position.Left} id="left" className="w-2.5 h-2.5 !bg-tertiary/60" />
+      <Handle type="source" position={Position.Right} id="right" className="w-2.5 h-2.5 !bg-tertiary/60" />
     </div>
   );
 }

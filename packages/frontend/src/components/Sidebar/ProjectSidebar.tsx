@@ -20,6 +20,11 @@ interface ProjectOverview {
   entryPoints?: string[];
   buildTools?: string[];
   codeQuality?: { label: string; score: string; color: 'green' | 'yellow' | 'red' }[];
+  fileStats?: { totalFiles: number; totalLines: number; languages: { name: string; files: number; percentage: number }[] };
+  testInfo?: { framework: string; coverage: string; testFiles: number };
+  apiEndpoints?: { method: string; path: string; description: string }[];
+  securityNotes?: string[];
+  performanceNotes?: string[];
 }
 
 const OVERVIEW_KEY = 'flowvision-project-overview';
@@ -159,6 +164,7 @@ function ProjectSidebar() {
 
 请基于完整的项目文件结构（包含所有文件夹和子文件），进行全面分析。
 需要覆盖每一个目录层级，识别各文件夹的职责和包含的关键文件。
+除了基础分析外，还需要分析：文件统计（总文件数、总行数、语言分布）、测试信息、API端点、安全注意事项、性能建议。
 
 请严格以 JSON 格式返回（不要包含 markdown 代码块），格式如下:
 {
@@ -174,7 +180,12 @@ function ProjectSidebar() {
   "designPatterns": ["使用的设计模式1", "设计模式2"],
   "entryPoints": ["主要入口文件路径1", "入口文件2"],
   "buildTools": ["构建/开发工具1", "工具2"],
-  "codeQuality": [{"label": "可维护性", "score": "高/中/低", "color": "green/yellow/red"}]
+  "codeQuality": [{"label": "可维护性", "score": "高/中/低", "color": "green/yellow/red"}],
+  "fileStats": {"totalFiles": 100, "totalLines": 5000, "languages": [{"name": "TypeScript", "files": 50, "percentage": 60}]},
+  "testInfo": {"framework": "Jest", "coverage": "80%", "testFiles": 10},
+  "apiEndpoints": [{"method": "GET", "path": "/api/xxx", "description": "说明"}],
+  "securityNotes": ["安全注意事项1"],
+  "performanceNotes": ["性能建议1"]
 }`;
 
       const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
@@ -421,6 +432,11 @@ ${fileContextStr}
         entryPoints: Array.isArray(overview.entryPoints) ? overview.entryPoints : [],
         buildTools: Array.isArray(overview.buildTools) ? overview.buildTools : [],
         codeQuality: Array.isArray(overview.codeQuality) ? overview.codeQuality : [],
+        fileStats: overview.fileStats || undefined,
+        testInfo: overview.testInfo || undefined,
+        apiEndpoints: Array.isArray(overview.apiEndpoints) ? overview.apiEndpoints : undefined,
+        securityNotes: Array.isArray(overview.securityNotes) ? overview.securityNotes : undefined,
+        performanceNotes: Array.isArray(overview.performanceNotes) ? overview.performanceNotes : undefined,
       }
     : null;
 
@@ -646,17 +662,33 @@ ${fileContextStr}
             </div>
           )}
 
+          {/* 架构图流输出窗口 */}
+          {generatingCanvas && streamingCanvasText && (
+            <div className="mb-6 rounded-2xl border border-secondary/10 bg-white shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-secondary text-sm">terminal</span>
+                  <span className="text-[11px] font-semibold text-slate-700">流式输出</span>
+                </div>
+                <span className="text-[9px] text-slate-400">{streamingCanvasText.length} 字符</span>
+              </div>
+              <div className="px-4 py-3 max-h-64 overflow-y-auto bg-slate-900 font-mono">
+                <pre className="text-[10px] text-green-400 leading-relaxed whitespace-pre-wrap break-words">{streamingCanvasText}</pre>
+              </div>
+            </div>
+          )}
+
           {/* 技术栈 */}
           {!generating && displayOverview && displayOverview.techStack.length > 0 && (
             <div className="mb-6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">code</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">code</span>
                 技术栈
               </label>
               <div className="flex flex-wrap gap-2">
                 {displayOverview.techStack.map((tech, i) => (
-                  <span key={tech} className="px-2 py-1 bg-surface-container-highest text-on-surface text-xs rounded flex items-center gap-1.5 ghost-border-soft">
-                    <span className={`w-1.5 h-1.5 rounded-full ${TAG_COLORS[i % TAG_COLORS.length]}`}></span> {tech}
+                  <span key={tech} className="px-2.5 py-1.5 bg-surface-container-highest text-on-surface text-xs rounded-lg flex items-center gap-1.5 ghost-border-soft shadow-sm">
+                    <span className={`w-2 h-2 rounded-full ${TAG_COLORS[i % TAG_COLORS.length]}`}></span> {tech}
                   </span>
                 ))}
               </div>
@@ -666,8 +698,8 @@ ${fileContextStr}
           {/* 核心模块列表 */}
           {!generating && displayOverview && displayOverview.modules.length > 0 && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">widgets</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">widgets</span>
                 核心模块
               </label>
               <div className="space-y-2.5">
@@ -691,8 +723,8 @@ ${fileContextStr}
           {/* 架构模式 */}
           {!generating && displayOverview?.architecture && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">architecture</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">architecture</span>
                 架构模式
               </label>
               <div className="flex items-start gap-2 p-3 rounded-xl bg-surface-container-highest/40 ghost-border-soft">
@@ -705,8 +737,8 @@ ${fileContextStr}
           {/* 核心依赖 */}
           {!generating && displayOverview && displayOverview.dependencies && displayOverview.dependencies.length > 0 && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">link</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">link</span>
                 核心依赖
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -722,8 +754,8 @@ ${fileContextStr}
           {/* 项目指标 */}
           {!generating && displayOverview && displayOverview.metrics && displayOverview.metrics.length > 0 && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">monitoring</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">monitoring</span>
                 项目指标
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -740,8 +772,8 @@ ${fileContextStr}
           {/* 代码质量评估 */}
           {!generating && displayOverview && displayOverview.codeQuality && displayOverview.codeQuality.length > 0 && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">verified</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">verified</span>
                 质量评估
               </label>
               <div className="space-y-2">
@@ -762,8 +794,8 @@ ${fileContextStr}
           {/* 设计模式 */}
           {!generating && displayOverview && displayOverview.designPatterns && displayOverview.designPatterns.length > 0 && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">design_services</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">design_services</span>
                 设计模式
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -779,8 +811,8 @@ ${fileContextStr}
           {/* 入口文件 */}
           {!generating && displayOverview && displayOverview.entryPoints && displayOverview.entryPoints.length > 0 && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">login</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">login</span>
                 入口文件
               </label>
               <div className="space-y-1.5">
@@ -797,8 +829,8 @@ ${fileContextStr}
           {/* 构建工具 */}
           {!generating && displayOverview && displayOverview.buildTools && displayOverview.buildTools.length > 0 && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">build</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">build</span>
                 构建工具
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -815,8 +847,8 @@ ${fileContextStr}
           {/* 进度描述 */}
           {!generating && displayOverview?.progress && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
-                <span className="material-symbols-outlined text-xs text-primary/50">trending_up</span>
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">trending_up</span>
                 进度概要
               </label>
               <div className="flex items-start gap-2 p-3 rounded-xl bg-primary/5 ghost-border-soft">
@@ -829,7 +861,7 @@ ${fileContextStr}
           {/* 风险与技术债务 */}
           {!generating && displayOverview && displayOverview.risks && displayOverview.risks.length > 0 && (
             <div className="mb-6 pt-4 border-t border-outline-variant/6">
-              <label className="flex items-center gap-1.5 text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
                 <span className="material-symbols-outlined text-xs text-amber-500/70">warning</span>
                 风险提示
               </label>
@@ -838,6 +870,123 @@ ${fileContextStr}
                   <div key={i} className="flex items-start gap-2 py-1">
                     <span className="material-symbols-outlined text-xs text-amber-500 shrink-0 mt-0.5">warning</span>
                     <p className="text-[11px] text-on-surface-variant leading-relaxed">{risk}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 文件统计 */}
+          {!generating && displayOverview?.fileStats && (
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">insert_chart</span>
+                文件统计
+              </label>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="p-3 rounded-xl bg-blue-50 text-center shadow-sm">
+                  <p className="text-sm font-bold text-blue-700">{displayOverview.fileStats.totalFiles}</p>
+                  <p className="text-[10px] text-blue-500 mt-0.5">总文件数</p>
+                </div>
+                <div className="p-3 rounded-xl bg-purple-50 text-center shadow-sm">
+                  <p className="text-sm font-bold text-purple-700">{displayOverview.fileStats.totalLines?.toLocaleString()}</p>
+                  <p className="text-[10px] text-purple-500 mt-0.5">估计总行数</p>
+                </div>
+              </div>
+              {displayOverview.fileStats.languages && displayOverview.fileStats.languages.length > 0 && (
+                <div className="space-y-2">
+                  {displayOverview.fileStats.languages.map((lang: { name: string; percentage: number }) => (
+                    <div key={lang.name} className="flex items-center gap-2">
+                      <span className="text-xs text-on-surface font-medium w-20 truncate">{lang.name}</span>
+                      <div className="flex-1 h-2 rounded-full bg-surface-container-highest/40 overflow-hidden">
+                        <div className="h-full rounded-full bg-primary/60" style={{ width: `${Math.min(100, lang.percentage)}%` }}></div>
+                      </div>
+                      <span className="text-[10px] text-on-surface-variant w-10 text-right">{lang.percentage}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 测试信息 */}
+          {!generating && displayOverview?.testInfo && (
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">science</span>
+                测试信息
+              </label>
+              <div className="p-3 rounded-xl bg-green-50/50 ghost-border-soft space-y-2 shadow-sm">
+                <div className="flex justify-between">
+                  <span className="text-xs text-on-surface-variant">框架</span>
+                  <span className="text-xs font-medium text-on-surface">{displayOverview.testInfo.framework}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-on-surface-variant">覆盖率</span>
+                  <span className="text-xs font-medium text-green-600">{displayOverview.testInfo.coverage}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-on-surface-variant">测试文件数</span>
+                  <span className="text-xs font-medium text-on-surface">{displayOverview.testInfo.testFiles}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* API 端点 */}
+          {!generating && displayOverview?.apiEndpoints && displayOverview.apiEndpoints.length > 0 && (
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-primary/50">api</span>
+                API 端点
+              </label>
+              <div className="space-y-1.5">
+                {displayOverview.apiEndpoints.map((ep: { method: string; path: string }, i: number) => (
+                  <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-surface-container-highest/30 ghost-border-soft">
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                      ep.method === 'GET' ? 'bg-green-100 text-green-700' :
+                      ep.method === 'POST' ? 'bg-blue-100 text-blue-700' :
+                      ep.method === 'PUT' ? 'bg-amber-100 text-amber-700' :
+                      ep.method === 'DELETE' ? 'bg-red-100 text-red-600' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>{ep.method}</span>
+                    <span className="text-[11px] text-on-surface font-mono truncate flex-1">{ep.path}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 性能建议 */}
+          {!generating && displayOverview?.performanceNotes && displayOverview.performanceNotes.length > 0 && (
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-blue-500/70">speed</span>
+                性能建议
+              </label>
+              <div className="space-y-1.5">
+                {displayOverview.performanceNotes.map((note: string, i: number) => (
+                  <div key={i} className="flex items-start gap-2 py-1">
+                    <span className="material-symbols-outlined text-xs text-blue-500 shrink-0 mt-0.5">bolt</span>
+                    <p className="text-[11px] text-on-surface-variant leading-relaxed">{note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 安全备注 */}
+          {!generating && displayOverview?.securityNotes && displayOverview.securityNotes.length > 0 && (
+            <div className="mb-6 pt-4 border-t border-outline-variant/6">
+              <label className="flex items-center gap-1.5 text-xs uppercase tracking-widest font-bold text-on-surface-variant/60 mb-3">
+                <span className="material-symbols-outlined text-sm text-emerald-500/70">shield</span>
+                安全备注
+              </label>
+              <div className="space-y-1.5">
+                {displayOverview.securityNotes.map((note: string, i: number) => (
+                  <div key={i} className="flex items-start gap-2 py-1">
+                    <span className="material-symbols-outlined text-xs text-emerald-500 shrink-0 mt-0.5">check_circle</span>
+                    <p className="text-[11px] text-on-surface-variant leading-relaxed">{note}</p>
                   </div>
                 ))}
               </div>

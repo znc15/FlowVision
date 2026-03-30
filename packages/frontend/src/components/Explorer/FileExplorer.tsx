@@ -19,6 +19,8 @@ interface FileExplorerProps {
   selectedFile?: string;
   /** 文件选中回调 */
   onFileSelect?: (path: string) => void;
+  /** 隐藏标题栏 */
+  hideHeader?: boolean;
 }
 
 /** 文件树项组件 */
@@ -108,7 +110,7 @@ const PROJECT_PATH_KEY = 'flowvision-project-path';
 const EXPANDED_PATHS_KEY = 'flowvision-expanded-paths';
 
 /** 文件浏览器面板 */
-function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFile, onFileSelect }: FileExplorerProps) {
+function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFile, onFileSelect, hideHeader }: FileExplorerProps) {
   const [fetchedTree, setFetchedTree] = useState<FileTreeNode[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -335,6 +337,7 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
   return (
     <section className="h-full bg-surface-container flex flex-col ghost-border-soft border-y-0 border-r-0">
       {/* 标题栏 */}
+      {!hideHeader && (
       <div className="workbench-panel-header px-4 shrink-0">
         <span className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant">
           文件浏览器
@@ -345,6 +348,7 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
           </button>
         )}
       </div>
+      )}
 
       {/* 路径导入区域 */}
       {!propTree && !propProjectPath && (

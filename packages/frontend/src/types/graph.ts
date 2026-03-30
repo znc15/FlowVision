@@ -24,8 +24,10 @@ export interface GraphEdge {
   id: string;
   source: string;             // 源节点 ID
   target: string;             // 目标节点 ID
+  sourceHandle?: string;      // 源节点连接点 ID (top/bottom/left/right)
+  targetHandle?: string;      // 目标节点连接点 ID (top/bottom/left/right)
   label?: string;             // 边标签（如条件分支的条件）
-  type?: 'default' | 'step' | 'smoothstep' | 'straight';
+  type?: 'default' | 'step' | 'smoothstep' | 'straight' | 'bezier';
   animated?: boolean;         // 是否显示流动动画
   data?: {
     condition?: string;       // 判断条件文字

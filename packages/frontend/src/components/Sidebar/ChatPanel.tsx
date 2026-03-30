@@ -33,6 +33,7 @@ const SLASH_COMMANDS = [
   { command: '/new', icon: 'add_circle', label: '新建对话', description: '创建新的对话会话' },
   { command: '/thinking', icon: 'psychology', label: '思考模式', description: '开启或关闭 AI 推理过程展示' },
   { command: '/export', icon: 'download', label: '导出对话', description: '将当前对话导出为文本文件' },
+  { command: '/template', icon: 'view_list', label: '模板列表', description: '显示所有可用场景和流程图模板' },
   ...PRESET_TEMPLATES.map((tpl) => ({
     command: `/scene:${tpl.label}`,
     icon: tpl.icon,
@@ -406,6 +407,13 @@ function ChatPanel() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    } else if (command === '/template') {
+      const sceneList = PRESET_TEMPLATES.map((t) => `  \`/scene:${t.label}\` — ${t.prompt.slice(0, 30)}...`).join('\n');
+      const flowList = FLOWCHART_TYPES.map((t) => `  \`/flow:${t.label}\` — ${t.prompt.slice(0, 30)}...`).join('\n');
+      addMessage({
+        role: 'assistant',
+        content: `**可用模板**\n\n**场景模板：**\n${sceneList}\n\n**流程图类型：**\n${flowList}\n\n输入对应命令可直接使用模板生成流程图。`,
+      });
     } else if (command.startsWith('/scene:')) {
       const tpl = PRESET_TEMPLATES.find((t) => t.label === command.slice(7));
       if (tpl) void handleSend(tpl.prompt);

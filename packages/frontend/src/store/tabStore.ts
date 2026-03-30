@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { GraphData } from '../types/graph';
 
+const TAB_STORAGE_KEY = 'flowvision-tabs';
+
 export interface CanvasTab {
   id: string;
   title: string;
@@ -34,15 +36,44 @@ function createTab(title?: string): CanvasTab {
   };
 }
 
-const initialTab = createTab('画布 1');
+/** 将标签数据持久化到 localStorage */
+function persistTabs(tabs: CanvasTab[], activeTabId: string) {
+  try {
+    localStorage.setItem(TAB_STORAGE_KEY, JSON.stringify({ tabs, activeTabId }));
+  } catch {
+    // 存储空间不足时静默失败
+  }
+}
+
+/** 从 localStorage 加载标签数据 */
+function loadTabs(): { tabs: CanvasTab[]; activeTabId: string } | null {
+  try {
+    const raw = localStorage.getItem(TAB_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (Array.isArray(data.tabs) && data.tabs.length > 0 && typeof data.activeTabId === 'string') {
+      return data;
+    }
+  } catch {
+    // 数据损坏，忽略
+  }
+  return null;
+}
+
+const saved = loadTabs();
+const initialTab = saved ? saved.tabs[0] : createTab('画布 1');
 
 export const useTabStore = create<TabStore>((set) => ({
-  tabs: [initialTab],
-  activeTabId: initialTab.id,
+  tabs: saved ? saved.tabs : [initialTab],
+  activeTabId: saved ? saved.activeTabId : initialTab.id,
 
   addTab: (title) => {
     const tab = createTab(title);
-    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id }));
+    set((s) => {
+      const next = { tabs: [...s.tabs, tab], activeTabId: tab.id };
+      persistTabs(next.tabs, next.activeTabId);
+      return next;
+    });
   },
 
   closeTab: (tabId) =>
@@ -50,18 +81,27 @@ export const useTabStore = create<TabStore>((set) => ({
       if (s.tabs.length <= 1) return s; // 至少保留一个
       const tabs = s.tabs.filter((t) => t.id !== tabId);
       const activeTabId = s.activeTabId === tabId ? tabs[tabs.length - 1].id : s.activeTabId;
+      persistTabs(tabs, activeTabId);
       return { tabs, activeTabId };
     }),
 
-  setActiveTab: (tabId) => set({ activeTabId: tabId }),
+  setActiveTab: (tabId) =>
+    set((s) => {
+      persistTabs(s.tabs, tabId);
+      return { activeTabId: tabId };
+    }),
 
   renameTab: (tabId, title) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, title } : t)),
-    })),
+    set((s) => {
+      const tabs = s.tabs.map((t) => (t.id === tabId ? { ...t, title } : t));
+      persistTabs(tabs, s.activeTabId);
+      return { tabs };
+    }),
 
   saveTabGraph: (tabId, graph) =>
-    set((s) => ({
-      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, graph } : t)),
-    })),
+    set((s) => {
+      const tabs = s.tabs.map((t) => (t.id === tabId ? { ...t, graph } : t));
+      persistTabs(tabs, s.activeTabId);
+      return { tabs };
+    }),
 }));

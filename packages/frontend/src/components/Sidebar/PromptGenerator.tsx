@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useLogStore } from '../../store/logStore';
+import { useGraphStore } from '../../store/graphStore';
+import { useTabStore } from '../../store/tabStore';
 
 /** 快速场景卡片 */
 const QUICK_SCENARIOS = [
@@ -28,7 +30,54 @@ function PromptGenerator() {
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [useCanvas, setUseCanvas] = useState(false);
+  const [selectedTabId, setSelectedTabId] = useState<string>('');
   const abortRef = useRef<AbortController | null>(null);
+
+  const tabs = useTabStore((s) => s.tabs);
+  const activeTabId = useTabStore((s) => s.activeTabId);
+  const currentNodes = useGraphStore((s) => s.nodes);
+  const currentEdges = useGraphStore((s) => s.edges);
+
+  /** 获取选中画布数据描述 */
+  const getCanvasContext = (): string => {
+    if (!useCanvas) return '';
+    const tabId = selectedTabId || activeTabId;
+    let nodes = currentNodes;
+    let edges = currentEdges;
+
+    if (tabId && tabId !== activeTabId) {
+      const tab = tabs.find((t) => t.id === tabId);
+      if (tab) {
+        nodes = tab.graph.nodes;
+        edges = tab.graph.edges;
+      }
+    }
+
+    if (nodes.length === 0) return '';
+
+    const nodeDescriptions = nodes.map((n) =>
+      `- [${n.type}] ${n.data.label}${n.data.description ? ': ' + n.data.description : ''}`
+    ).join('\n');
+    const edgeDescriptions = edges.map((e) => {
+      const srcNode = nodes.find((n) => n.id === e.source);
+      const tgtNode = nodes.find((n) => n.id === e.target);
+      return `- ${srcNode?.data.label || e.source} → ${tgtNode?.data.label || e.target}${e.label ? ' (' + e.label + ')' : ''}`;
+    }).join('\n');
+
+    return `\n\n当前画布包含以下流程图内容，请基于此生成优化的 Prompt：\n节点 (${nodes.length} 个):\n${nodeDescriptions}\n连线 (${edges.length} 条):\n${edgeDescriptions}`;
+  };
+
+  /** 获取项目上下文 */
+  const getProjectContext = (): string => {
+    try {
+      const raw = localStorage.getItem('flowvision-project-overview');
+      if (!raw) return '';
+      const overview = JSON.parse(raw)?.data;
+      if (!overview) return '';
+      return `\n\n项目信息: ${overview.name} - ${overview.description}\n技术栈: ${(overview.techStack || []).join(', ')}`;
+    } catch { return ''; }
+  };
 
   const handleGenerate = async (scenarioHint?: string) => {
     const userInput = (scenarioHint || input).trim();
@@ -44,13 +93,17 @@ function PromptGenerator() {
     const { provider, apiKey, model, baseURL, customHeaders, httpProxy } = useSettingsStore.getState();
     useLogStore.getState().add('info', 'Prompt生成', `开始生成 Prompt: ${userInput}`);
 
+    const canvasCtx = getCanvasContext();
+    const projectCtx = getProjectContext();
+    const fullPrompt = userInput + canvasCtx + projectCtx;
+
     try {
       const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          prompt: userInput,
+          prompt: fullPrompt,
           currentGraph: { nodes: [], edges: [] },
           mode: 'incremental',
           provider,
@@ -154,6 +207,35 @@ function PromptGenerator() {
             className="w-full rounded-xl bg-surface-container-highest/92 py-3 px-4 text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none ghost-border-soft focus:ring-2 focus:ring-primary/20 transition-all duration-200 resize-none"
             disabled={generating}
           />
+        </div>
+
+        {/* 画布和项目选择 */}
+        <div className="space-y-2">
+          <label
+            className="flex items-center gap-2 cursor-pointer select-none group"
+            onClick={() => setUseCanvas((v) => !v)}
+          >
+            <span className={`w-4 h-4 rounded flex items-center justify-center border transition-all duration-200 ${useCanvas ? 'bg-primary border-primary' : 'border-slate-300 group-hover:border-primary/50'}`}>
+              {useCanvas && <span className="material-symbols-outlined text-white text-xs">check</span>}
+            </span>
+            <span className="text-[10px] text-on-surface-variant">基于画布流程图生成 Prompt</span>
+          </label>
+          {useCanvas && tabs.length > 0 && (
+            <select
+              value={selectedTabId || activeTabId}
+              onChange={(e) => setSelectedTabId(e.target.value)}
+              className="w-full rounded-lg bg-surface-container-highest/60 py-1.5 px-3 text-[10px] text-on-surface outline-none ghost-border-soft"
+            >
+              {tabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.title}{tab.id === activeTabId ? ' (当前)' : ''} · {tab.graph.nodes.length} 节点
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        <div>
           <button
             onClick={() => void handleGenerate()}
             disabled={!input.trim() || generating}

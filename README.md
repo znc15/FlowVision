@@ -40,8 +40,9 @@
 
 ### 可视化编辑
 
-拖拽节点与连线，5 种节点类型，分组容器，
-自动布局，撤销 / 重做，导出 PNG / JSON。
+拖拽节点与连线，12 种节点类型，分组容器，
+四向连接（上下左右），贝塞尔 / 直线 / 折线连线，
+自动布局，撤销 / 重做，导出 PNG / JSON / Markdown。
 
 </td>
 <td>
@@ -59,7 +60,7 @@ VS Code 等 AI 客户端实时同步操作流程图。
 ### 斜杠命令系统
 
 输入 `/` 快速调用命令，支持清空对话、新建会话、
-导出对话、思考模式切换、快速调用模板。
+导出对话、思考模式切换、模板切换、快速调用模板。
 
 </td>
 <td>
@@ -146,7 +147,7 @@ flowvision/
 | **前端** | React 18 · TypeScript · React Flow v12 · Zustand · Tailwind CSS · Vite 5 |
 | **后端** | Fastify · Node.js · SSE · WebSocket                                      |
 | **AI**   | OpenAI · Anthropic · DeepSeek · Ollama 多模型切换                        |
-| **MCP**  | @modelcontextprotocol/sdk · 6 个标准工具                                 |
+| **MCP**  | @modelcontextprotocol/sdk · 16 个标准工具                                |
 | **桌面** | Electron · electron-builder                                              |
 | **构建** | pnpm 9 · Turborepo · GitHub Actions CI/CD                                |
 
@@ -154,16 +155,26 @@ flowvision/
 
 ## MCP 集成
 
-FlowVision 暴露 6 个 MCP 工具，AI 客户端可直接操作流程图：
+FlowVision 暴露 16 个 MCP 工具，AI 客户端可直接操作流程图：
 
-| 工具            | 说明                     |
-| --------------- | ------------------------ |
-| `get_graph`     | 获取当前流程图完整结构   |
-| `add_node`      | 添加节点                 |
-| `remove_node`   | 删除节点                 |
-| `update_node`   | 更新节点属性             |
-| `connect_nodes` | 连接两个节点             |
-| `apply_diff`    | 批量变更（增 / 删 / 改） |
+| 工具              | 说明                                   |
+| ----------------- | -------------------------------------- |
+| `get_graph`       | 获取当前流程图完整结构                 |
+| `add_node`        | 添加节点                               |
+| `remove_node`     | 删除节点                               |
+| `update_node`     | 更新节点属性                           |
+| `connect_nodes`   | 连接两个节点                           |
+| `apply_diff`      | 批量变更（增 / 删 / 改）               |
+| `list_nodes`      | 列出所有节点摘要                       |
+| `get_node`        | 获取单个节点详情                       |
+| `get_stats`       | 获取图统计信息                         |
+| `clear_graph`     | 清空画布                               |
+| `remove_edge`     | 删除指定连线                           |
+| `search_nodes`    | 按关键词搜索节点                       |
+| `get_subgraph`    | 获取节点及其连通子图                   |
+| `update_edge`     | 修改连线标签 / 类型 / 动画             |
+| `export_graph`    | 导出为 Mermaid 格式文本                |
+| `batch_add_nodes` | 批量添加多个节点                       |
 
 <details>
 <summary><b>客户端配置</b></summary>
@@ -214,6 +225,13 @@ FlowVision 暴露 6 个 MCP 工具，AI 客户端可直接操作流程图：
 | ✅ 已完成 | 斜杠命令系统（/help /clear /export 等）       |
 | ✅ 已完成 | 下载操作 Toast 通知                              |
 | ✅ 已完成 | 文件浏览器状态持久化                            |
+| ✅ 已完成 | 四向连接接口与贝塞尔连线                       |
+| ✅ 已完成 | 统计面板（语言 / Token / 图表分析）             |
+| ✅ 已完成 | Agent 日志详情展开                              |
+| ✅ 已完成 | 增强数据备份（单项导出 / 标签页持久化）         |
+| ✅ 已完成 | MCP 工具集完善（16 个工具）                     |
+| ✅ 已完成 | Prompt 生成支持画布与项目上下文选择             |
+| ✅ 已完成 | 模板命令（/template）                           |
 | 规划中 | 多人协作实时编辑（WebRTC / CRDT）                 |
 | 规划中 | 流程图版本历史与对比                              |
 | 规划中 | 自定义节点模板市场                                |

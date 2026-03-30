@@ -51,7 +51,7 @@ function FlowEdge({
     [edgePath, labelX, labelY] = getStraightPath({
       sourceX, sourceY, targetX, targetY,
     });
-  } else if (type === 'default') {
+  } else if (type === 'default' || type === 'bezier') {
     [edgePath, labelX, labelY] = getBezierPath({
       sourceX, sourceY, targetX, targetY,
       sourcePosition, targetPosition,

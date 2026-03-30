@@ -15,6 +15,8 @@ interface CodePreviewProps {
   startLine?: number;
   /** 高亮行（相对于 startLine 的偏移） */
   highlightLines?: number[];
+  /** 关闭回调 */
+  onClose?: () => void;
 }
 
 function renderHighlightedLine(line: string) {
@@ -67,6 +69,7 @@ function CodePreview({
   code: propCode,
   startLine = 1,
   highlightLines = [],
+  onClose,
 }: CodePreviewProps) {
   const [fetchedCode, setFetchedCode] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -144,6 +147,11 @@ function CodePreview({
           <button className={`icon-button-soft h-8 w-8 ${copied ? 'text-green-600' : ''}`} onClick={handleCopyCode} title="复制代码">
             <span className="material-symbols-outlined text-sm">{copied ? 'check' : 'content_copy'}</span>
           </button>
+          {onClose && (
+            <button className="icon-button-soft h-8 w-8" onClick={onClose} title="关闭预览">
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          )}
         </div>
       </div>
 

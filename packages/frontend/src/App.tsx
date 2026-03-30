@@ -6,6 +6,7 @@ import ChatPanel from './components/Sidebar/ChatPanel';
 import McpPanel from './components/Sidebar/McpPanel';
 import AgentLogPanel from './components/Sidebar/AgentLogPanel';
 import PromptGenerator from './components/Sidebar/PromptGenerator';
+import StatsPanel from './components/Sidebar/StatsPanel';
 import FileExplorer from './components/Explorer/FileExplorer';
 import CodePreview from './components/CodePreview/CodePreview';
 import Canvas from './components/Canvas/Canvas';
@@ -38,8 +39,10 @@ function loadLayout(): Layout | undefined {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'project' | 'chat' | 'prompt' | 'mcp' | 'log'>('project');
-  const [selectedFile, setSelectedFile] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'project' | 'chat' | 'prompt' | 'mcp' | 'log' | 'stats'>('project');
+  const [selectedFile, setSelectedFile] = useState<string>(() => {
+    try { return localStorage.getItem('flowvision-selected-file') || ''; } catch { return ''; }
+  });
   const [previewStartLine, setPreviewStartLine] = useState<number | undefined>(undefined);  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [canvasFocusMode, setCanvasFocusMode] = useState(false);
@@ -63,6 +66,12 @@ function App() {
   }, []);
 
   useWebSocketSync();
+
+  // 持久化选中文件
+  useEffect(() => {
+    try { localStorage.setItem('flowvision-selected-file', selectedFile); } catch { /* 忽略 */ }
+  }, [selectedFile]);
+
   useKeyboardShortcuts({
     isCanvasFocusMode: canvasFocusMode,
     onToggleCanvasFocusMode: () => setCanvasFocusMode((value) => !value),
@@ -146,17 +155,20 @@ function App() {
           {/* 第 2 栏：项目信息侧边栏 / AI 对话面板 */}
           <Panel id="sidebar" defaultSize="18%" minSize="12%" maxSize="30%">
             <aside className="h-full bg-surface-container-low flex flex-col overflow-hidden ghost-border-soft border-y-0 border-l-0">
-              <div key={activeTab} className="flex-1 flex flex-col overflow-hidden animate-[panelFadeIn_200ms_ease-out]">
-              {activeTab === 'project' ? <ProjectSidebar /> : activeTab === 'chat' ? <ChatPanel /> : activeTab === 'prompt' ? <PromptGenerator /> : activeTab === 'log' ? <AgentLogPanel /> : <McpPanel />}
-              </div>
+              <div style={{ display: activeTab === 'project' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><ProjectSidebar /></div>
+              <div style={{ display: activeTab === 'chat' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><ChatPanel /></div>
+              <div style={{ display: activeTab === 'prompt' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><PromptGenerator /></div>
+              <div style={{ display: activeTab === 'mcp' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><McpPanel /></div>
+              <div style={{ display: activeTab === 'log' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><AgentLogPanel /></div>
+              <div style={{ display: activeTab === 'stats' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><StatsPanel /></div>
             </aside>
           </Panel>
 
           <Separator className="resize-handle" />
 
-          {/* 第 3 栏：文件浏览器 */}
+          {/* 第 3+4 栏：文件浏览器 + 代码预览（共用顶部） */}
           <Panel id="explorer" defaultSize="12%" minSize="8%" maxSize="20%">
-            <FileExplorer selectedFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setPreviewStartLine(undefined); }} />
+            <FileExplorer selectedFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setPreviewStartLine(undefined); }} hideHeader />
           </Panel>
 
           <Separator className="resize-handle" />
@@ -168,6 +180,7 @@ function App() {
               filePath={selectedFile || undefined}
               projectPath={projectPath || undefined}
               startLine={previewStartLine}
+              onClose={() => setSelectedFile('')}
             />
           </Panel>
 

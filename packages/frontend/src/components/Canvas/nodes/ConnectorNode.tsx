@@ -18,8 +18,10 @@ function ConnectorNode({ data, selected }: NodeProps<FlowNode>) {
       <div className="absolute -top-px left-2 right-2 h-1 bg-slate-400 rounded-full" />
       <span className="text-xs font-bold text-on-surface">{data.label}</span>
 
-      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-slate-500" />
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-slate-500" />
+      <Handle type="target" position={Position.Top} id="top" className="w-3 h-3 !bg-slate-500" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className="w-3 h-3 !bg-slate-500" />
+      <Handle type="target" position={Position.Left} id="left" className="w-2.5 h-2.5 !bg-slate-500/60" />
+      <Handle type="source" position={Position.Right} id="right" className="w-2.5 h-2.5 !bg-slate-500/60" />
     </div>
   );
 }

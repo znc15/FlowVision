@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
+
 interface SideNavBarProps {
-  activeTab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log';
-  onTabChange: (tab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log') => void;
+  activeTab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log' | 'stats';
+  onTabChange: (tab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log' | 'stats') => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenSettings?: () => void;
@@ -8,16 +10,19 @@ interface SideNavBarProps {
 
 /** 左侧窄导航栏 - 图标+标签 */
 function SideNavBar({ activeTab, onTabChange, collapsed = false, onToggleCollapse, onOpenSettings }: SideNavBarProps) {
+  const [hitokoto, setHitokoto] = useState<{ text: string; from?: string } | null>(null);
+
+  useEffect(() => {
+    fetch('https://v1.hitokoto.cn/?c=a&c=b&c=d&c=i&c=k&encode=json')
+      .then((r) => r.json())
+      .then((d) => { if (d.hitokoto) setHitokoto({ text: d.hitokoto, from: d.from || '' }); })
+      .catch(() => { /* 忽略 */ });
+  }, []);
+
   return (
     <aside className={`${collapsed ? 'w-16' : 'w-16 md:w-56'} bg-surface-container-low flex flex-col p-3 gap-1.5 shrink-0 ghost-border-soft border-y-0 border-l-0 transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}>
-      {/* 项目信息 */}
-      <div className={`mb-5 ${collapsed ? 'justify-center' : 'px-1.5'} flex items-center gap-2.5 min-h-[2rem]`}>
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white font-bold shadow-[0_4px_12px_rgba(0,80,203,0.2)] shrink-0">F</div>
-        <div className={`hidden md:block overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${collapsed ? 'max-w-0 opacity-0' : 'max-w-[9rem] opacity-100'}`}>
-            <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface leading-none">FlowVision</p>
-            <p className="text-[9px] text-on-surface-variant/50 mt-0.5">v1.2.0</p>
-        </div>
-      </div>
+      {/* 顶部间距 */}
+      <div className="mb-3"></div>
 
       {/* 导航按钮 */}
       <nav className="flex-1 space-y-1">
@@ -56,10 +61,38 @@ function SideNavBar({ activeTab, onTabChange, collapsed = false, onToggleCollaps
           onClick={() => onTabChange('log')}
           collapsed={collapsed}
         />
+        <NavButton
+          icon="bar_chart"
+          label="统计"
+          active={activeTab === 'stats'}
+          onClick={() => onTabChange('stats')}
+          collapsed={collapsed}
+        />
       </nav>
 
       {/* 底部操作区 */}
       <div className="space-y-1">
+        {/* 一言 */}
+        {hitokoto && !collapsed && (
+          <div className="hidden md:block px-2 py-2 mb-2 rounded-xl bg-primary/5 ghost-border-soft">
+            <p className="text-[9px] text-on-surface-variant/70 leading-relaxed italic line-clamp-3">
+              「{hitokoto.text}」
+            </p>
+            {hitokoto.from && (
+              <p className="text-[8px] text-on-surface-variant/40 mt-1 text-right">—— {hitokoto.from}</p>
+            )}
+          </div>
+        )}
+        {hitokoto && collapsed && (
+          <button
+            type="button"
+            className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl text-on-surface-variant/40 hover:bg-primary/10 hover:text-primary transition-colors duration-150"
+            title={`「${hitokoto.text}」—— ${hitokoto.from || ''}`}
+          >
+            <span className="material-symbols-outlined text-lg leading-none">format_quote</span>
+          </button>
+        )}
+
         {/* 设置按钮 */}
         <NavButton
           icon="settings"

@@ -62,8 +62,10 @@ function ProcessNode({ id, data, selected }: NodeProps<FlowNode>) {
         </div>
       )}
 
-      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-primary" />
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 !bg-primary" />
+      <Handle type="target" position={Position.Top} id="top" className="w-3 h-3 !bg-primary" />
+      <Handle type="source" position={Position.Bottom} id="bottom" className="w-3 h-3 !bg-primary" />
+      <Handle type="target" position={Position.Left} id="left" className="w-2.5 h-2.5 !bg-primary/60" />
+      <Handle type="source" position={Position.Right} id="right" className="w-2.5 h-2.5 !bg-primary/60" />
     </div>
   );
 }
