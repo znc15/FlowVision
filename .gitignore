@@ -49,3 +49,4 @@ flow.js
 .claude/
 design/
 packages/desktop/dist-test/*
+packages/desktop/dist-tmp/win-unpacked/resources/app.asar
