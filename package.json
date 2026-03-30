@@ -1,6 +1,6 @@
 {
   "name": "flowvision",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "一键分析项目流程图 · 可视化编辑 · AI 生成 · MCP 服务器同步",
   "scripts": {
