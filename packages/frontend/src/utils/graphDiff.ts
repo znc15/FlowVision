@@ -16,6 +16,13 @@ function sanitizeEdge(edge: GraphEdge): GraphEdge {
   return cleaned;
 }
 
+function filterValidEdges(nodes: GraphData['nodes'], edges: GraphEdge[]): GraphEdge[] {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  return edges
+    .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+    .map((edge) => sanitizeEdge(edge));
+}
+
 /**
  * 应用 GraphDiff 到当前图结构，返回新的图结构
  * 用于 AI 生成和 MCP 操作的增量更新
@@ -47,7 +54,7 @@ export function applyDiff(current: GraphData, diff: GraphDiff): GraphData {
   if (diff.update.edges.length > 0) {
     edges = edges.map((e) => {
       const update = diff.update.edges.find((u) => u.id === e.id);
-      return update ? { ...e, ...update } : e;
+      return update ? sanitizeEdge({ ...e, ...update }) : sanitizeEdge(e);
     });
   }
 
@@ -60,7 +67,7 @@ export function applyDiff(current: GraphData, diff: GraphDiff): GraphData {
   const newEdges = diff.add.edges
     .filter((e) => !existingEdgeIds.has(e.id))
     .map((e) => sanitizeEdge(e));
-  edges = [...edges, ...newEdges];
+  edges = filterValidEdges(nodes, [...edges, ...newEdges]);
 
   // 4. 应用自动布局（仅对新增节点计算位置）
   return applyAutoLayout({ nodes, edges });

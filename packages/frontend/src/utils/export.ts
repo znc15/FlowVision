@@ -1,5 +1,100 @@
 import { GraphData, GraphNode } from '../types/graph';
 import { getExportFontEmbedCss } from './exportFonts';
+import { getNodesBounds, type Node as ReactFlowNode } from '@xyflow/react';
+
+export interface ExportBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface DesktopCaptureRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+type ExportableNode = Pick<GraphNode, 'id' | 'position' | 'width' | 'height'> | Pick<ReactFlowNode, 'id' | 'position' | 'width' | 'height'>;
+
+const DEFAULT_EXPORT_NODE_WIDTH = 224;
+const DEFAULT_EXPORT_NODE_HEIGHT = 120;
+const EXPORT_FONT_EMBED_TIMEOUT_MS = 4000;
+const EXPORT_RENDER_TIMEOUT_MS = 12000;
+
+function normalizeExportNode(node: ExportableNode): ReactFlowNode {
+  return {
+    id: node.id,
+    position: node.position,
+    data: {},
+    width: node.width ?? DEFAULT_EXPORT_NODE_WIDTH,
+    height: node.height ?? DEFAULT_EXPORT_NODE_HEIGHT,
+  };
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function waitForAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
+}
+
+async function waitForPaint(frames = 2) {
+  for (let index = 0; index < frames; index += 1) {
+    await waitForAnimationFrame();
+  }
+}
+
+export function calculateExportBounds(nodes: ExportableNode[], padding = 60): ExportBounds | null {
+  if (nodes.length === 0) {
+    return null;
+  }
+
+  const bounds = getNodesBounds(nodes.map(normalizeExportNode));
+
+  return {
+    x: Math.floor(bounds.x - padding),
+    y: Math.floor(bounds.y - padding),
+    width: Math.ceil(bounds.width + padding * 2),
+    height: Math.ceil(bounds.height + padding * 2),
+  };
+}
+
+export function buildExportViewportStyle(bounds: ExportBounds) {
+  return {
+    width: `${Math.ceil(bounds.width)}px`,
+    height: `${Math.ceil(bounds.height)}px`,
+    transform: `translate(${Math.round(-bounds.x)}px, ${Math.round(-bounds.y)}px) scale(1)`,
+  };
+}
+
+export function toDesktopCaptureRect(rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>): DesktopCaptureRect {
+  return {
+    x: Math.max(0, Math.round(rect.left)),
+    y: Math.max(0, Math.round(rect.top)),
+    width: Math.max(1, Math.round(rect.width)),
+    height: Math.max(1, Math.round(rect.height)),
+  };
+}
 
 /** 导出所有应用数据（设置、对话、图数据）用于备份 */
 export function exportBackup(graph: GraphData) {
@@ -23,6 +118,84 @@ export function exportBackup(graph: GraphData) {
   const json = JSON.stringify(backup, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   triggerDownload(blob, `flowvision-backup-${new Date().toISOString().slice(0, 10)}.json`);
+}
+
+/** 生成备份数据 JSON 字符串 */
+export function createBackupData(graph: GraphData): string {
+  const backup: Record<string, any> = { _version: 1, _exportedAt: new Date().toISOString() };
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('flowvision-')) {
+      try {
+        backup[key] = JSON.parse(localStorage.getItem(key)!);
+      } catch {
+        backup[key] = localStorage.getItem(key);
+      }
+    }
+  }
+
+  backup['flowvision-current-graph'] = graph;
+  return JSON.stringify(backup, null, 2);
+}
+
+/** 将备份上传到 WebDAV 服务器 */
+export async function backupToWebDAV(
+  graph: GraphData,
+  config: { url: string; username: string; password: string; path?: string },
+): Promise<{ success: boolean; message: string }> {
+  const json = createBackupData(graph);
+  const filename = config.path || `/flowvision-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const fullUrl = config.url.replace(/\/+$/, '') + filename;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (config.username) {
+    headers['Authorization'] = 'Basic ' + btoa(`${config.username}:${config.password}`);
+  }
+
+  const res = await fetch(fullUrl, { method: 'PUT', headers, body: json });
+  if (res.ok || res.status === 201 || res.status === 204) {
+    return { success: true, message: `备份已上传到 ${filename}` };
+  }
+  return { success: false, message: `上传失败：${res.status} ${res.statusText}` };
+}
+
+/** 从 WebDAV 服务器恢复备份 */
+export async function restoreFromWebDAV(
+  config: { url: string; username: string; password: string; path?: string },
+): Promise<{ graph?: GraphData; restored: number } | null> {
+  const filename = config.path || '/flowvision-backup-latest.json';
+  const fullUrl = config.url.replace(/\/+$/, '') + filename;
+
+  const headers: Record<string, string> = {};
+  if (config.username) {
+    headers['Authorization'] = 'Basic ' + btoa(`${config.username}:${config.password}`);
+  }
+
+  const res = await fetch(fullUrl, { method: 'GET', headers });
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  if (!data._version) return null;
+
+  let restored = 0;
+  let graph: GraphData | undefined;
+
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith('_')) continue;
+    if (key === 'flowvision-current-graph') {
+      graph = value as GraphData;
+      continue;
+    }
+    if (key.startsWith('flowvision-')) {
+      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+      restored++;
+    }
+  }
+
+  return { graph, restored };
 }
 
 /** 从备份文件导入所有应用数据 */
@@ -184,60 +357,98 @@ export function exportMarkdown(graph: GraphData, filename = 'flowvision-report.m
 }
 
 /** 将完整流程图导出为 PNG 图片（包含所有节点，而非仅视口可见区域） */
-export async function exportPNG(filename = 'flowvision-graph.png') {
+export async function exportPNG(nodes: ExportableNode[], filename = 'flowvision-graph.png') {
   const viewport = document.querySelector('.react-flow__viewport') as HTMLElement | null;
   if (!viewport) {
     console.error('找不到 React Flow 视口元素');
     return;
   }
 
-  const { toPng } = await import('html-to-image');
-
-  // 获取所有节点的边界，计算完整流程图范围
-  const nodeElements = viewport.querySelectorAll('.react-flow__node');
-  if (nodeElements.length === 0) {
+  const bounds = calculateExportBounds(nodes);
+  if (!bounds) {
     console.error('画布上没有节点');
     return;
   }
 
-  // 计算所有节点的包围盒（相对于 viewport）
-  const vpRect = viewport.getBoundingClientRect();
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  nodeElements.forEach((node) => {
-    const rect = node.getBoundingClientRect();
-    minX = Math.min(minX, rect.left - vpRect.left);
-    minY = Math.min(minY, rect.top - vpRect.top);
-    maxX = Math.max(maxX, rect.right - vpRect.left);
-    maxY = Math.max(maxY, rect.bottom - vpRect.top);
-  });
+  const desktopCapture = window.electron?.desktop?.capturePage;
+  const captureTarget = document.querySelector('.react-flow') as HTMLElement | null;
 
-  // 添加内边距
-  const padding = 60;
-  minX -= padding;
-  minY -= padding;
-  maxX += padding;
-  maxY += padding;
+  if (desktopCapture && captureTarget) {
+    document.body.classList.add('flowvision-exporting');
 
-  const width = maxX - minX;
-  const height = maxY - minY;
-  const fontEmbedCSS = await getExportFontEmbedCss();
+    try {
+      await waitForPaint(2);
+      await desktopCapture({
+        ...toDesktopCaptureRect(captureTarget.getBoundingClientRect()),
+        filename,
+      });
+      return;
+    } catch (error) {
+      console.warn('桌面原生 PNG 导出失败，回退到 DOM 导出。', error);
+    } finally {
+      document.body.classList.remove('flowvision-exporting');
+    }
+  }
 
-  const dataUrl = await toPng(viewport, {
+  const { toPng } = await import('html-to-image');
+  const viewportStyle = buildExportViewportStyle(bounds);
+
+  const exportOptions = {
     backgroundColor: '#fafafa',
     quality: 1,
     pixelRatio: 2,
-    width,
-    height,
-    fontEmbedCSS,
-    preferredFontFormat: 'woff2',
-    style: {
-      transform: `translate(${-minX}px, ${-minY}px)`,
-    },
-  });
+    width: bounds.width,
+    height: bounds.height,
+    style: viewportStyle,
+  };
 
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
-  triggerDownload(blob, filename);
+  let fontEmbedCSS = '';
+  try {
+    fontEmbedCSS = await withTimeout(
+      getExportFontEmbedCss(),
+      EXPORT_FONT_EMBED_TIMEOUT_MS,
+      '加载导出字体超时',
+    );
+  } catch (error) {
+    console.warn('加载导出字体超时，导出将回退为默认字体。', error);
+  }
+
+  let dataUrl: string;
+
+  if (fontEmbedCSS) {
+    try {
+      dataUrl = await withTimeout(
+        toPng(viewport, {
+          ...exportOptions,
+          fontEmbedCSS,
+          preferredFontFormat: 'woff2',
+        }),
+        EXPORT_RENDER_TIMEOUT_MS,
+        '高保真 PNG 导出超时',
+      );
+    } catch (error) {
+      console.warn('高保真 PNG 导出失败，改用无字体嵌入回退。', error);
+      dataUrl = await withTimeout(
+        toPng(viewport, {
+          ...exportOptions,
+          skipFonts: true,
+        }),
+        EXPORT_RENDER_TIMEOUT_MS,
+        '回退模式 PNG 导出超时',
+      );
+    }
+  } else {
+    dataUrl = await withTimeout(
+      toPng(viewport, {
+        ...exportOptions,
+        skipFonts: true,
+      }),
+      EXPORT_RENDER_TIMEOUT_MS,
+      'PNG 导出超时',
+    );
+  }
+
+  triggerDataUrlDownload(dataUrl, filename);
 }
 
 /** 将流程图转换为系统提示词并复制到剪贴板 */
@@ -329,11 +540,17 @@ export async function exportSystemPrompt(graph: GraphData) {
 
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
+  triggerDataUrlDownload(url, filename);
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
+
+function triggerDataUrlDownload(url: string, filename: string) {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }

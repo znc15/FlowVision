@@ -93,6 +93,24 @@
     @apply text-primary bg-surface-container-high;
   }
 
+  /* 工具栏自适应按钮 - 宽度不足时隐藏文字 */
+  .toolbar-label-btn {
+    @apply icon-button-soft h-8 px-2.5 rounded-xl gap-1.5 shrink-0;
+  }
+
+  .toolbar-label-text {
+    @apply text-[11px] font-medium whitespace-nowrap;
+  }
+
+  @container (max-width: 900px) {
+    .toolbar-label-text {
+      @apply hidden;
+    }
+    .toolbar-label-btn {
+      @apply w-8 px-0;
+    }
+  }
+
   .switch-control {
     @apply relative w-11 h-6 rounded-full transition-all duration-200 shrink-0;
   }
@@ -122,21 +140,22 @@
   }
 
   .window-titlebar {
-    @apply fixed top-0 left-0 right-0 z-[60] h-10 flex items-center text-slate-200 border-b;
+    @apply fixed top-0 left-0 right-0 z-[60] h-10 flex items-center text-slate-200 border-b select-none;
     background: rgb(15 23 42 / 0.92);
     border-color: rgb(51 65 85 / 0.8);
   }
 
   .window-titlebar-drag {
-    @apply flex-1 h-full px-3;
+    @apply flex-1 h-full min-w-0;
   }
 
   .window-titlebar-brand {
-    @apply h-full flex items-center gap-2.5 min-w-0;
+    @apply h-full flex items-center gap-2.5 min-w-0 pl-3 pr-2;
   }
 
   .window-titlebar-logo {
-    @apply w-5 h-5 rounded-md shadow-sm;
+    @apply w-5 h-5 rounded-md shadow-sm flex items-center justify-center text-[10px] font-bold text-white;
+    background: linear-gradient(135deg, rgb(0 80 203), rgb(72 116 225));
   }
 
   .window-titlebar-title {
@@ -148,11 +167,13 @@
   }
 
   .window-titlebar-actions {
-    @apply flex items-center h-full;
+    @apply flex items-center h-full relative z-[1];
   }
 
   .window-titlebar-btn {
-    @apply h-full w-11 inline-flex items-center justify-center text-slate-300 transition-colors duration-150;
+    @apply h-full w-11 inline-flex items-center justify-center text-slate-300 transition-colors duration-150 cursor-pointer;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
   }
 
   .window-titlebar-btn:hover {
@@ -257,6 +278,26 @@
   }
 }
 
+body.flowvision-exporting .react-flow__panel,
+body.flowvision-exporting .react-flow__controls,
+body.flowvision-exporting .react-flow__minimap,
+body.flowvision-exporting .react-flow__attribution {
+  display: none !important;
+}
+
+/* 缩略地图美化 */
+.react-flow__minimap {
+  transition: opacity 0.2s ease;
+}
+
+.react-flow__minimap:hover {
+  opacity: 1 !important;
+}
+
+.react-flow__minimap svg {
+  border-radius: 12px;
+}
+
 /* 动画关键帧 */
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -276,6 +317,11 @@
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes panelFadeIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes slideInLeft {

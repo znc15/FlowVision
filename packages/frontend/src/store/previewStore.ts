@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { GraphNode, GraphEdge, GraphDiff } from '../types/graph';
 import { applyAutoLayout } from '../utils/layout';
 
+function filterPreviewEdges(edges: GraphEdge[], knownNodeIds: Set<string>) {
+  return edges.filter((edge) => knownNodeIds.has(edge.source) && knownNodeIds.has(edge.target));
+}
+
 interface PreviewStore {
   // 预览状态的节点和边
   previewNodes: GraphNode[];
@@ -46,14 +50,22 @@ export const usePreviewStore = create<PreviewStore>((set) => ({
     const edgeIdSet = new Set(currentEdgeIds);
 
     const rawNodes = diff.add.nodes.filter((node) => !nodeIdSet.has(node.id));
-    const rawEdges = diff.add.edges.filter((edge) => !edgeIdSet.has(edge.id));
+    const previewNodeIds = new Set(rawNodes.map((node) => node.id));
+    const knownNodeIds = new Set([...currentNodeIds, ...previewNodeIds]);
+    const rawEdges = filterPreviewEdges(
+      diff.add.edges.filter((edge) => !edgeIdSet.has(edge.id)),
+      knownNodeIds,
+    );
+    const layoutEdges = rawEdges.filter(
+      (edge) => previewNodeIds.has(edge.source) && previewNodeIds.has(edge.target),
+    );
 
     // 对预览节点应用自动布局，避免堆叠
-    const laid = applyAutoLayout({ nodes: rawNodes, edges: rawEdges });
+    const laid = applyAutoLayout({ nodes: rawNodes, edges: layoutEdges });
 
     set({
       previewNodes: laid.nodes,
-      previewEdges: laid.edges,
+      previewEdges: rawEdges,
       isPreviewMode: rawNodes.length > 0 || rawEdges.length > 0,
     });
   },

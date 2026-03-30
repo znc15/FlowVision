@@ -12,6 +12,7 @@ import TabBar from './components/Workbench/TabBar';
 import SettingsDialog from './components/SettingsDialog';
 import OnboardingGuide from './components/OnboardingGuide';
 import WindowTitleBar from './components/WindowTitleBar';
+import CloseConfirmDialog from './components/CloseConfirmDialog';
 import { useWebSocketSync } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { loadSharedGraph } from './utils/share';
@@ -39,6 +40,7 @@ function App() {
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [canvasFocusMode, setCanvasFocusMode] = useState(false);
 
   // 当前项目路径（从 localStorage 读取，与 FileExplorer 共享）
   const [projectPath, setProjectPath] = useState(() => {
@@ -59,7 +61,11 @@ function App() {
   }, []);
 
   useWebSocketSync();
-  useKeyboardShortcuts();
+  useKeyboardShortcuts({
+    isCanvasFocusMode: canvasFocusMode,
+    onToggleCanvasFocusMode: () => setCanvasFocusMode((value) => !value),
+    onExitCanvasFocusMode: () => setCanvasFocusMode(false),
+  });
 
   // 非 Electron 模式下，closeAction 为 'ask' 时拦截页面关闭
   useEffect(() => {
@@ -99,9 +105,19 @@ function App() {
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <OnboardingGuide />
       <WindowTitleBar />
+      <CloseConfirmDialog />
 
       {/* 主布局容器 - 4 栏水平排列 */}
       <main className="flex flex-1 overflow-hidden bg-surface pt-10">
+        {canvasFocusMode ? (
+          <section className="flex-1 bg-surface flex flex-col overflow-hidden relative">
+            <Canvas
+              isFocusMode={canvasFocusMode}
+              onToggleFocusMode={() => setCanvasFocusMode((value) => !value)}
+            />
+          </section>
+        ) : (
+          <>
         {/* 第 1 栏：左侧导航栏（固定宽度，在 PanelGroup 外） */}
         <SideNavBar
           activeTab={activeTab}
@@ -120,7 +136,9 @@ function App() {
           {/* 第 2 栏：项目信息侧边栏 / AI 对话面板 */}
           <Panel id="sidebar" defaultSize="18%" minSize="12%" maxSize="30%">
             <aside className="h-full bg-surface-container-low flex flex-col overflow-hidden ghost-border-soft border-y-0 border-l-0">
+              <div key={activeTab} className="flex-1 flex flex-col overflow-hidden animate-[panelFadeIn_200ms_ease-out]">
               {activeTab === 'project' ? <ProjectSidebar /> : activeTab === 'chat' ? <ChatPanel /> : activeTab === 'log' ? <AgentLogPanel /> : <McpPanel />}
+              </div>
             </aside>
           </Panel>
 
@@ -148,10 +166,15 @@ function App() {
           <Panel id="canvas" defaultSize="48%" minSize="25%">
             <section className="h-full bg-surface flex flex-col overflow-hidden relative">
               <TabBar />
-              <Canvas />
+              <Canvas
+                isFocusMode={canvasFocusMode}
+                onToggleFocusMode={() => setCanvasFocusMode((value) => !value)}
+              />
             </section>
           </Panel>
         </Group>
+          </>
+        )}
       </main>
     </div>
   );

@@ -67,6 +67,40 @@ const MCP_EXAMPLES = [
 }`,
     file: '~/.codeium/windsurf/mcp_config.json',
   },
+  {
+    name: 'Cline',
+    icon: 'extension',
+    desc: '在 VS Code Cline 扩展中使用',
+    config: `{
+  "mcpServers": {
+    "flowvision": {
+      "command": "npx",
+      "args": ["-y", "flowvision-mcp"],
+      "env": {
+        "FLOWVISION_BACKEND_URL": "http://localhost:3001"
+      }
+    }
+  }
+}`,
+    file: '~/.cline/mcp_settings.json',
+  },
+  {
+    name: 'Cherry Studio',
+    icon: 'spa',
+    desc: '在 Cherry Studio 中使用',
+    config: `{
+  "mcpServers": {
+    "flowvision": {
+      "command": "npx",
+      "args": ["-y", "flowvision-mcp"],
+      "env": {
+        "FLOWVISION_BACKEND_URL": "http://localhost:3001"
+      }
+    }
+  }
+}`,
+    file: 'Cherry Studio → 设置 → MCP 服务器',
+  },
 ];
 
 /** MCP 工具列表 */
@@ -106,6 +140,8 @@ function McpPanel() {
   const save = useSettingsStore((s) => s.save);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [expandedExample, setExpandedExample] = useState<number | null>(null);
+  const [toolsExpanded, setToolsExpanded] = useState(false);
+  const [nodeTypesExpanded, setNodeTypesExpanded] = useState(false);
 
   const handleToggleMcp = useCallback(() => {
     setMcpEnabled(!mcpEnabled);
@@ -155,10 +191,22 @@ function McpPanel() {
 
         {/* 可用工具 */}
         <div>
-          <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
-            可用工具
-          </label>
-          <div className="space-y-1.5">
+          <button
+            onClick={() => setToolsExpanded(!toolsExpanded)}
+            className="w-full flex items-center justify-between mb-3 group"
+          >
+            <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 cursor-pointer">
+              可用工具
+            </label>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-on-surface-variant/40 font-medium">{MCP_TOOLS.length} 个</span>
+              <span className={`material-symbols-outlined text-sm text-on-surface-variant/40 transition-transform duration-200 ${toolsExpanded ? 'rotate-180' : ''}`}>
+                expand_more
+              </span>
+            </div>
+          </button>
+          {toolsExpanded && (
+          <div className="space-y-1.5 animate-[fadeIn_150ms_ease-out]">
             {MCP_TOOLS.map((tool) => (
               <div key={tool.name} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-container-highest/40 ghost-border-soft">
                 <span className="material-symbols-outlined text-sm text-primary/60">{tool.icon}</span>
@@ -169,6 +217,7 @@ function McpPanel() {
               </div>
             ))}
           </div>
+          )}
         </div>
 
         {/* 配置示例 */}
@@ -225,10 +274,22 @@ function McpPanel() {
 
         {/* 支持的节点类型 */}
         <div>
-          <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 block mb-3">
-            支持的节点类型
-          </label>
-          <div className="grid grid-cols-3 gap-1.5">
+          <button
+            onClick={() => setNodeTypesExpanded(!nodeTypesExpanded)}
+            className="w-full flex items-center justify-between mb-3 group"
+          >
+            <label className="text-label-sm uppercase tracking-widest font-bold text-on-surface-variant/60 cursor-pointer">
+              支持的节点类型
+            </label>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-on-surface-variant/40 font-medium">{NODE_TYPES.length} 种</span>
+              <span className={`material-symbols-outlined text-sm text-on-surface-variant/40 transition-transform duration-200 ${nodeTypesExpanded ? 'rotate-180' : ''}`}>
+                expand_more
+              </span>
+            </div>
+          </button>
+          {nodeTypesExpanded && (
+          <div className="grid grid-cols-3 gap-1.5 animate-[fadeIn_150ms_ease-out]">
             {NODE_TYPES.map((nt) => (
               <div key={nt.type} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-surface-container-highest/40 ghost-border-soft">
                 <span className={`material-symbols-outlined text-xs ${nt.color.split(' ')[0]}`}>{nt.icon}</span>
@@ -236,6 +297,7 @@ function McpPanel() {
               </div>
             ))}
           </div>
+          )}
         </div>
 
         {/* 使用说明 */}

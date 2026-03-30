@@ -27,12 +27,14 @@ let nodeSeq = 0;
 
 interface ToolbarProps {
   onShowHistory?: () => void;
+  isFocusMode?: boolean;
+  onToggleFocusMode?: () => void;
 }
 
-function Toolbar({ onShowHistory }: ToolbarProps) {
+function Toolbar({ onShowHistory, isFocusMode = false, onToggleFocusMode }: ToolbarProps) {
   const { addNode, nodes, edges } = useGraphStore();
   const { pushHistory } = useHistoryStore();
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, getNodes, setViewport, toObject } = useReactFlow();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -102,80 +104,112 @@ function Toolbar({ onShowHistory }: ToolbarProps) {
     } catch { /* 忽略 */ }
   }, [shareUrl]);
 
+  const handleExportPng = useCallback(async () => {
+    const exportNodes = getNodes();
+    if (exportNodes.length === 0) {
+      await exportPNG(exportNodes);
+      return;
+    }
+
+    const shouldUseDesktopCapture = Boolean(window.electron?.desktop?.capturePage);
+    const previousViewport = shouldUseDesktopCapture ? toObject().viewport : null;
+
+    try {
+      if (shouldUseDesktopCapture) {
+        await fitView({ padding: 0.16, duration: 0 });
+      }
+
+      await exportPNG(exportNodes);
+    } catch (error) {
+      console.error('导出 PNG 失败', error);
+    } finally {
+      if (previousViewport) {
+        await setViewport(previousViewport, { duration: 0 }).catch(() => undefined);
+      }
+    }
+  }, [fitView, getNodes, setViewport, toObject]);
+
   return (
-    <div className="flex flex-wrap items-center gap-1 bg-surface-container-lowest/92 backdrop-blur-md ghost-border-soft rounded-xl px-2 py-1 shadow-sm">
-      {/* 添加节点 */}
-      {NODE_TEMPLATES.map((tpl) => (
-        <button
-          key={tpl.type}
-          onClick={() => handleAddNode(tpl.type)}
-          className="icon-button-soft h-8 w-8"
-          title={`添加${tpl.label}节点`}
-        >
-          <span className="material-symbols-outlined text-base">{tpl.icon}</span>
-        </button>
-      ))}
+    <div className="w-full rounded-2xl bg-surface-container-lowest/94 px-3 py-2 backdrop-blur-md ghost-border-soft shadow-[0_10px_30px_rgba(15,23,42,0.08)] overflow-hidden" style={{ containerType: 'inline-size' }}>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* 节点模板按钮组 */}
+        <div className="flex items-center gap-1">
+          {NODE_TEMPLATES.map((tpl) => (
+            <button
+              key={tpl.type}
+              type="button"
+              onClick={() => handleAddNode(tpl.type)}
+              className="icon-button-soft h-8 w-8 rounded-xl shrink-0"
+              title={`添加${tpl.label}节点`}
+            >
+              <span className="material-symbols-outlined text-base">{tpl.icon}</span>
+            </button>
+          ))}
+        </div>
 
-      <div className="w-px h-5 bg-outline-variant mx-1" />
+        <div className="w-px h-5 bg-outline-variant/20 shrink-0" />
 
-      {/* 缩放 */}
-      <button onClick={() => zoomIn()} className="icon-button-soft h-8 w-8" title="放大">
-        <span className="material-symbols-outlined text-base">zoom_in</span>
-      </button>
-      <button onClick={() => zoomOut()} className="icon-button-soft h-8 w-8" title="缩小">
-        <span className="material-symbols-outlined text-base">zoom_out</span>
-      </button>
-      <button onClick={() => fitView({ padding: 0.2 })} className="icon-button-soft h-8 w-8" title="适应画布">
-        <span className="material-symbols-outlined text-base">fit_screen</span>
-      </button>
+        {/* 视图操作组 */}
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => zoomIn()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="放大">
+            <span className="material-symbols-outlined text-base">zoom_in</span>
+          </button>
+          <button type="button" onClick={() => zoomOut()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="缩小">
+            <span className="material-symbols-outlined text-base">zoom_out</span>
+          </button>
+          <button type="button" onClick={() => fitView({ padding: 0.2 })} className="toolbar-label-btn" title="适应画布">
+            <span className="material-symbols-outlined text-base">fit_screen</span>
+            <span className="toolbar-label-text">适应画布</span>
+          </button>
+          <button type="button" onClick={handleAutoLayout} className="toolbar-label-btn" title="自动布局">
+            <span className="material-symbols-outlined text-base">account_tree</span>
+            <span className="toolbar-label-text">自动布局</span>
+          </button>
+          {onToggleFocusMode && (
+            <button type="button" onClick={onToggleFocusMode} className="toolbar-label-btn" title={isFocusMode ? '退出画布全屏 (Esc)' : '画布全屏显示 (F11)'}>
+              <span className="material-symbols-outlined text-base">{isFocusMode ? 'fullscreen_exit' : 'fullscreen'}</span>
+              <span className="toolbar-label-text">{isFocusMode ? '退出全屏' : '画布全屏'}</span>
+            </button>
+          )}
+        </div>
 
-      <div className="w-px h-5 bg-outline-variant mx-1" />
+        <div className="w-px h-5 bg-outline-variant/20 shrink-0" />
 
-      {/* 布局 & 清空 */}
-      <button onClick={handleAutoLayout} className="icon-button-soft h-8 w-8" title="自动布局">
-        <span className="material-symbols-outlined text-base">account_tree</span>
-      </button>
-      <button onClick={handleClear} className="icon-button-soft h-8 w-8" title="清空画布">
-        <span className="material-symbols-outlined text-base">delete_sweep</span>
-      </button>
-
-      <div className="w-px h-5 bg-outline-variant mx-1" />
-
-      {/* 保存 */}
-      <button onClick={handleSave} className={`icon-button-soft h-8 w-8 ${saved ? 'text-green-600' : ''}`} title="保存画布 (Ctrl+S)">
-        <span className="material-symbols-outlined text-base">{saved ? 'check_circle' : 'save'}</span>
-      </button>
-
-      {/* 导出 */}
-      <button onClick={() => exportJSON({ nodes, edges })} className="icon-button-soft h-8 w-8" title="导出 JSON">
-        <span className="material-symbols-outlined text-base">data_object</span>
-      </button>
-      <button onClick={() => exportPNG()} className="icon-button-soft h-8 w-8" title="导出 PNG">
-        <span className="material-symbols-outlined text-base">image</span>
-      </button>
-      <button onClick={() => exportMarkdown({ nodes, edges })} className="icon-button-soft h-8 w-8" title="导出 Markdown 报告">
-        <span className="material-symbols-outlined text-base">description</span>
-      </button>
-      <button onClick={handleImport} className="icon-button-soft h-8 w-8" title="导入 JSON">
-        <span className="material-symbols-outlined text-base">upload_file</span>
-      </button>
-      <button onClick={() => exportSystemPrompt({ nodes, edges })} className="icon-button-soft h-8 w-8" title="生成系统提示词">
-        <span className="material-symbols-outlined text-base">smart_toy</span>
-      </button>
-
-      <div className="w-px h-5 bg-outline-variant mx-1" />
-
-      {/* 版本历史 */}
-      <button onClick={onShowHistory} className="icon-button-soft h-8 w-8" title="版本历史">
-        <span className="material-symbols-outlined text-base">history</span>
-      </button>
-      <button
-        onClick={handleShare}
-        className="icon-button-soft h-8 w-8"
-        title="分享"
-      >
-        <span className="material-symbols-outlined text-base">share</span>
-      </button>
+        {/* 文件操作组 */}
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={handleClear} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="清空画布">
+            <span className="material-symbols-outlined text-base">delete_sweep</span>
+          </button>
+          <button type="button" onClick={handleSave} className={`toolbar-label-btn ${saved ? 'text-green-600' : ''}`} title="保存画布 (Ctrl+S)">
+            <span className="material-symbols-outlined text-base">{saved ? 'check_circle' : 'save'}</span>
+            <span className="toolbar-label-text">{saved ? '已保存' : '保存'}</span>
+          </button>
+          <button type="button" onClick={() => exportJSON({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 JSON">
+            <span className="material-symbols-outlined text-base">data_object</span>
+          </button>
+          <button type="button" onClick={() => void handleExportPng()} className="toolbar-label-btn" title="导出 PNG">
+            <span className="material-symbols-outlined text-base">image</span>
+            <span className="toolbar-label-text">导出 PNG</span>
+          </button>
+          <button type="button" onClick={() => exportMarkdown({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 Markdown 报告">
+            <span className="material-symbols-outlined text-base">description</span>
+          </button>
+          <button type="button" onClick={handleImport} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导入 JSON">
+            <span className="material-symbols-outlined text-base">upload_file</span>
+          </button>
+          <button type="button" onClick={() => exportSystemPrompt({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="生成系统提示词">
+            <span className="material-symbols-outlined text-base">smart_toy</span>
+          </button>
+          <button type="button" onClick={onShowHistory} className="toolbar-label-btn" title="版本历史">
+            <span className="material-symbols-outlined text-base">history</span>
+            <span className="toolbar-label-text">历史</span>
+          </button>
+          <button type="button" onClick={handleShare} className="toolbar-label-btn" title="分享">
+            <span className="material-symbols-outlined text-base">share</span>
+            <span className="toolbar-label-text">分享</span>
+          </button>
+        </div>
+      </div>
 
       {/* 分享弹窗 */}
       {shareUrl && (

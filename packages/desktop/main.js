@@ -11,6 +11,32 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 
+function ensureDirectory(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+function sanitizeDownloadFilename(filename, fallback = 'flowvision-graph.png') {
+  const safeName = String(filename || fallback)
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
+    .trim();
+
+  return safeName || fallback;
+}
+
+function getSessionDataPath() {
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+    return path.join(process.env.LOCALAPPDATA, 'FlowVision', 'Session Data');
+  }
+
+  return path.join(app.getPath('userData'), 'session-data');
+}
+
+const SESSION_DATA_PATH = getSessionDataPath();
+ensureDirectory(SESSION_DATA_PATH);
+app.setPath('sessionData', SESSION_DATA_PATH);
+
 function getAliveMainWindow() {
   if (!mainWindow) return null;
   if (mainWindow.isDestroyed()) {
@@ -172,6 +198,48 @@ function createTray() {
 }
 
 function setupIpc() {
+  ipcMain.on('app:getVersionSync', (event) => {
+    event.returnValue = app.getVersion();
+  });
+
+  ipcMain.handle('desktop:getRuntimePaths', () => ({
+    userData: app.getPath('userData'),
+    sessionData: app.getPath('sessionData'),
+    downloads: app.getPath('downloads'),
+  }));
+
+  ipcMain.handle('desktop:capturePage', async (_event, options = {}) => {
+    const win = getAliveMainWindow();
+    if (!win) {
+      throw new Error('主窗口不可用，无法导出 PNG');
+    }
+
+    const rect = {
+      x: Math.max(0, Math.round(Number(options.x) || 0)),
+      y: Math.max(0, Math.round(Number(options.y) || 0)),
+      width: Math.max(1, Math.round(Number(options.width) || 0)),
+      height: Math.max(1, Math.round(Number(options.height) || 0)),
+    };
+
+    const filename = sanitizeDownloadFilename(options.filename, 'flowvision-graph.png');
+    const downloadDir = app.getPath('downloads');
+    ensureDirectory(downloadDir);
+    const filePath = path.join(downloadDir, filename);
+
+    const image = await win.capturePage(rect);
+    fs.writeFileSync(filePath, image.toPNG());
+
+    const stats = fs.statSync(filePath);
+    const size = image.getSize();
+
+    return {
+      path: filePath,
+      width: size.width,
+      height: size.height,
+      size: stats.size,
+    };
+  });
+
   ipcMain.handle('window:minimize', () => {
     const win = getAliveMainWindow();
     if (win) win.minimize();
@@ -215,6 +283,28 @@ function setupIpc() {
     saveDesktopSettings(desktopSettings);
     return desktopSettings;
   });
+
+  ipcMain.handle('window:closeResponse', (_event, { action, remember }) => {
+    const win = getAliveMainWindow();
+    if (!win) return;
+
+    if (action === 'cancel') return;
+
+    const chosenAction = action === 'tray' ? 'tray' : 'quit';
+
+    if (remember) {
+      desktopSettings = { ...desktopSettings, closeAction: chosenAction };
+      saveDesktopSettings(desktopSettings);
+      win.webContents.send('desktop:closeAction-changed', chosenAction);
+    }
+
+    if (chosenAction === 'tray') {
+      win.hide();
+    } else {
+      isQuitting = true;
+      app.quit();
+    }
+  });
 }
 
 function createWindow() {
@@ -249,7 +339,7 @@ function createWindow() {
     win.webContents.send('window:maximized-changed', false);
   });
 
-  win.on('close', async (event) => {
+  win.on('close', (event) => {
     if (isQuitting) return;
 
     const action = desktopSettings.closeAction || 'ask';
@@ -266,36 +356,9 @@ function createWindow() {
       return;
     }
 
-    // action === 'ask'：弹出询问对话框
+    // action === 'ask'：通知前端显示美化关闭对话框
     event.preventDefault();
-    const { response, checkboxChecked } = await dialog.showMessageBox(win, {
-      type: 'question',
-      title: '关闭窗口',
-      message: '关闭窗口后如何处理？',
-      buttons: ['最小化到托盘', '退出应用', '取消'],
-      defaultId: 0,
-      cancelId: 2,
-      checkboxLabel: '记住我的选择',
-      checkboxChecked: false,
-    });
-
-    if (response === 2) return; // 取消
-
-    const chosenAction = response === 0 ? 'tray' : 'quit';
-
-    if (checkboxChecked) {
-      desktopSettings = { ...desktopSettings, closeAction: chosenAction };
-      saveDesktopSettings(desktopSettings);
-      // 同步通知前端
-      win.webContents.send('desktop:closeAction-changed', chosenAction);
-    }
-
-    if (chosenAction === 'tray') {
-      win.hide();
-    } else {
-      isQuitting = true;
-      app.quit();
-    }
+    win.webContents.send('window:close-requested');
   });
 
   // 外部链接在系统浏览器打开

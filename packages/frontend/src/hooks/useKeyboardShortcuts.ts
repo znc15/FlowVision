@@ -3,13 +3,20 @@ import { useHistoryStore } from '../store/historyStore';
 import { useGraphStore } from '../store/graphStore';
 import { useTabStore } from '../store/tabStore';
 
+interface KeyboardShortcutsOptions {
+  isCanvasFocusMode?: boolean;
+  onToggleCanvasFocusMode?: () => void;
+  onExitCanvasFocusMode?: () => void;
+}
+
 /**
  * 全局键盘快捷键
  * Ctrl+Z: 撤销  |  Ctrl+Y / Ctrl+Shift+Z: 重做
  * Ctrl+S: 保存画布  |  Delete/Backspace: 删除选中节点
  */
-export function useKeyboardShortcuts() {
+export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}) {
   const { undo, redo } = useHistoryStore();
+  const { isCanvasFocusMode = false, onToggleCanvasFocusMode, onExitCanvasFocusMode } = options;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -42,10 +49,21 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      if (e.key === 'F11') {
+        e.preventDefault();
+        onToggleCanvasFocusMode?.();
+        return;
+      }
+
+      if (e.key === 'Escape' && isCanvasFocusMode) {
+        e.preventDefault();
+        onExitCanvasFocusMode?.();
+      }
+
       // Delete 删除选中节点（由 React Flow 自身处理，此处仅做额外逻辑扩展的预留）
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [undo, redo]);
+  }, [undo, redo, isCanvasFocusMode, onToggleCanvasFocusMode, onExitCanvasFocusMode]);
 }

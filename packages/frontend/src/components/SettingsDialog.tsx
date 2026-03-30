@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSettingsStore, AIProvider } from '../store/settingsStore';
 import { useLogStore } from '../store/logStore';
 import { useGraphStore } from '../store/graphStore';
-import { exportBackup, importBackup } from '../utils/export';
+import { exportBackup, importBackup, backupToWebDAV, restoreFromWebDAV } from '../utils/export';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -14,10 +14,11 @@ const PROVIDER_OPTIONS: { id: AIProvider; name: string; defaultModel: string }[]
   { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4.1' },
 ];
 
-type SettingsTab = 'ai' | 'prompt' | 'about' | 'update' | 'log' | 'status';
+type SettingsTab = 'ai' | 'prompt' | 'backup' | 'about' | 'update' | 'log' | 'status';
 
 function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const store = useSettingsStore();
+  const { nodes, edges } = useGraphStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('ai');
   const [provider, setProvider] = useState<AIProvider>(store.provider);
@@ -261,6 +262,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const TABS: { id: SettingsTab; icon: string; label: string }[] = [
     { id: 'ai', icon: 'smart_toy', label: 'AI 设置' },
     { id: 'prompt', icon: 'edit_note', label: '提示词' },
+    { id: 'backup', icon: 'backup', label: '备份' },
     { id: 'about', icon: 'info', label: '关于' },
     { id: 'update', icon: 'update', label: '更新' },
     { id: 'log', icon: 'event_note', label: '日志' },
@@ -273,7 +275,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={onClose} />
 
       {/* 弹窗 */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-[min(92vw,560px)] h-[min(82vh,740px)] overflow-hidden ghost-border-soft animate-[scaleIn_250ms_ease-out] flex flex-col">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-[min(96vw,760px)] h-[min(88vh,860px)] overflow-hidden ghost-border-soft animate-[scaleIn_250ms_ease-out] flex flex-col">
         {/* 标题 */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
@@ -674,7 +676,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { name: '默认（流程图）', icon: 'account_tree', prompt: '' },
+                    { name: '内置默认（推荐）', icon: 'account_tree', prompt: '' },
                     { name: '追问模式', icon: 'help_center', prompt: `# 追问模式
 
 ## 角色
@@ -803,7 +805,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   自定义系统提示词
                 </label>
                 <p className="text-[10px] text-slate-400 mb-3">
-                  自定义 AI 对话的系统提示词。支持 Markdown 格式。留空则使用默认提示词（生成 GraphDiff 格式的流程图）。
+                  自定义 AI 对话的系统提示词。支持 Markdown 格式。留空则使用增强后的内置默认提示词（生成 GraphDiff 格式的流程图并自检边连接）。
                 </p>
                 <textarea
                   value={systemPrompt}
@@ -826,6 +828,80 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ===== 备份标签页 ===== */}
+          {activeTab === 'backup' && (
+            <div className="space-y-6 animate-[fadeIn_200ms_ease-out]">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-2xl bg-slate-50 p-4 ghost-border-soft">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">当前节点</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-800">{nodes.length}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">包含在备份文件中</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-4 ghost-border-soft">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">当前连线</p>
+                  <p className="mt-2 text-2xl font-bold text-slate-800">{edges.length}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">导入后会整体恢复</p>
+                </div>
+                <div className="rounded-2xl bg-primary/5 p-4 ring-1 ring-primary/10">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-primary/60">备份范围</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-800">设置、对话、画布</p>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">导出为单个 JSON，适合迁移到另一台机器或回滚当前工作区。</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-5 ghost-border-soft space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">导出与恢复</h3>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                    导出会保存当前设置、AI 对话和画布数据；导入会覆盖本地同名数据，建议操作前先导出一次备份。
+                  </p>
+                </div>
+                <div className="flex flex-col md:flex-row gap-3">
+                  <button
+                    onClick={() => exportBackup({ nodes, edges })}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-all duration-200 shadow-md"
+                  >
+                    <span className="material-symbols-outlined text-base">backup</span>
+                    导出完整备份
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const result = await importBackup();
+                      if (result) {
+                        store.load();
+                        if (result.graph) {
+                          useGraphStore.getState().replaceGraph(result.graph);
+                        }
+                        alert(`恢复成功！已还原 ${result.restored} 项设置数据${result.graph ? '和画布数据' : ''}。建议刷新页面。`);
+                      } else {
+                        alert('导入失败：无效的备份文件');
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all duration-200"
+                  >
+                    <span className="material-symbols-outlined text-base">restore</span>
+                    从备份恢复
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-amber-50/70 p-4 border border-amber-100 space-y-2">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <span className="material-symbols-outlined text-base">info</span>
+                  <span className="text-sm font-semibold">恢复提示</span>
+                </div>
+                <ul className="text-[11px] leading-relaxed text-amber-800/90 space-y-1">
+                  <li>导入后会覆盖已有的 FlowVision 本地设置与缓存。</li>
+                  <li>如果包含画布数据，会立即替换当前画布内容。</li>
+                  <li>跨设备恢复后，建议重新检查 AI Key、代理和桌面行为配置。</li>
+                </ul>
+              </div>
+
+              {/* WebDAV 云备份 */}
+              <WebDAVBackupSection nodes={nodes} edges={edges} />
             </div>
           )}
 
@@ -873,47 +949,6 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   检查更新
                 </button>
               </div>
-
-              {/* 数据备份与恢复 */}
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                  数据管理
-                </label>
-                <p className="text-[10px] text-slate-400 -mt-1">
-                  备份所有设置、对话和画布数据，或从备份文件恢复
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      const { nodes, edges } = useGraphStore.getState();
-                      exportBackup({ nodes, edges });
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-200"
-                  >
-                    <span className="material-symbols-outlined text-base">backup</span>
-                    导出备份
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const result = await importBackup();
-                      if (result) {
-                        store.load();
-                        if (result.graph) {
-                          useGraphStore.getState().replaceGraph(result.graph);
-                        }
-                        alert(`恢复成功！已还原 ${result.restored} 项设置数据${result.graph ? '和画布数据' : ''}。建议刷新页面。`);
-                      } else {
-                        alert('导入失败：无效的备份文件');
-                      }
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-200"
-                  >
-                    <span className="material-symbols-outlined text-base">restore</span>
-                    导入备份
-                  </button>
-                </div>
-              </div>
-
               {/* 桌面与界面行为 */}
               <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
@@ -1185,6 +1220,158 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+const WEBDAV_STORAGE_KEY = 'flowvision-webdav-config';
+
+function loadWebDAVConfig(): { url: string; username: string; password: string; path: string } {
+  try {
+    const raw = localStorage.getItem(WEBDAV_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* 忽略 */ }
+  return { url: '', username: '', password: '', path: '/flowvision-backup.json' };
+}
+
+/** WebDAV 云备份区块 */
+function WebDAVBackupSection({ nodes, edges }: { nodes: any[]; edges: any[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const [config, setConfig] = useState(loadWebDAVConfig);
+  const [status, setStatus] = useState<{ type: 'success' | 'error' | 'loading'; message: string } | null>(null);
+
+  const saveConfig = (newConfig: typeof config) => {
+    setConfig(newConfig);
+    try { localStorage.setItem(WEBDAV_STORAGE_KEY, JSON.stringify(newConfig)); } catch { /* 忽略 */ }
+  };
+
+  const handleUpload = async () => {
+    if (!config.url) { setStatus({ type: 'error', message: '请填写 WebDAV 地址' }); return; }
+    setStatus({ type: 'loading', message: '正在上传备份...' });
+    try {
+      const result = await backupToWebDAV({ nodes, edges }, config);
+      setStatus({ type: result.success ? 'success' : 'error', message: result.message });
+    } catch (err: any) {
+      setStatus({ type: 'error', message: `上传失败：${err.message}` });
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!config.url) { setStatus({ type: 'error', message: '请填写 WebDAV 地址' }); return; }
+    setStatus({ type: 'loading', message: '正在下载备份...' });
+    try {
+      const result = await restoreFromWebDAV(config);
+      if (result) {
+        if (result.graph) {
+          useGraphStore.getState().replaceGraph(result.graph);
+        }
+        setStatus({ type: 'success', message: `恢复成功！已还原 ${result.restored} 项数据` });
+      } else {
+        setStatus({ type: 'error', message: '未找到有效备份文件' });
+      }
+    } catch (err: any) {
+      setStatus({ type: 'error', message: `下载失败：${err.message}` });
+    }
+  };
+
+  return (
+    <div className="rounded-2xl bg-slate-50 ghost-border-soft overflow-hidden">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-100 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+            <span className="material-symbols-outlined text-indigo-600 text-base">cloud_upload</span>
+          </div>
+          <div className="text-left">
+            <h3 className="text-sm font-semibold text-slate-900">WebDAV 云备份</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">同步备份到 WebDAV 服务器</p>
+          </div>
+        </div>
+        <span className={`material-symbols-outlined text-slate-400 text-base transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}>
+          expand_more
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="px-5 pb-5 space-y-3 animate-[slideDown_150ms_ease-out]">
+          <div className="space-y-2.5">
+            <div>
+              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">服务器地址</label>
+              <input
+                type="url"
+                value={config.url}
+                onChange={(e) => saveConfig({ ...config, url: e.target.value })}
+                placeholder="https://dav.example.com/remote.php/webdav"
+                className="w-full mt-1 rounded-xl bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25 transition-all"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">用户名</label>
+                <input
+                  type="text"
+                  value={config.username}
+                  onChange={(e) => saveConfig({ ...config, username: e.target.value })}
+                  className="w-full mt-1 rounded-xl bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">密码</label>
+                <input
+                  type="password"
+                  value={config.password}
+                  onChange={(e) => saveConfig({ ...config, password: e.target.value })}
+                  className="w-full mt-1 rounded-xl bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25 transition-all"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">备份路径</label>
+              <input
+                type="text"
+                value={config.path}
+                onChange={(e) => saveConfig({ ...config, path: e.target.value })}
+                placeholder="/flowvision-backup.json"
+                className="w-full mt-1 rounded-xl bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25 transition-all"
+              />
+            </div>
+          </div>
+
+          {status && (
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
+              status.type === 'success' ? 'bg-green-50 text-green-700' :
+              status.type === 'error' ? 'bg-red-50 text-red-700' :
+              'bg-blue-50 text-blue-700'
+            }`}>
+              <span className="material-symbols-outlined text-sm">
+                {status.type === 'success' ? 'check_circle' : status.type === 'error' ? 'error' : 'sync'}
+              </span>
+              {status.message}
+            </div>
+          )}
+
+          <div className="flex gap-2.5">
+            <button
+              onClick={handleUpload}
+              disabled={status?.type === 'loading'}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-sm">cloud_upload</span>
+              上传备份
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={status?.type === 'loading'}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-sm">cloud_download</span>
+              下载恢复
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,6 +12,13 @@ function sanitizeEdge(edge: GraphEdge): GraphEdge {
   return cleaned;
 }
 
+function filterValidEdges(nodes: GraphNode[], edges: GraphEdge[]): GraphEdge[] {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  return edges
+    .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+    .map((edge) => sanitizeEdge(edge));
+}
+
 /**
  * 在后端将 GraphDiff 应用到图结构
  * 保持与前端 graphDiff 的行为一致，但不依赖前端包
@@ -42,7 +49,7 @@ export function applyDiffToGraph(current: GraphData, diff: GraphDiff): GraphData
   if (diff.update.edges.length > 0) {
     edges = edges.map((edge) => {
       const update = diff.update.edges.find((item) => item.id === edge.id);
-      return update ? { ...edge, ...update } : edge;
+      return update ? sanitizeEdge({ ...edge, ...update }) : sanitizeEdge(edge);
     });
   }
 
@@ -54,7 +61,7 @@ export function applyDiffToGraph(current: GraphData, diff: GraphDiff): GraphData
   const newEdges = diff.add.edges
     .filter((edge) => !existingEdgeIds.has(edge.id))
     .map(sanitizeEdge);
-  edges = [...edges, ...newEdges];
+  edges = filterValidEdges(nodes, [...edges, ...newEdges]);
 
   return { ...current, nodes, edges };
 }

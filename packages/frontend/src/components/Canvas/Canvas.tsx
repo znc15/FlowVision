@@ -59,7 +59,12 @@ const edgeTypes: EdgeTypes = {
   step: FlowEdge,
 };
 
-function Canvas() {
+interface CanvasProps {
+  isFocusMode?: boolean;
+  onToggleFocusMode?: () => void;
+}
+
+function Canvas({ isFocusMode = false, onToggleFocusMode }: CanvasProps) {
   const { nodes: graphNodes, edges: graphEdges, addEdge: addGraphEdge, updateNode } = useGraphStore();
   const { previewNodes, previewEdges, isPreviewMode, clear: clearPreview } = usePreviewStore();
   const { undo, redo, canUndo, canRedo, pushHistory } = useHistoryStore();
@@ -178,9 +183,17 @@ function Canvas() {
 
       {/* 顶部工具栏 */}
       <div className="absolute top-0 left-0 right-0 workbench-panel-header px-6 z-10">
-        <span className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant bg-slate-200/70 px-2 py-1 rounded-md">
-          执行流程架构
-        </span>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant bg-slate-200/70 px-2 py-1 rounded-md">
+            执行流程架构
+          </span>
+          {isFocusMode && (
+            <span className="hidden md:inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">
+              <span className="material-symbols-outlined text-[14px]">fullscreen</span>
+              画布全屏
+            </span>
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-4">
           {/* 图例 */}
           <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
@@ -189,6 +202,18 @@ function Canvas() {
           <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
             <span className="w-2 h-2 rounded-full bg-secondary"></span> 逻辑分支
           </div>
+
+          {onToggleFocusMode && (
+            <button
+              type="button"
+              onClick={onToggleFocusMode}
+              className="hidden md:inline-flex items-center gap-1.5 rounded-xl bg-surface-container-highest/70 px-3 py-1.5 text-[11px] font-medium text-on-surface-variant transition-colors duration-150 hover:bg-primary/10 hover:text-primary"
+              title={isFocusMode ? '退出画布全屏 (Esc)' : '画布全屏显示 (F11)'}
+            >
+              <span className="material-symbols-outlined text-[15px]">{isFocusMode ? 'fullscreen_exit' : 'fullscreen'}</span>
+              {isFocusMode ? '退出全屏' : '画布全屏'}
+            </button>
+          )}
 
           {/* 撤销/重做 */}
           <div className="flex items-center gap-1 ml-4">
@@ -235,17 +260,33 @@ function Canvas() {
             nodeStrokeWidth={2}
             pannable
             zoomable
-            className="!bottom-12 !left-6 !bg-surface-container-lowest/90 !backdrop-blur-sm !rounded-xl !border !border-outline-variant/15 !shadow-none"
-            style={{ width: 140, height: 90 }}
-            maskColor="rgba(0, 80, 203, 0.06)"
+            className="!bottom-12 !left-6 !rounded-2xl !border !border-outline-variant/12 !shadow-[0_4px_20px_rgba(0,0,0,0.08)] !overflow-hidden"
+            style={{
+              width: 160,
+              height: 100,
+              background: 'rgba(244, 246, 248, 0.95)',
+              backdropFilter: 'blur(12px)',
+            }}
+            maskColor="rgba(0, 80, 203, 0.05)"
+            nodeColor={(node) => {
+              if (node.type === 'start') return '#0050CB';
+              if (node.type === 'end') return '#BA1B1B';
+              if (node.type === 'decision') return '#6750A4';
+              if (node.type === 'data') return '#006B5F';
+              return '#667086';
+            }}
           />
 
           {/* 控制按钮 */}
           <Controls className="!bottom-12 !left-auto !right-6 !bg-surface-container-lowest/88 !backdrop-blur-md ghost-border-soft !rounded-xl !shadow-none" />
 
           {/* 工具栏 —— 必须在 ReactFlow 内部以使用 useReactFlow */}
-          <Panel position="top-center" className="mt-1">
-            <Toolbar onShowHistory={() => setHistoryOpen(true)} />
+          <Panel position="top-center" className="mt-2 w-[min(1080px,calc(100%-2rem))]">
+            <Toolbar
+              onShowHistory={() => setHistoryOpen(true)}
+              isFocusMode={isFocusMode}
+              onToggleFocusMode={onToggleFocusMode}
+            />
           </Panel>
         </ReactFlow>
       </div>
