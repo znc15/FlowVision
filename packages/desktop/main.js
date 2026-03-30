@@ -3,6 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const { spawn, execPath: nodeExecPath } = require('child_process');
 
+// 禁止 Chromium 生成 BrowserMetrics-*.pma 遥测文件
+app.commandLine.appendSwitch('metrics-recording-only');
+app.commandLine.appendSwitch('disable-breakpad');
+
 // 判断是否开发模式
 const isDev = !app.isPackaged;
 
