@@ -58,7 +58,6 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   const models = useSettingsStore((s) => s.models);
   const modelsLoading = useSettingsStore((s) => s.modelsLoading);
-  const logEntries = useLogStore((s) => s.entries);
 
   // 打开弹窗时同步 store 状态并获取模型列表
   useEffect(() => {
