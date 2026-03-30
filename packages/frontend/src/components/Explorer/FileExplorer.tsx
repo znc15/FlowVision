@@ -105,6 +105,7 @@ function TreeItem({
 }
 
 const PROJECT_PATH_KEY = 'flowvision-project-path';
+const EXPANDED_PATHS_KEY = 'flowvision-expanded-paths';
 
 /** 文件浏览器面板 */
 function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFile, onFileSelect }: FileExplorerProps) {
@@ -127,7 +128,7 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
   // 从后端获取文件树（跳过 GitHub 仓库，其文件树已由导入时设置）
   useEffect(() => {
     const path = propProjectPath || currentPath;
-    if (!path || propTree || path.startsWith('github:')) return;
+    if (!path || propTree || path.startsWith('github:') || path.startsWith('gitee:')) return;
     setLoading(true);
     setError('');
     fetch(`http://localhost:3001/api/files?projectPath=${encodeURIComponent(path)}`)
@@ -165,8 +166,12 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
     setError('');
     setGithubRepo('');
     setIsGithub(false);
+    setGiteeRepo('');
+    setIsGitee(false);
+    setExpandedPaths(new Set());
     try {
       localStorage.removeItem(PROJECT_PATH_KEY);
+      localStorage.removeItem(EXPANDED_PATHS_KEY);
     } catch {
       // 忽略
     }
@@ -174,7 +179,13 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
 
   const tree = propTree ?? fetchedTree;
 
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(EXPANDED_PATHS_KEY);
+      if (saved) return new Set(JSON.parse(saved));
+    } catch { /* 忽略 */ }
+    return new Set();
+  });
 
   // ===== 文件夹浏览器 =====
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
@@ -225,6 +236,12 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
   const [isGithub, setIsGithub] = useState(false);
   const sourceMenuRef = useRef<HTMLDivElement>(null);
 
+  // ===== Gitee 仓库导入 =====
+  const [showGiteeInput, setShowGiteeInput] = useState(false);
+  const [giteeRepo, setGiteeRepo] = useState('');
+  const [giteeLoading, setGiteeLoading] = useState(false);
+  const [isGitee, setIsGitee] = useState(false);
+
   // 点击外部关闭下拉菜单
   useEffect(() => {
     if (!showSourceMenu) return;
@@ -270,6 +287,38 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
     }
   };
 
+  const handleGiteeImport = async () => {
+    const trimmed = giteeRepo.trim().replace(/^https?:\/\/gitee\.com\//, '').replace(/\.git$/, '').replace(/\/$/, '');
+    if (!trimmed || !/^[\w.-]+\/[\w.-]+$/.test(trimmed)) {
+      setError('请输入有效的 Gitee 仓库（格式: owner/repo）');
+      return;
+    }
+
+    setGiteeLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams({ repo: trimmed });
+      const res = await fetch(`http://localhost:3001/api/gitee-tree?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setFetchedTree(data.data);
+        setIsGitee(true);
+        setIsGithub(false);
+        setCurrentPath(`gitee:${trimmed}`);
+        setShowGiteeInput(false);
+        useLogStore.getState().add('success', 'Gitee导入', `仓库 ${trimmed} 导入成功`);
+        try { localStorage.setItem(PROJECT_PATH_KEY, `gitee:${trimmed}`); } catch { /* 忽略 */ }
+      } else {
+        setError(data.error || 'Gitee 仓库加载失败');
+        useLogStore.getState().add('error', 'Gitee导入', data.error || 'Gitee 仓库加载失败');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '获取 Gitee 仓库失败');
+    } finally {
+      setGiteeLoading(false);
+    }
+  };
+
   const handleToggle = useCallback((path: string) => {
     setExpandedPaths((prev) => {
       const next = new Set(prev);
@@ -278,6 +327,7 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
       } else {
         next.add(path);
       }
+      try { localStorage.setItem(EXPANDED_PATHS_KEY, JSON.stringify([...next])); } catch { /* 忽略 */ }
       return next;
     });
   }, []);
@@ -317,7 +367,7 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
                 <span className="material-symbols-outlined text-base">add</span>
               </button>
               {showSourceMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50 w-40 animate-[fadeIn_150ms_ease-out]">
+                <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50 w-40 animate-[fadeIn_150ms_ease-out] overflow-hidden">
                   <button
                     onClick={() => { setShowSourceMenu(false); handleOpenFolderBrowser(); }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors duration-150 rounded-lg mx-0.5"
@@ -332,6 +382,13 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
                     <svg className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                     GitHub 仓库
                   </button>
+                  <button
+                    onClick={() => { setShowSourceMenu(false); setShowGiteeInput(true); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors duration-150 rounded-lg mx-0.5"
+                  >
+                    <span className="material-symbols-outlined text-sm text-red-500">cloud_download</span>
+                    Gitee 仓库
+                  </button>
                 </div>
               )}
             </div>
@@ -342,6 +399,12 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
               {currentPath.replace('github:', '')}
             </p>
           )}
+          {isGitee && currentPath && (
+            <p className="text-[10px] text-red-500 mt-1.5 flex items-center gap-1">
+              <span className="material-symbols-outlined text-xs">cloud_download</span>
+              {currentPath.replace('gitee:', '')}
+            </p>
+          )}
           {error && (
             <p className="text-[10px] text-red-500 mt-1.5 leading-tight">{error}</p>
           )}
@@ -349,7 +412,7 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
       )}
 
       {/* 文件树 */}
-      <div className="flex-1 overflow-y-auto py-3">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden py-3">
         {loading && (
           <div className="px-4 py-2 text-xs text-on-surface-variant">加载中...</div>
         )}
@@ -403,6 +466,44 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
               >
                 {githubLoading && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
                 {githubLoading ? '加载中...' : '导入仓库'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gitee 仓库输入弹窗 */}
+      {showGiteeInput && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => setShowGiteeInput(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-[380px] ghost-border-soft animate-[scaleIn_250ms_ease-out]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-red-500 text-lg">cloud_download</span>
+                导入 Gitee 仓库
+              </h3>
+              <button onClick={() => setShowGiteeInput(false)} className="icon-button-soft h-7 w-7">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <label className="text-xs text-slate-500 block mb-2">仓库地址（owner/repo 或完整 URL）</label>
+              <input
+                type="text"
+                value={giteeRepo}
+                onChange={(e) => setGiteeRepo(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleGiteeImport()}
+                placeholder="例如: openharmony/docs"
+                className="w-full bg-slate-50 rounded-lg py-2.5 px-3 text-xs text-slate-800 outline-none border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
+                autoFocus
+              />
+              <button
+                onClick={handleGiteeImport}
+                disabled={giteeLoading || !giteeRepo.trim()}
+                className="w-full mt-3 py-2.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {giteeLoading && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
+                {giteeLoading ? '加载中...' : '导入仓库'}
               </button>
             </div>
           </div>

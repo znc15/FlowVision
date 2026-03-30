@@ -14,6 +14,12 @@ const NODE_TYPES: { value: NodeType; label: string; icon: string }[] = [
   { value: 'end', label: '结束', icon: 'stop_circle' },
   { value: 'data', label: '数据', icon: 'database' },
   { value: 'group', label: '分组', icon: 'folder' },
+  { value: 'subprocess', label: '子流程', icon: 'account_tree' },
+  { value: 'delay', label: '延迟', icon: 'hourglass_top' },
+  { value: 'document', label: '文档', icon: 'article' },
+  { value: 'manual_input', label: '手动输入', icon: 'touch_app' },
+  { value: 'annotation', label: '注释', icon: 'sticky_note_2' },
+  { value: 'connector', label: '连接器', icon: 'radio_button_checked' },
 ];
 
 function NodeEditDialog({ nodeId, onClose }: NodeEditDialogProps) {
@@ -86,7 +92,7 @@ function NodeEditDialog({ nodeId, onClose }: NodeEditDialogProps) {
           {/* 节点类型 */}
           <div>
             <label className="text-xs text-slate-500 block mb-1.5">节点类型</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-4 gap-1.5">
               {NODE_TYPES.map((nt) => (
                 <button
                   key={nt.value}

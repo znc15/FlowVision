@@ -3,6 +3,8 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getSmoothStepPath,
+  getStraightPath,
+  getBezierPath,
   type EdgeProps,
 } from '@xyflow/react';
 import { useGraphStore } from '../../../store/graphStore';
@@ -33,21 +35,44 @@ function FlowEdge({
   label,
   selected,
   animated,
-}: EdgeProps) {
+  type,
+}: EdgeProps & { type?: string }) {
   const sourceNode = useGraphStore((s) => s.nodes.find((n) => n.id === source));
   const strokeColor = selected
     ? '#0050cb'
     : NODE_TYPE_COLORS[sourceNode?.type || 'process'] || '#c2c6d8';
 
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-    sourcePosition,
-    targetPosition,
-    borderRadius: 12,
-  });
+  // 根据边类型选择不同的路径算法
+  let edgePath: string;
+  let labelX: number;
+  let labelY: number;
+
+  if (type === 'straight') {
+    [edgePath, labelX, labelY] = getStraightPath({
+      sourceX, sourceY, targetX, targetY,
+    });
+  } else if (type === 'default') {
+    [edgePath, labelX, labelY] = getBezierPath({
+      sourceX, sourceY, targetX, targetY,
+      sourcePosition, targetPosition,
+    });
+  } else if (type === 'step') {
+    [edgePath, labelX, labelY] = getSmoothStepPath({
+      sourceX, sourceY, targetX, targetY,
+      sourcePosition, targetPosition,
+      borderRadius: 0,
+    });
+  } else {
+    // smoothstep（默认）
+    [edgePath, labelX, labelY] = getSmoothStepPath({
+      sourceX, sourceY, targetX, targetY,
+      sourcePosition, targetPosition,
+      borderRadius: 12,
+    });
+  }
+
+  // 虚线样式：step 和 straight 类型使用虚线
+  const dashArray = (type === 'step' || type === 'straight') ? '6 3' : undefined;
 
   const displayLabel = (data as Record<string, unknown>)?.condition ?? label;
 
@@ -59,6 +84,7 @@ function FlowEdge({
         style={{
           stroke: strokeColor,
           strokeWidth: selected ? 2 : 1.5,
+          strokeDasharray: dashArray,
           transition: 'stroke 0.15s, stroke-width 0.15s',
         }}
         className={animated ? 'react-flow__edge-path--animated' : ''}

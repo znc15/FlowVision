@@ -184,8 +184,8 @@ function collectKeyFiles(
   absPath: string,
   basePath: string,
   depth = 0,
-  maxDepth = 3,
-  maxFiles = 15,
+  maxDepth = 6,
+  maxFiles = 50,
   results: { path: string; content: string }[] = [],
 ): { path: string; content: string }[] {
   if (depth > maxDepth || results.length >= maxFiles) return results;
@@ -243,9 +243,30 @@ function collectKeyFiles(
   return results;
 }
 
-/** GET /api/file-context?projectPath=... — 返回项目结构+关键文件内容（供 AI 分析） */
+/** 将文件树扁平化为按文件夹分组的文件路径列表 */
+function flattenTree(tree: FileTreeNode[], prefix = ''): { folder: string; files: string[] }[] {
+  const result: { folder: string; files: string[] }[] = [];
+  const filesInCurrent: string[] = [];
+
+  for (const node of tree) {
+    if (node.type === 'file') {
+      filesInCurrent.push(node.name);
+    } else if (node.type === 'folder' && node.children) {
+      const subResult = flattenTree(node.children, node.path);
+      result.push(...subResult);
+    }
+  }
+
+  if (filesInCurrent.length > 0) {
+    result.unshift({ folder: prefix || '.', files: filesInCurrent });
+  }
+
+  return result;
+}
+
+/** GET /api/file-context?projectPath=...&maxDepth=...&maxFiles=... — 返回项目结构+关键文件内容（供 AI 分析） */
 export async function getFileContext(
-  request: FastifyRequest<{ Querystring: { projectPath?: string } }>,
+  request: FastifyRequest<{ Querystring: { projectPath?: string; maxDepth?: string; maxFiles?: string } }>,
   reply: FastifyReply,
 ) {
   const projectPath = request.query.projectPath;
@@ -253,6 +274,9 @@ export async function getFileContext(
     reply.code(400);
     return { success: false, error: '缺少 projectPath 参数' };
   }
+
+  const maxDepth = Math.min(parseInt(request.query.maxDepth || '6', 10) || 6, 12);
+  const maxFiles = Math.min(parseInt(request.query.maxFiles || '50', 10) || 50, 500);
 
   // GitHub 仓库路径：通过 GitHub API 获取上下文
   if (projectPath.startsWith('github:')) {
@@ -267,12 +291,15 @@ export async function getFileContext(
     return { success: false, error: '目录不存在' };
   }
 
-  const tree = buildTree(projectPath, projectPath, 0, 4);
-  const keyFiles = collectKeyFiles(projectPath, projectPath);
+  const tree = buildTree(projectPath, projectPath, 0, maxDepth);
+  const keyFiles = collectKeyFiles(projectPath, projectPath, 0, maxDepth, maxFiles);
+
+  // 收集完整文件清单（按文件夹分组）
+  const allFiles = flattenTree(tree);
 
   return {
     success: true,
-    data: { tree, keyFiles },
+    data: { tree, keyFiles, allFiles },
   };
 }
 
@@ -545,4 +572,51 @@ function buildGithubTree(entries: { path: string; type: string }[]): FileTreeNod
   }
 
   return root;
+}
+
+/** GET /api/gitee-tree?repo=owner/repo&branch=master — 获取 Gitee 仓库文件树 */
+export async function fetchGiteeTree(
+  request: FastifyRequest<{ Querystring: { repo?: string; branch?: string } }>,
+  reply: FastifyReply,
+) {
+  const { repo, branch } = request.query;
+  if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+    reply.code(400);
+    return { success: false, error: '缺少或无效的 repo 参数（格式: owner/repo）' };
+  }
+
+  const owner = encodeURIComponent(repo.split('/')[0]);
+  const repoName = encodeURIComponent(repo.split('/')[1]);
+
+  // Gitee 默认分支通常是 master
+  const branchCandidates = branch ? [branch] : ['master', 'main'];
+
+  for (const branchName of branchCandidates) {
+    try {
+      const response = await fetch(
+        `https://gitee.com/api/v5/repos/${owner}/${repoName}/git/trees/${encodeURIComponent(branchName)}?recursive=1`,
+        { headers: { 'User-Agent': 'FlowVision' } },
+      );
+
+      if (response.status === 404 && branchCandidates.length > 1) {
+        continue;
+      }
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message || `Gitee API 返回 ${response.status}`);
+      }
+
+      const data = (await response.json()) as { tree?: { path: string; type: string }[] };
+      const tree = buildGithubTree(data.tree || []);
+      return { success: true, data: tree };
+    } catch (e) {
+      if (branchCandidates.indexOf(branchName) < branchCandidates.length - 1) continue;
+      reply.code(500);
+      return { success: false, error: (e as Error).message || '获取 Gitee 仓库失败' };
+    }
+  }
+
+  reply.code(404);
+  return { success: false, error: '未找到仓库或分支，请检查仓库地址是否正确' };
 }

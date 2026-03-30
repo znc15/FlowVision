@@ -8,7 +8,7 @@
 
 一键分析项目代码 · 自动生成架构流程图 · 可视化编辑 · MCP 实时同步
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Node.js](https://img.shields.io/badge/Node.js-≥20-339933?logo=node.js&logoColor=white)](https://nodejs.org) [![pnpm](https://img.shields.io/badge/pnpm-≥9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io) [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev) [![Electron](https://img.shields.io/badge/Electron-桌面端-47848F?logo=electron&logoColor=white)](https://www.electronjs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Node.js](https://img.shields.io/badge/Node.js-≥20-339933?logo=node.js&logoColor=white)](https://nodejs.org) [![pnpm](https://img.shields.io/badge/pnpm-≥9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io) [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev) [![Electron](https://img.shields.io/badge/Electron-桌面端-47848F?logo=electron&logoColor=white)](https://www.electronjs.org) [![Version](https://img.shields.io/badge/version-1.2.0-green)](../../releases)
 
 </div>
 
@@ -50,6 +50,24 @@
 
 内置 MCP 服务器，支持 Claude Desktop、Cursor、
 VS Code 等 AI 客户端实时同步操作流程图。
+
+</td>
+</tr>
+<tr>
+<td>
+
+### 斜杠命令系统
+
+输入 `/` 快速调用命令，支持清空对话、新建会话、
+导出对话、思考模式切换、快速调用模板。
+
+</td>
+<td>
+
+### AI Prompt 生成
+
+AI 辅助生成高质量流程图 Prompt，描述场景即可
+获得优化的提示词，提升流程图生成质量。
 
 </td>
 </tr>
@@ -192,6 +210,10 @@ FlowVision 暴露 6 个 MCP 工具，AI 客户端可直接操作流程图：
 
 | 状态   | 功能                                              |
 | ------ | ------------------------------------------------- |
+| ✅ 已完成 | AI Prompt 生成子页面                                 |
+| ✅ 已完成 | 斜杠命令系统（/help /clear /export 等）       |
+| ✅ 已完成 | 下载操作 Toast 通知                              |
+| ✅ 已完成 | 文件浏览器状态持久化                            |
 | 规划中 | 多人协作实时编辑（WebRTC / CRDT）                 |
 | 规划中 | 流程图版本历史与对比                              |
 | 规划中 | 自定义节点模板市场                                |
@@ -205,6 +227,16 @@ FlowVision 暴露 6 个 MCP 工具，AI 客户端可直接操作流程图：
 ## 许可证
 
 [MIT](LICENSE)
+
+## Star 趋势
+
+<a href="https://star-history.com/#znc15/FlowVision&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=znc15/FlowVision&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=znc15/FlowVision&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=znc15/FlowVision&type=Date" />
+  </picture>
+</a>
 
 ## 友情链接
 

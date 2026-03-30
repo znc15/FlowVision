@@ -3,6 +3,7 @@ import { useGraphStore } from '../../store/graphStore';
 import { usePreviewStore } from '../../store/previewStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
+import { useLogStore } from '../../store/logStore';
 import { logger } from '../../utils/logger';
 
 // 预设 prompt 模板
@@ -23,6 +24,27 @@ const FLOWCHART_TYPES = [
   { icon: 'person_pin_circle', label: '用户旅程图', prompt: '生成一个用户旅程流程图，从用户首次访问到完成核心操作的完整路径，包含各触点和决策节点' },
   { icon: 'api', label: 'API 调用链', prompt: '生成一个 API 调用链流程图，展示客户端请求到服务端各层（路由、中间件、控制器、服务、数据库）的处理流程' },
   { icon: 'autorenew', label: '状态机图', prompt: '生成一个状态机流程图，展示对象在各状态之间的转换条件和触发事件，使用 decision 节点表示状态' },
+];
+
+/** 斜杠命令定义 */
+const SLASH_COMMANDS = [
+  { command: '/help', icon: 'help', label: '帮助', description: '显示所有可用命令' },
+  { command: '/clear', icon: 'delete_sweep', label: '清空对话', description: '清除当前所有消息' },
+  { command: '/new', icon: 'add_circle', label: '新建对话', description: '创建新的对话会话' },
+  { command: '/thinking', icon: 'psychology', label: '思考模式', description: '开启或关闭 AI 推理过程展示' },
+  { command: '/export', icon: 'download', label: '导出对话', description: '将当前对话导出为文本文件' },
+  ...PRESET_TEMPLATES.map((tpl) => ({
+    command: `/scene:${tpl.label}`,
+    icon: tpl.icon,
+    label: tpl.label,
+    description: tpl.prompt,
+  })),
+  ...FLOWCHART_TYPES.map((tpl) => ({
+    command: `/flow:${tpl.label}`,
+    icon: tpl.icon,
+    label: tpl.label,
+    description: tpl.prompt,
+  })),
 ];
 
 /** 节点类型对应的图标和颜色 */
@@ -194,6 +216,8 @@ function ChatPanel() {
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashSelectedIdx, setSlashSelectedIdx] = useState(0);
   const streamingMsgId = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -206,6 +230,15 @@ function ChatPanel() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  /** 斜杠命令过滤 */
+  const filteredCommands = useMemo(() => {
+    if (!input.startsWith('/')) return SLASH_COMMANDS;
+    const q = input.toLowerCase();
+    return SLASH_COMMANDS.filter(
+      (cmd) => cmd.command.toLowerCase().includes(q) || cmd.label.toLowerCase().includes(q)
+    );
+  }, [input]);
 
   /** 再次填入画布 */
   const handleApplyDiff = useCallback((diff: any) => {
@@ -232,6 +265,21 @@ function ChatPanel() {
     streamingMsgId.current = assistantId;
 
     const { provider, apiKey, model, baseURL, systemPrompt: customSystemPrompt, customHeaders, httpProxy } = useSettingsStore.getState();
+
+    const requestBody = {
+      prompt: userPrompt,
+      currentGraph: { nodes, edges },
+      mode: 'incremental',
+      provider,
+      ...(apiKey && { apiKey: '***' }),
+      ...(model && { model }),
+      ...(baseURL && { baseURL }),
+      ...(customSystemPrompt && { systemPrompt: customSystemPrompt }),
+      ...(thinkingEnabled && { thinking: true }),
+      ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
+      ...(httpProxy && { httpProxy }),
+    };
+    useLogStore.getState().add('info', 'AI请求', `发送生成请求: ${provider}/${model || '默认模型'}`, JSON.stringify(requestBody, null, 2));
 
     try {
       const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
@@ -322,6 +370,48 @@ function ChatPanel() {
     } finally {
       streamingMsgId.current = null;
       setLoading(false);
+    }
+  };
+
+  /** 执行斜杠命令 */
+  const handleSlashCommand = (command: string) => {
+    setShowSlashMenu(false);
+    setInput('');
+    if (command === '/help') {
+      const helpText = SLASH_COMMANDS
+        .filter((c) => !c.command.includes(':'))
+        .map((c) => `\`${c.command}\` — ${c.description}`)
+        .join('\n');
+      addMessage({
+        role: 'assistant',
+        content: `**可用命令**\n\n${helpText}\n\n输入 \`/scene:\` 查看场景模板，\`/flow:\` 查看流程图类型`,
+      });
+    } else if (command === '/clear') {
+      clearMessages();
+    } else if (command === '/new') {
+      createConversation();
+    } else if (command === '/thinking') {
+      setThinkingEnabled((v) => !v);
+    } else if (command === '/export') {
+      if (messages.length === 0) return;
+      const text = messages
+        .map((m) => `[${m.role === 'user' ? '用户' : 'AI'}] ${m.content}`)
+        .join('\n\n---\n\n');
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `FlowVision对话_${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else if (command.startsWith('/scene:')) {
+      const tpl = PRESET_TEMPLATES.find((t) => t.label === command.slice(7));
+      if (tpl) void handleSend(tpl.prompt);
+    } else if (command.startsWith('/flow:')) {
+      const tpl = FLOWCHART_TYPES.find((t) => t.label === command.slice(6));
+      if (tpl) void handleSend(tpl.prompt);
     }
   };
 
@@ -493,7 +583,30 @@ function ChatPanel() {
       </div>
 
       {/* 输入框 */}
-      <div className="px-5 py-4 ghost-border-soft border-x-0 border-b-0 bg-surface-container-low/45 backdrop-blur-sm">
+      <div className="relative px-5 py-4 ghost-border-soft border-x-0 border-b-0 bg-surface-container-low/45 backdrop-blur-sm">
+        {/* 斜杠命令菜单 */}
+        {showSlashMenu && filteredCommands.length > 0 && (
+          <div className="absolute bottom-full left-5 right-5 mb-1 bg-white rounded-xl shadow-lg border border-slate-100 max-h-64 overflow-y-auto z-50 animate-[fadeIn_100ms_ease-out]">
+            {filteredCommands.map((cmd, idx) => (
+              <button
+                key={cmd.command}
+                onMouseDown={(e) => { e.preventDefault(); handleSlashCommand(cmd.command); }}
+                className={`flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors duration-100 ${
+                  idx === slashSelectedIdx ? 'bg-primary/8' : 'hover:bg-slate-50'
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm text-primary/70">{cmd.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-slate-700">{cmd.label}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{cmd.command}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 truncate">{cmd.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex gap-2">
           <button
             onClick={() => setThinkingEnabled((v) => !v)}
@@ -509,9 +622,37 @@ function ChatPanel() {
           <input
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void handleSend()}
-            placeholder="描述需求或输入「生成XX流程图」..."
+            onChange={(e) => {
+              const v = e.target.value;
+              setInput(v);
+              if (v.startsWith('/')) {
+                setShowSlashMenu(true);
+                setSlashSelectedIdx(0);
+              } else {
+                setShowSlashMenu(false);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (showSlashMenu && filteredCommands.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setSlashSelectedIdx((i) => Math.min(i + 1, filteredCommands.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setSlashSelectedIdx((i) => Math.max(i - 1, 0));
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSlashCommand(filteredCommands[slashSelectedIdx].command);
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setShowSlashMenu(false);
+                }
+                return;
+              }
+              if (e.key === 'Enter') void handleSend();
+            }}
+            onBlur={() => setTimeout(() => setShowSlashMenu(false), 150)}
+            placeholder="描述需求，或输入 / 查看快捷命令..."
             className="flex-1 bg-surface-container-highest/92 rounded-xl py-2 px-4 text-xs text-on-surface outline-none transition-all duration-200 ghost-border-soft focus:ring-2 focus:ring-primary/20"
             disabled={isLoading}
           />
@@ -524,7 +665,7 @@ function ChatPanel() {
           </button>
         </div>
         <p className="text-[9px] text-on-surface-variant/60 mt-2">
-          {thinkingEnabled ? '🧠 思考模式已开启 · AI 将展示推理过程' : '提示：描述需求进行分析，或输入「生成XX流程图」直接生成'}
+          {thinkingEnabled ? '🧠 思考模式已开启 · AI 将展示推理过程' : '提示：输入 / 查看快捷命令，或直接描述需求'}
         </p>
       </div>
     </div>

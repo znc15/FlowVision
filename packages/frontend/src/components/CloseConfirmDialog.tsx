@@ -34,7 +34,7 @@ function CloseConfirmDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* 顶部渐变条 */}
-        <div className="h-1 bg-gradient-to-r from-primary via-secondary to-tertiary" />
+        <div className="h-1.5 bg-gradient-to-r from-primary via-secondary to-tertiary" />
 
         <div className="px-6 pt-5 pb-6">
           {/* 图标和标题 */}
@@ -58,7 +58,7 @@ function CloseConfirmDialog() {
               className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-slate-50 hover:bg-primary/5 hover:ring-1 hover:ring-primary/20 transition-all duration-150 group disabled:opacity-60"
             >
               <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-blue-600 text-lg">minimize</span>
+                <span className="material-symbols-outlined text-blue-600 text-lg leading-none">minimize</span>
               </div>
               <div className="text-left">
                 <p className="text-sm font-semibold text-slate-800 group-hover:text-primary transition-colors">最小化到托盘</p>
@@ -97,7 +97,7 @@ function CloseConfirmDialog() {
           {/* 取消按钮 */}
           <button
             onClick={() => handleResponse('cancel')}
-            className="w-full py-2.5 rounded-xl text-xs font-medium text-slate-500 hover:bg-slate-100 transition-colors duration-150"
+            className="w-full py-2.5 rounded-xl text-xs font-medium text-slate-500 bg-slate-50 hover:bg-slate-100 transition-colors duration-150"
           >
             取消
           </button>

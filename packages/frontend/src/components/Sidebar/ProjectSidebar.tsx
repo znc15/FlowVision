@@ -66,7 +66,18 @@ function ProjectSidebar() {
   const [streamingCanvasText, setStreamingCanvasText] = useState('');
   const [generatingCanvas, setGeneratingCanvas] = useState(false);
   const [canvasError, setCanvasError] = useState('');
+  const [analysisStep, setAnalysisStep] = useState(0);
+  const [canvasStep, setCanvasStep] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+
+  // 一言 (Hitokoto) 随机句子
+  const [hitokoto, setHitokoto] = useState<{ text: string; from?: string } | null>(null);
+  useEffect(() => {
+    fetch('https://v1.hitokoto.cn/?c=a&c=b&c=d&c=i&c=k&encode=json')
+      .then((r) => r.json())
+      .then((d) => { if (d.hitokoto) setHitokoto({ text: d.hitokoto, from: d.from || '' }); })
+      .catch(() => { /* 忽略 */ });
+  }, []);
 
   // 当前项目路径
   const projectPath = (() => {
@@ -98,6 +109,7 @@ function ProjectSidebar() {
     setGenerating(true);
     setGenError('');
     setStreamingOverviewText('');
+    setAnalysisStep(1);
     useLogStore.getState().add('info', 'AI分析', `开始生成项目概览: ${projectPath}`);
 
     abortRef.current?.abort();
@@ -110,8 +122,11 @@ function ProjectSidebar() {
       // 先获取项目上下文（文件树+关键文件内容）
       let fileContext = '';
       try {
+        const { maxDepth, maxSubCalls } = useSettingsStore.getState();
         const ctxParams = new URLSearchParams({ projectPath });
         if (githubToken) ctxParams.set('token', githubToken);
+        ctxParams.set('maxDepth', String(maxDepth));
+        ctxParams.set('maxFiles', String(maxSubCalls));
         const ctxRes = await fetch(
           `http://localhost:3001/api/file-context?${ctxParams}`,
           { signal: controller.signal },
@@ -119,9 +134,16 @@ function ProjectSidebar() {
         if (ctxRes.ok) {
           const ctxData = await ctxRes.json();
           if (ctxData.success && ctxData.data) {
-            const { keyFiles } = ctxData.data;
+            const { keyFiles, allFiles } = ctxData.data;
+            // 完整文件清单（按文件夹分组）
+            if (allFiles && allFiles.length > 0) {
+              fileContext += '\n\n项目完整文件结构:\n' +
+                allFiles.map((g: { folder: string; files: string[] }) =>
+                  `📁 ${g.folder}/\n${g.files.map((f: string) => `  - ${f}`).join('\n')}`
+                ).join('\n');
+            }
             if (keyFiles && keyFiles.length > 0) {
-              fileContext = '\n\n以下是项目关键文件内容:\n' +
+              fileContext += '\n\n以下是项目关键文件内容:\n' +
                 keyFiles.map((f: { path: string; content: string }) =>
                   `--- ${f.path} ---\n${f.content.slice(0, 3000)}`
                 ).join('\n\n');
@@ -132,7 +154,11 @@ function ProjectSidebar() {
         // 获取文件上下文失败不阻断概览生成
       }
 
-      const prompt = `分析以下项目路径的文件结构，生成项目概览。项目路径: ${projectPath}${fileContext}
+      setAnalysisStep(2);
+      const prompt = `分析以下项目路径的完整文件结构，逐一分析每个文件夹和子文件，生成项目概览。项目路径: ${projectPath}${fileContext}
+
+请基于完整的项目文件结构（包含所有文件夹和子文件），进行全面分析。
+需要覆盖每一个目录层级，识别各文件夹的职责和包含的关键文件。
 
 请严格以 JSON 格式返回（不要包含 markdown 代码块），格式如下:
 {
@@ -219,6 +245,7 @@ function ProjectSidebar() {
         data = JSON.parse(cleaned);
       }
       setOverview(data);
+      setAnalysisStep(4);
       saveCachedOverview(projectPath, data);
       useLogStore.getState().add('success', 'AI分析', `项目概览生成完成: ${data.name}`);
     } catch (e) {
@@ -238,28 +265,42 @@ function ProjectSidebar() {
     setGeneratingCanvas(true);
     setCanvasError('');
     setStreamingCanvasText('');
+    setCanvasStep(1);
 
     const { provider, apiKey, model, baseURL, customHeaders: customHeaders2, githubToken: githubToken2, httpProxy: httpProxy2 } = useSettingsStore.getState();
 
     // 获取项目文件上下文，为 AI 识别入口和调用链提供支撑
     let fileContextStr = '';
     try {
+      const { maxDepth, maxSubCalls } = useSettingsStore.getState();
       const ctxParams = new URLSearchParams({ projectPath });
       if (githubToken2) ctxParams.set('token', githubToken2);
+      ctxParams.set('maxDepth', String(maxDepth));
+      ctxParams.set('maxFiles', String(maxSubCalls));
       const ctxRes = await fetch(`http://localhost:3001/api/file-context?${ctxParams}`);
       if (ctxRes.ok) {
         const ctxData = await ctxRes.json();
-        if (ctxData.success && ctxData.data?.keyFiles?.length) {
-          fileContextStr = '\n\n关键源文件内容:\n' +
-            ctxData.data.keyFiles.map((f: { path: string; content: string }) =>
-              `--- ${f.path} ---\n${f.content.slice(0, 3000)}`
-            ).join('\n\n');
+        if (ctxData.success && ctxData.data) {
+          // 完整文件清单
+          if (ctxData.data.allFiles?.length) {
+            fileContextStr += '\n\n项目完整文件结构:\n' +
+              ctxData.data.allFiles.map((g: { folder: string; files: string[] }) =>
+                `📁 ${g.folder}/\n${g.files.map((f: string) => `  - ${f}`).join('\n')}`
+              ).join('\n');
+          }
+          if (ctxData.data.keyFiles?.length) {
+            fileContextStr += '\n\n关键源文件内容:\n' +
+              ctxData.data.keyFiles.map((f: { path: string; content: string }) =>
+                `--- ${f.path} ---\n${f.content.slice(0, 3000)}`
+              ).join('\n\n');
+          }
         }
       }
     } catch { /* 不阻断 */ }
 
     useLogStore.getState().add('info', 'AI分析', '开始生成架构流程图和调用链');
 
+    setCanvasStep(2);
     // 仅在流长时间无数据时中断，避免把慢任务误判为超时
     const timeout = createIdleStreamTimeout(180000);
 
@@ -312,6 +353,7 @@ ${fileContextStr}
       const reader = response.body?.getReader();
       if (!reader) throw new Error('无法获取响应流');
 
+      setCanvasStep(3);
       const decoder = new TextDecoder();
       let buffer = '';
       let fullText = '';
@@ -427,6 +469,11 @@ ${fileContextStr}
                   {displayOverview.description}
                 </p>
               )}
+              {!displayOverview?.description && hitokoto && (
+                <p className="text-[11px] text-on-surface-variant/60 leading-relaxed italic line-clamp-2">
+                  「{hitokoto.text}」{hitokoto.from && <span className="text-[10px] not-italic ml-1">—— {hitokoto.from}</span>}
+                </p>
+              )}
               {isGithub && (
                 <a
                   href={`https://github.com/${githubSlug}`}
@@ -475,63 +522,126 @@ ${fileContextStr}
 
           {/* 可滚动内容区域 */}
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-          {/* 生成中流式输出 */}
+          {/* Agent 工作日志 — 项目分析 */}
           {generating && (
-            <div className="mb-6 rounded-2xl border border-primary/10 bg-[linear-gradient(180deg,rgba(0,80,203,0.06),rgba(255,255,255,0.94))] shadow-[0_12px_30px_rgba(15,23,42,0.06)] overflow-hidden">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-primary/10 bg-white/70 backdrop-blur-sm">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shadow-inner">
-                  <span className="material-symbols-outlined text-primary text-base animate-spin">progress_activity</span>
+            <div className="mb-6 rounded-2xl border border-primary/10 bg-white shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-base">smart_toy</span>
+                  <span className="text-xs font-semibold text-slate-700">Agent 工作日志</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-on-surface">实时分析输出</p>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5">AI 正在逐步返回项目概览内容</p>
-                </div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/8 px-2 py-1 text-[10px] font-medium text-primary">
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-medium text-primary">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse"></span>
-                  Streaming
+                  运行中
                 </span>
               </div>
-              <div className="px-4 py-4">
-                <div className="rounded-xl bg-slate-950 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                  <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/10 text-[10px] text-slate-400">
-                    <span className="material-symbols-outlined text-xs">terminal</span>
-                    项目分析流
-                  </div>
-                  <pre className="max-h-[360px] overflow-auto px-3 py-3 text-[11px] leading-5 whitespace-pre-wrap break-words font-mono">{formatStreamingOverviewText(streamingOverviewText)}</pre>
+              <div className="px-4 py-3 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  {analysisStep > 1
+                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    : <span className="material-symbols-outlined text-sm text-primary animate-spin shrink-0">progress_activity</span>}
+                  <span className={`text-xs ${analysisStep > 1 ? 'text-slate-500' : 'text-slate-800 font-medium'}`}>获取项目文件上下文</span>
                 </div>
-                <p className="mt-2 text-[10px] text-on-surface-variant/70">
-                  当前正在接收模型输出，完成后会自动切换为结构化概览卡片。
-                </p>
+                <div className="flex items-center gap-2.5">
+                  {analysisStep > 2
+                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    : analysisStep >= 2
+                      ? <span className="material-symbols-outlined text-sm text-primary animate-spin shrink-0">progress_activity</span>
+                      : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0"></span>}
+                  <span className={`text-xs ${analysisStep > 2 ? 'text-slate-500' : analysisStep >= 2 ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>发送 AI 分析请求</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  {analysisStep > 3
+                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0 mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    : analysisStep >= 3
+                      ? <span className="material-symbols-outlined text-sm text-primary animate-spin shrink-0 mt-0.5">progress_activity</span>
+                      : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0 mt-0.5"></span>}
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-xs ${analysisStep > 3 ? 'text-slate-500' : analysisStep >= 3 ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>AI 分析代码结构</span>
+                    {analysisStep === 3 && streamingOverviewText && (
+                      <div className="mt-1.5 rounded-lg bg-slate-50 px-3 py-2 max-h-28 overflow-y-auto">
+                        <pre className="text-[10px] text-slate-500 leading-relaxed whitespace-pre-wrap break-words font-mono">{streamingOverviewText.slice(-300)}</pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  {analysisStep >= 4
+                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0"></span>}
+                  <span className={`text-xs ${analysisStep >= 4 ? 'text-slate-500' : 'text-slate-400'}`}>解析并生成概览</span>
+                </div>
+              </div>
+              <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/30 flex items-center gap-4 text-[10px] text-slate-400">
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[11px]">token</span>
+                  ~{Math.max(1, Math.round(streamingOverviewText.length / 4))} tokens
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[11px]">smart_toy</span>
+                  1 次 AI 调用
+                </span>
               </div>
             </div>
           )}
 
+          {/* Agent 工作日志 — 架构图生成 */}
           {generatingCanvas && (
-            <div className="mb-6 rounded-2xl border border-secondary/15 bg-[linear-gradient(180deg,rgba(152,72,0,0.08),rgba(255,255,255,0.96))] shadow-[0_12px_30px_rgba(120,53,15,0.08)] overflow-hidden">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-secondary/10 bg-white/75 backdrop-blur-sm">
-                <div className="w-9 h-9 rounded-xl bg-secondary/10 flex items-center justify-center shadow-inner">
-                  <span className="material-symbols-outlined text-secondary text-base animate-spin">account_tree</span>
+            <div className="mb-6 rounded-2xl border border-secondary/15 bg-white shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-secondary text-base">account_tree</span>
+                  <span className="text-xs font-semibold text-slate-700">架构图生成日志</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-on-surface">架构图实时输出</p>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5">AI 正在逐步生成节点、连线和调用链描述</p>
-                </div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-1 text-[10px] font-medium text-secondary">
+                <span className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[10px] font-medium text-secondary">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-secondary animate-pulse"></span>
-                  Streaming
+                  运行中
                 </span>
               </div>
-              <div className="px-4 py-4">
-                <div className="rounded-xl bg-slate-950 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                  <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/10 text-[10px] text-slate-400">
-                    <span className="material-symbols-outlined text-xs">account_tree</span>
-                    架构图生成流
-                  </div>
-                  <pre className="max-h-[360px] overflow-auto px-3 py-3 text-[11px] leading-5 whitespace-pre-wrap break-words font-mono">{formatStreamingOverviewText(streamingCanvasText, '正在流式输出架构图内容...')}</pre>
+              <div className="px-4 py-3 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  {canvasStep > 1
+                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    : <span className="material-symbols-outlined text-sm text-secondary animate-spin shrink-0">progress_activity</span>}
+                  <span className={`text-xs ${canvasStep > 1 ? 'text-slate-500' : 'text-slate-800 font-medium'}`}>获取项目文件上下文</span>
                 </div>
-                <p className="mt-2 text-[10px] text-on-surface-variant/70">
-                  当前正在接收架构图生成内容，完成后会自动写入画布并替换现有节点布局。
-                </p>
+                <div className="flex items-center gap-2.5">
+                  {canvasStep > 2
+                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    : canvasStep >= 2
+                      ? <span className="material-symbols-outlined text-sm text-secondary animate-spin shrink-0">progress_activity</span>
+                      : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0"></span>}
+                  <span className={`text-xs ${canvasStep > 2 ? 'text-slate-500' : canvasStep >= 2 ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>发送架构图生成请求</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  {canvasStep > 3
+                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0 mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    : canvasStep >= 3
+                      ? <span className="material-symbols-outlined text-sm text-secondary animate-spin shrink-0 mt-0.5">progress_activity</span>
+                      : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0 mt-0.5"></span>}
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-xs ${canvasStep > 3 ? 'text-slate-500' : canvasStep >= 3 ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>AI 生成节点与连线</span>
+                    {canvasStep === 3 && streamingCanvasText && (
+                      <div className="mt-1.5 rounded-lg bg-slate-50 px-3 py-2 max-h-28 overflow-y-auto">
+                        <pre className="text-[10px] text-slate-500 leading-relaxed whitespace-pre-wrap break-words font-mono">{streamingCanvasText.slice(-300)}</pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0"></span>
+                  <span className="text-xs text-slate-400">写入画布</span>
+                </div>
+              </div>
+              <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/30 flex items-center gap-4 text-[10px] text-slate-400">
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[11px]">token</span>
+                  ~{Math.max(1, Math.round(streamingCanvasText.length / 4))} tokens
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[11px]">smart_toy</span>
+                  1 次 AI 调用
+                </span>
               </div>
             </div>
           )}

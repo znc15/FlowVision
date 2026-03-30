@@ -1,6 +1,7 @@
 import { GraphData, GraphNode } from '../types/graph';
 import { getExportFontEmbedCss } from './exportFonts';
 import { getNodesBounds, type Node as ReactFlowNode } from '@xyflow/react';
+import { useToastStore } from '../store/toastStore';
 
 export interface ExportBounds {
   x: number;
@@ -50,18 +51,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
       },
     );
   });
-}
-
-function waitForAnimationFrame(): Promise<void> {
-  return new Promise((resolve) => {
-    window.requestAnimationFrame(() => resolve());
-  });
-}
-
-async function waitForPaint(frames = 2) {
-  for (let index = 0; index < frames; index += 1) {
-    await waitForAnimationFrame();
-  }
 }
 
 export function calculateExportBounds(nodes: ExportableNode[], padding = 60): ExportBounds | null {
@@ -370,28 +359,11 @@ export async function exportPNG(nodes: ExportableNode[], filename = 'flowvision-
     return;
   }
 
-  const desktopCapture = window.electron?.desktop?.capturePage;
-  const captureTarget = document.querySelector('.react-flow') as HTMLElement | null;
-
-  if (desktopCapture && captureTarget) {
-    document.body.classList.add('flowvision-exporting');
-
-    try {
-      await waitForPaint(2);
-      await desktopCapture({
-        ...toDesktopCaptureRect(captureTarget.getBoundingClientRect()),
-        filename,
-      });
-      return;
-    } catch (error) {
-      console.warn('桌面原生 PNG 导出失败，回退到 DOM 导出。', error);
-    } finally {
-      document.body.classList.remove('flowvision-exporting');
-    }
-  }
-
+  // 始终使用 html-to-image 渲染流程图节点（而非桌面端 capturePage 截屏，后者会包含 UI 元素）
   const { toPng } = await import('html-to-image');
   const viewportStyle = buildExportViewportStyle(bounds);
+
+  document.body.classList.add('flowvision-exporting');
 
   const exportOptions = {
     backgroundColor: '#fafafa',
@@ -448,7 +420,9 @@ export async function exportPNG(nodes: ExportableNode[], filename = 'flowvision-
     );
   }
 
+  document.body.classList.remove('flowvision-exporting');
   triggerDataUrlDownload(dataUrl, filename);
+  useToastStore.getState().show(`已导出 PNG: ${filename}`);
 }
 
 /** 将流程图转换为系统提示词并复制到剪贴板 */
@@ -544,6 +518,7 @@ function triggerDownload(blob: Blob, filename: string) {
   window.setTimeout(() => {
     URL.revokeObjectURL(url);
   }, 1000);
+  useToastStore.getState().show(`已下载: ${filename}`);
 }
 
 function triggerDataUrlDownload(url: string, filename: string) {

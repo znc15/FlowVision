@@ -18,6 +18,8 @@ interface SettingsState {
   customHeaders: Record<string, string>;
   githubToken: string;
   httpProxy: string;
+  maxDepth: number;
+  maxSubCalls: number;
   models: ModelInfo[];
   modelsLoading: boolean;
   setProvider: (provider: AIProvider) => void;
@@ -30,6 +32,8 @@ interface SettingsState {
   setCustomHeaders: (headers: Record<string, string>) => void;
   setGithubToken: (token: string) => void;
   setHttpProxy: (proxy: string) => void;
+  setMaxDepth: (depth: number) => void;
+  setMaxSubCalls: (count: number) => void;
   fetchModels: () => Promise<void>;
   save: () => void;
   load: () => void;
@@ -63,6 +67,8 @@ function saveToStorage(state: {
   customHeaders: Record<string, string>;
   githubToken: string;
   httpProxy: string;
+  maxDepth: number;
+  maxSubCalls: number;
 }) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -85,6 +91,8 @@ function persistState(get: () => SettingsState) {
     customHeaders: s.customHeaders,
     githubToken: s.githubToken,
     httpProxy: s.httpProxy,
+    maxDepth: s.maxDepth,
+    maxSubCalls: s.maxSubCalls,
   });
 }
 
@@ -101,12 +109,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     customHeaders: (stored as any).customHeaders || {},
     githubToken: (stored as any).githubToken || '',
     httpProxy: (stored as any).httpProxy || '',
+    maxDepth: (stored as any).maxDepth ?? 6,
+    maxSubCalls: (stored as any).maxSubCalls ?? 200,
     models: [],
     modelsLoading: false,
 
     setProvider: (provider) => {
-      set({ provider, model: DEFAULT_MODELS[provider] });
+      set({ provider, model: '' });
       persistState(get);
+      // 自动获取模型列表，让用户从 API 返回的列表中选择
+      get().fetchModels();
     },
 
     setApiKey: (apiKey) => {
@@ -151,6 +163,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     setHttpProxy: (httpProxy) => {
       set({ httpProxy });
+      persistState(get);
+    },
+
+    setMaxDepth: (maxDepth) => {
+      set({ maxDepth });
+      persistState(get);
+    },
+
+    setMaxSubCalls: (maxSubCalls) => {
+      set({ maxSubCalls });
       persistState(get);
     },
 

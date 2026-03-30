@@ -1,6 +1,6 @@
 interface SideNavBarProps {
-  activeTab: 'project' | 'chat' | 'mcp' | 'log';
-  onTabChange: (tab: 'project' | 'chat' | 'mcp' | 'log') => void;
+  activeTab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log';
+  onTabChange: (tab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log') => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenSettings?: () => void;
@@ -15,7 +15,7 @@ function SideNavBar({ activeTab, onTabChange, collapsed = false, onToggleCollaps
         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white font-bold shadow-[0_4px_12px_rgba(0,80,203,0.2)] shrink-0">F</div>
         <div className={`hidden md:block overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out ${collapsed ? 'max-w-0 opacity-0' : 'max-w-[9rem] opacity-100'}`}>
             <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface leading-none">FlowVision</p>
-            <p className="text-[9px] text-on-surface-variant/50 mt-0.5">v1.0.0</p>
+            <p className="text-[9px] text-on-surface-variant/50 mt-0.5">v1.2.0</p>
         </div>
       </div>
 
@@ -33,6 +33,13 @@ function SideNavBar({ activeTab, onTabChange, collapsed = false, onToggleCollaps
           label="AI 对话"
           active={activeTab === 'chat'}
           onClick={() => onTabChange('chat')}
+          collapsed={collapsed}
+        />
+        <NavButton
+          icon="auto_awesome"
+          label="Prompt 生成"
+          active={activeTab === 'prompt'}
+          onClick={() => onTabChange('prompt')}
           collapsed={collapsed}
         />
         <NavButton
@@ -65,7 +72,7 @@ function SideNavBar({ activeTab, onTabChange, collapsed = false, onToggleCollaps
         <button
           type="button"
           onClick={onToggleCollapse}
-          className={`flex items-center justify-center w-full ${collapsed ? 'aspect-square' : 'py-2'} rounded-xl bg-surface-container-highest/40 text-on-surface-variant/60 hover:bg-primary/10 hover:text-primary transition-colors duration-150`}
+          className={`flex items-center justify-center ${collapsed ? 'w-10 h-10 mx-auto' : 'w-full py-2'} rounded-xl bg-surface-container-highest/40 text-on-surface-variant/60 hover:bg-primary/10 hover:text-primary transition-colors duration-150`}
           title={collapsed ? '展开侧边栏' : '折叠侧边栏'}
         >
           <span className="material-symbols-outlined text-lg leading-none">
@@ -98,7 +105,7 @@ function NavButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center ${collapsed ? 'w-full aspect-square justify-center' : 'w-full gap-2.5 px-3 py-2'} rounded-xl font-medium transition-colors duration-150 ${
+      className={`flex items-center ${collapsed ? 'w-10 h-10 mx-auto justify-center' : 'w-full gap-2.5 px-3 py-2'} rounded-xl font-medium transition-colors duration-150 ${
         active
           ? 'bg-primary/10 text-primary'
           : 'text-on-surface-variant/60 hover:bg-surface-container-highest/50 hover:text-on-surface'
@@ -106,7 +113,7 @@ function NavButton({
       title={label}
     >
       <span
-        className="material-symbols-outlined text-[20px] shrink-0"
+        className={`material-symbols-outlined shrink-0 ${collapsed ? 'text-[18px]' : 'text-[20px]'}`}
         style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}
       >
         {icon}

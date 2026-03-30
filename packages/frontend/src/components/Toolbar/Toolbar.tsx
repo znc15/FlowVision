@@ -177,28 +177,33 @@ function Toolbar({ onShowHistory, isFocusMode = false, onToggleFocusMode }: Tool
 
         {/* 文件操作组 */}
         <div className="flex items-center gap-1">
-          <button type="button" onClick={handleClear} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="清空画布">
+          <button type="button" onClick={handleClear} className="toolbar-label-btn" title="清空画布">
             <span className="material-symbols-outlined text-base">delete_sweep</span>
+            <span className="toolbar-label-text">清空</span>
           </button>
           <button type="button" onClick={handleSave} className={`toolbar-label-btn ${saved ? 'text-green-600' : ''}`} title="保存画布 (Ctrl+S)">
             <span className="material-symbols-outlined text-base">{saved ? 'check_circle' : 'save'}</span>
             <span className="toolbar-label-text">{saved ? '已保存' : '保存'}</span>
           </button>
-          <button type="button" onClick={() => exportJSON({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 JSON">
+          <button type="button" onClick={() => exportJSON({ nodes, edges })} className="toolbar-label-btn" title="导出 JSON">
             <span className="material-symbols-outlined text-base">data_object</span>
+            <span className="toolbar-label-text">JSON</span>
           </button>
           <button type="button" onClick={() => void handleExportPng()} className="toolbar-label-btn" title="导出 PNG">
             <span className="material-symbols-outlined text-base">image</span>
             <span className="toolbar-label-text">导出 PNG</span>
           </button>
-          <button type="button" onClick={() => exportMarkdown({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 Markdown 报告">
+          <button type="button" onClick={() => exportMarkdown({ nodes, edges })} className="toolbar-label-btn" title="导出 Markdown 报告">
             <span className="material-symbols-outlined text-base">description</span>
+            <span className="toolbar-label-text">Markdown</span>
           </button>
-          <button type="button" onClick={handleImport} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导入 JSON">
+          <button type="button" onClick={handleImport} className="toolbar-label-btn" title="导入 JSON">
             <span className="material-symbols-outlined text-base">upload_file</span>
+            <span className="toolbar-label-text">导入</span>
           </button>
-          <button type="button" onClick={() => exportSystemPrompt({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="生成系统提示词">
+          <button type="button" onClick={() => exportSystemPrompt({ nodes, edges })} className="toolbar-label-btn" title="生成系统提示词">
             <span className="material-symbols-outlined text-base">smart_toy</span>
+            <span className="toolbar-label-text">提示词</span>
           </button>
           <button type="button" onClick={onShowHistory} className="toolbar-label-btn" title="版本历史">
             <span className="material-symbols-outlined text-base">history</span>

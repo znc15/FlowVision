@@ -57,14 +57,16 @@ const edgeTypes: EdgeTypes = {
   default: FlowEdge,
   smoothstep: FlowEdge,
   step: FlowEdge,
+  straight: FlowEdge,
 };
 
 interface CanvasProps {
   isFocusMode?: boolean;
   onToggleFocusMode?: () => void;
+  onNodeSelect?: (filePath: string, lineStart?: number) => void;
 }
 
-function Canvas({ isFocusMode = false, onToggleFocusMode }: CanvasProps) {
+function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: CanvasProps) {
   const { nodes: graphNodes, edges: graphEdges, addEdge: addGraphEdge, updateNode } = useGraphStore();
   const { previewNodes, previewEdges, isPreviewMode, clear: clearPreview } = usePreviewStore();
   const { undo, redo, canUndo, canRedo, pushHistory } = useHistoryStore();
@@ -112,6 +114,19 @@ function Canvas({ isFocusMode = false, onToggleFocusMode }: CanvasProps) {
       setEdges(allEdges);
     }
   }, [allNodes, allEdges, setNodes, setEdges]);
+
+  // 节点点击 —— 关联分析视图：跳转到对应源文件
+  const onNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (!onNodeSelect) return;
+      const fp = (node.data as any)?.filePath;
+      if (fp) {
+        const lineStart = (node.data as any)?.lineStart;
+        onNodeSelect(fp, typeof lineStart === 'number' ? lineStart : undefined);
+      }
+    },
+    [onNodeSelect],
+  );
 
   // 节点拖拽结束 —— 检测分组归属
   const onNodeDragStop = useCallback(
@@ -183,7 +198,7 @@ function Canvas({ isFocusMode = false, onToggleFocusMode }: CanvasProps) {
 
       {/* 顶部工具栏 */}
       <div className="absolute top-0 left-0 right-0 workbench-panel-header px-6 z-10">
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
           <span className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant bg-slate-200/70 px-2 py-1 rounded-md">
             执行流程架构
           </span>
@@ -202,18 +217,6 @@ function Canvas({ isFocusMode = false, onToggleFocusMode }: CanvasProps) {
           <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
             <span className="w-2 h-2 rounded-full bg-secondary"></span> 逻辑分支
           </div>
-
-          {onToggleFocusMode && (
-            <button
-              type="button"
-              onClick={onToggleFocusMode}
-              className="hidden md:inline-flex items-center gap-1.5 rounded-xl bg-surface-container-highest/70 px-3 py-1.5 text-[11px] font-medium text-on-surface-variant transition-colors duration-150 hover:bg-primary/10 hover:text-primary"
-              title={isFocusMode ? '退出画布全屏 (Esc)' : '画布全屏显示 (F11)'}
-            >
-              <span className="material-symbols-outlined text-[15px]">{isFocusMode ? 'fullscreen_exit' : 'fullscreen'}</span>
-              {isFocusMode ? '退出全屏' : '画布全屏'}
-            </button>
-          )}
 
           {/* 撤销/重做 */}
           <div className="flex items-center gap-1 ml-4">
@@ -246,6 +249,7 @@ function Canvas({ isFocusMode = false, onToggleFocusMode }: CanvasProps) {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodeDragStop={onNodeDragStop}
+          onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView

@@ -119,7 +119,7 @@ class ClaudeProvider implements AIProvider {
   }
 }
 
-// OpenAI Provider 实现
+// OpenAI Provider 实现（支持 Chat Completions + Responses API）
 class OpenAIProvider implements AIProvider {
   private client: OpenAI;
   private model: string;
@@ -135,7 +135,31 @@ class OpenAIProvider implements AIProvider {
     this.model = config.model || 'gpt-4.1';
   }
 
+  /** o 系列模型使用 Responses API（支持推理能力） */
+  private useResponsesApi(): boolean {
+    return /^o\d/.test(this.model);
+  }
+
   async generate(system: string, userMessage: string, maxTokens = 4096): Promise<GenerateResult> {
+    if (this.useResponsesApi()) {
+      const response = await this.client.responses.create({
+        model: this.model,
+        instructions: system,
+        input: userMessage,
+        ...(maxTokens && { max_output_tokens: maxTokens }),
+      });
+
+      const text = response.output_text;
+      if (!text) {
+        throw new Error('OpenAI Responses API 返回了空内容');
+      }
+
+      return {
+        text,
+        tokensUsed: (response.usage?.total_tokens) ?? 0,
+      };
+    }
+
     const response = await this.client.chat.completions.create({
       model: this.model,
       max_tokens: maxTokens,
@@ -157,6 +181,23 @@ class OpenAIProvider implements AIProvider {
   }
 
   async *generateStream(system: string, userMessage: string, maxTokens = 4096, _thinking = false): AsyncIterable<{ type: 'thinking' | 'text'; content: string }> {
+    if (this.useResponsesApi()) {
+      const stream = await this.client.responses.create({
+        model: this.model,
+        instructions: system,
+        input: userMessage,
+        stream: true,
+        ...(maxTokens && { max_output_tokens: maxTokens }),
+      });
+
+      for await (const event of stream) {
+        if (event.type === 'response.output_text.delta') {
+          yield { type: 'text', content: event.delta };
+        }
+      }
+      return;
+    }
+
     const stream = await this.client.chat.completions.create({
       model: this.model,
       max_tokens: maxTokens,

@@ -156,13 +156,54 @@ function CodePreview({
         ) : isMarkdown && !showMarkdownSource ? (
           <div className="flex-1 overflow-auto px-6 py-4 prose prose-sm prose-slate max-w-none
             prose-headings:text-on-surface prose-p:text-on-surface/80 prose-a:text-primary
+            prose-a:underline prose-a:decoration-primary/30 prose-a:hover:decoration-primary
             prose-code:bg-surface-container-high prose-code:px-1 prose-code:py-0.5 prose-code:rounded
             prose-pre:bg-surface-container-high prose-pre:text-on-surface/90
             prose-blockquote:border-primary/30 prose-blockquote:text-on-surface-variant
             prose-img:rounded-lg prose-hr:border-outline-variant/30
             prose-th:text-on-surface prose-td:text-on-surface/80
             prose-li:text-on-surface/80">
-            <Markdown>{code}</Markdown>
+            <Markdown components={{
+              a: ({ href, children, ...props }) => {
+                // 相对链接标记但不阻止显示
+                const isRelative = href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('#');
+                return (
+                  <a
+                    href={isRelative ? undefined : href}
+                    target={isRelative ? undefined : '_blank'}
+                    rel={isRelative ? undefined : 'noopener noreferrer'}
+                    title={isRelative ? `相对路径: ${href}` : href}
+                    className={isRelative ? 'cursor-default opacity-70' : undefined}
+                    onClick={(e) => {
+                      if (isRelative) {
+                        e.preventDefault();
+                        return;
+                      }
+                      if (href && window.electron?.isElectron) {
+                        e.preventDefault();
+                        window.open(href, '_blank');
+                      }
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </a>
+                );
+              },
+              img: ({ src, alt, ...props }) => {
+                // 处理相对路径图片
+                let imgSrc = src;
+                if (src && !src.startsWith('http') && !src.startsWith('data:') && projectPath && filePath) {
+                  const dir = filePath.includes('/') ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
+                  const resolvedPath = dir ? `${dir}/${src}` : src;
+                  const githubToken = useSettingsStore.getState().githubToken;
+                  const params = new URLSearchParams({ projectPath, filePath: resolvedPath });
+                  if (githubToken) params.set('token', githubToken);
+                  imgSrc = `http://localhost:3001/api/file-content?${params}&raw=1`;
+                }
+                return <img src={imgSrc} alt={alt || ''} {...props} />;
+              },
+            }}>{code}</Markdown>
           </div>
         ) : (
         <>

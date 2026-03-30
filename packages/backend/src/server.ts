@@ -6,7 +6,7 @@ import { graphState } from './state/graphState';
 import { broadcaster } from './ws/broadcaster';
 import { generateGraph, generateGraphStream } from './routes/ai';
 import { analyzeCode } from './routes/analyze';
-import { listFiles, readFileContent, getFileContext, browseDirs, fetchGithubTree } from './routes/files';
+import { listFiles, readFileContent, getFileContext, browseDirs, fetchGithubTree, fetchGiteeTree } from './routes/files';
 import { AVAILABLE_PROVIDERS, listModels } from './routes/aiProvider';
 
 // 加载环境变量
@@ -176,6 +176,11 @@ server.get('/api/browse-dirs', browseDirs);
  * 获取 GitHub 仓库文件树
  */
 server.get('/api/github-tree', fetchGithubTree);
+
+/**
+ * 获取 Gitee 仓库文件树
+ */
+server.get('/api/gitee-tree', fetchGiteeTree);
 
 // ===== WebSocket 路由 =====
 

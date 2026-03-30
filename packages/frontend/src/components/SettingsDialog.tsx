@@ -31,6 +31,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(store.customHeaders);
   const [githubToken, setGithubToken] = useState(store.githubToken);
   const [httpProxy, setHttpProxy] = useState(store.httpProxy);
+  const [maxDepth, setMaxDepth] = useState(store.maxDepth);
+  const [maxSubCalls, setMaxSubCalls] = useState(store.maxSubCalls);
   const [headerJsonText, setHeaderJsonText] = useState('{}');
   const [headerJsonError, setHeaderJsonError] = useState('');
   const [customModel, setCustomModel] = useState(false);
@@ -87,13 +89,11 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   const handleProviderChange = (p: AIProvider) => {
     setProvider(p);
-    const opt = PROVIDER_OPTIONS.find((o) => o.id === p);
-    if (opt) setModel(opt.defaultModel);
+    setModel('');
     setCustomModel(false);
     setModelDropdownOpen(false);
-    // 临时更新 provider 以获取对应模型列表
+    // 更新 provider 并自动获取模型列表
     store.setProvider(p);
-    store.fetchModels();
   };
 
   const handleModelChange = (value: string) => {
@@ -117,6 +117,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     store.setCustomHeaders(customHeaders);
     store.setGithubToken(githubToken);
     store.setHttpProxy(httpProxy);
+    store.setMaxDepth(maxDepth);
+    store.setMaxSubCalls(maxSubCalls);
     store.save();
 
     if (window.electron?.desktop) {
@@ -210,7 +212,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       const data = await res.json();
       setUpdateData(data);
       const latestVer = data.tag_name?.replace(/^v/, '') || '0.0.0';
-      const currentVer = '1.0.0';
+      const currentVer = '1.2.0';
       setUpdateStatus(latestVer === currentVer ? 'latest' : 'update');
     } catch {
       setUpdateStatus('error');
@@ -275,7 +277,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={onClose} />
 
       {/* 弹窗 */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-[min(96vw,760px)] h-[min(88vh,860px)] overflow-hidden ghost-border-soft animate-[scaleIn_250ms_ease-out] flex flex-col">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-[min(96vw,760px)] h-[min(92vh,920px)] overflow-hidden ghost-border-soft animate-[scaleIn_250ms_ease-out] flex flex-col">
         {/* 标题 */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
@@ -609,6 +611,54 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </p>
               </div>
 
+              {/* 分析参数 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  分析参数
+                </label>
+                <div className="space-y-3 p-4 rounded-xl bg-slate-50 ghost-border-soft">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[12px] font-medium text-slate-700">最大下钻深度</span>
+                      <span className="text-[11px] text-primary font-semibold">{maxDepth} 层</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={2}
+                      max={12}
+                      value={maxDepth}
+                      onChange={(e) => setMaxDepth(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                      <span>2 层</span>
+                      <span>12 层</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">控制文件结构递归遍历的最大目录层数</p>
+                  </div>
+                  <div className="border-t border-slate-200 pt-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[12px] font-medium text-slate-700">最大子调用数</span>
+                      <span className="text-[11px] text-primary font-semibold">{maxSubCalls}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={50}
+                      max={500}
+                      step={50}
+                      value={maxSubCalls}
+                      onChange={(e) => setMaxSubCalls(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                      <span>50</span>
+                      <span>500</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">分析时最多收集的文件数量，越大分析越详尽但速度越慢</p>
+                  </div>
+                </div>
+              </div>
+
               {/* 模型测试 */}
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
@@ -916,7 +966,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">FlowVision</h3>
-                <p className="text-sm text-slate-500 mt-1">v1.0.0</p>
+                <p className="text-sm text-slate-500 mt-1">v1.2.0</p>
                 <p className="text-xs text-slate-400 mt-2 max-w-xs mx-auto">
                   一键分析项目流程图 · 可视化编辑 · AI 生成 · MCP 服务器同步
                 </p>
@@ -1009,7 +1059,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">检查更新</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">当前版本: v1.0.0</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">当前版本: v1.2.0</p>
                 </div>
                 <button
                   onClick={handleCheckUpdate}
@@ -1024,6 +1074,25 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   {updateStatus === 'checking' ? '检查中...' : '刷新'}
                 </button>
               </div>
+
+              {updateStatus === 'update' && updateData && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 ghost-border-soft">
+                  <span className="material-symbols-outlined text-amber-500 text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>new_releases</span>
+                  <div className="flex-1">
+                    <p className="text-sm text-amber-700 font-medium">发现新版本 {updateData.tag_name}</p>
+                    <p className="text-[10px] text-amber-600/70 mt-0.5">当前版本 v1.2.0</p>
+                  </div>
+                  <a
+                    href={updateData.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-all duration-200 shadow-md shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                    前往 Release
+                  </a>
+                </div>
+              )}
 
               {updateStatus === 'latest' && (
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 ghost-border-soft">
@@ -1199,6 +1268,114 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     {backendStatus === 'online' ? '可用' : '不可用'}
                   </span>
                 </div>
+              </div>
+
+              {/* 画布统计 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">
+                  画布统计
+                </label>
+                {(() => {
+                  const typeCounts: Record<string, number> = {};
+                  nodes.forEach((n) => { typeCounts[n.type] = (typeCounts[n.type] || 0) + 1; });
+                  const langCounts: Record<string, number> = {};
+                  nodes.forEach((n) => {
+                    const fp = n.data?.filePath;
+                    if (!fp) return;
+                    const ext = fp.slice(fp.lastIndexOf('.')).toLowerCase();
+                    const langMap: Record<string, string> = { '.ts': 'TypeScript', '.tsx': 'TypeScript', '.js': 'JavaScript', '.jsx': 'JavaScript', '.py': 'Python', '.go': 'Go', '.rs': 'Rust', '.java': 'Java', '.vue': 'Vue', '.css': 'CSS', '.html': 'HTML', '.json': 'JSON', '.md': 'Markdown', '.yaml': 'YAML', '.yml': 'YAML' };
+                    const lang = langMap[ext] || ext.slice(1).toUpperCase();
+                    langCounts[lang] = (langCounts[lang] || 0) + 1;
+                  });
+                  const langEntries = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
+                  const langTotal = langEntries.reduce((s, [, v]) => s + v, 0);
+                  const langColors = ['bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500', 'bg-cyan-500', 'bg-orange-500'];
+                  return (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-2.5">
+                        <div className="p-3 rounded-xl bg-slate-50 ghost-border-soft text-center">
+                          <p className="text-lg font-bold text-slate-800">{nodes.length}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">节点</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-50 ghost-border-soft text-center">
+                          <p className="text-lg font-bold text-slate-800">{edges.length}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">连线</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-50 ghost-border-soft text-center">
+                          <p className="text-lg font-bold text-slate-800">{Object.keys(typeCounts).length}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">类型</p>
+                        </div>
+                      </div>
+                      {Object.keys(typeCounts).length > 0 && (
+                        <div className="p-3 rounded-xl bg-slate-50 ghost-border-soft">
+                          <p className="text-[11px] font-semibold text-slate-600 mb-2">节点类型分布</p>
+                          <div className="space-y-1.5">
+                            {Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
+                              <div key={type} className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-500 w-20 truncate">{type}</span>
+                                <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                  <div className="h-full bg-primary/60 rounded-full transition-all" style={{ width: `${(count / nodes.length) * 100}%` }} />
+                                </div>
+                                <span className="text-[10px] text-slate-400 w-6 text-right">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {langEntries.length > 0 && (
+                        <div className="p-3 rounded-xl bg-slate-50 ghost-border-soft">
+                          <p className="text-[11px] font-semibold text-slate-600 mb-2">语言分布</p>
+                          <div className="flex h-2 rounded-full overflow-hidden mb-2">
+                            {langEntries.map(([lang, count], i) => (
+                              <div key={lang} className={`${langColors[i % langColors.length]} transition-all`} style={{ width: `${(count / langTotal) * 100}%` }} title={`${lang}: ${count}`} />
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1">
+                            {langEntries.map(([lang, count], i) => (
+                              <div key={lang} className="flex items-center gap-1">
+                                <div className={`w-2 h-2 rounded-full ${langColors[i % langColors.length]}`} />
+                                <span className="text-[10px] text-slate-500">{lang}</span>
+                                <span className="text-[10px] text-slate-400">({count})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* 日志统计 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">
+                  会话日志
+                </label>
+                {(() => {
+                  const logEntries = useLogStore.getState().entries;
+                  const counts = { info: 0, warn: 0, error: 0, success: 0 };
+                  logEntries.forEach((e) => { counts[e.level] = (counts[e.level] || 0) + 1; });
+                  return (
+                    <div className="grid grid-cols-4 gap-2">
+                      <div className="p-3 rounded-xl bg-blue-50 text-center">
+                        <p className="text-lg font-bold text-blue-600">{counts.info}</p>
+                        <p className="text-[10px] text-blue-400 mt-0.5">信息</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-green-50 text-center">
+                        <p className="text-lg font-bold text-green-600">{counts.success}</p>
+                        <p className="text-[10px] text-green-400 mt-0.5">成功</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-amber-50 text-center">
+                        <p className="text-lg font-bold text-amber-600">{counts.warn}</p>
+                        <p className="text-[10px] text-amber-400 mt-0.5">警告</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-red-50 text-center">
+                        <p className="text-lg font-bold text-red-600">{counts.error}</p>
+                        <p className="text-[10px] text-red-400 mt-0.5">错误</p>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

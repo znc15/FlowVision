@@ -285,6 +285,13 @@ body.flowvision-exporting .react-flow__attribution {
   display: none !important;
 }
 
+body.flowvision-exporting *,
+body.flowvision-exporting *::before,
+body.flowvision-exporting *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* 缩略地图美化 */
 .react-flow__minimap {
   transition: opacity 0.2s ease;

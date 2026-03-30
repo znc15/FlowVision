@@ -5,6 +5,7 @@ import ProjectSidebar from './components/Sidebar/ProjectSidebar';
 import ChatPanel from './components/Sidebar/ChatPanel';
 import McpPanel from './components/Sidebar/McpPanel';
 import AgentLogPanel from './components/Sidebar/AgentLogPanel';
+import PromptGenerator from './components/Sidebar/PromptGenerator';
 import FileExplorer from './components/Explorer/FileExplorer';
 import CodePreview from './components/CodePreview/CodePreview';
 import Canvas from './components/Canvas/Canvas';
@@ -13,6 +14,7 @@ import SettingsDialog from './components/SettingsDialog';
 import OnboardingGuide from './components/OnboardingGuide';
 import WindowTitleBar from './components/WindowTitleBar';
 import CloseConfirmDialog from './components/CloseConfirmDialog';
+import ToastContainer from './components/ToastContainer';
 import { useWebSocketSync } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { loadSharedGraph } from './utils/share';
@@ -36,9 +38,9 @@ function loadLayout(): Layout | undefined {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'project' | 'chat' | 'mcp' | 'log'>('project');
+  const [activeTab, setActiveTab] = useState<'project' | 'chat' | 'prompt' | 'mcp' | 'log'>('project');
   const [selectedFile, setSelectedFile] = useState<string>('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [previewStartLine, setPreviewStartLine] = useState<number | undefined>(undefined);  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [canvasFocusMode, setCanvasFocusMode] = useState(false);
 
@@ -100,12 +102,19 @@ function App() {
     try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch { /* 忽略 */ }
   }, []);
 
+  /** 画布节点点击 → 关联跳转到源文件预览 */
+  const handleNodeSelect = useCallback((filePath: string, lineStart?: number) => {
+    setSelectedFile(filePath);
+    setPreviewStartLine(lineStart);
+  }, []);
+
   return (
     <div className="h-screen flex flex-col bg-background text-on-background">
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <OnboardingGuide />
       <WindowTitleBar />
       <CloseConfirmDialog />
+      <ToastContainer />
 
       {/* 主布局容器 - 4 栏水平排列 */}
       <main className="flex flex-1 overflow-hidden bg-surface pt-10">
@@ -114,6 +123,7 @@ function App() {
             <Canvas
               isFocusMode={canvasFocusMode}
               onToggleFocusMode={() => setCanvasFocusMode((value) => !value)}
+              onNodeSelect={handleNodeSelect}
             />
           </section>
         ) : (
@@ -137,7 +147,7 @@ function App() {
           <Panel id="sidebar" defaultSize="18%" minSize="12%" maxSize="30%">
             <aside className="h-full bg-surface-container-low flex flex-col overflow-hidden ghost-border-soft border-y-0 border-l-0">
               <div key={activeTab} className="flex-1 flex flex-col overflow-hidden animate-[panelFadeIn_200ms_ease-out]">
-              {activeTab === 'project' ? <ProjectSidebar /> : activeTab === 'chat' ? <ChatPanel /> : activeTab === 'log' ? <AgentLogPanel /> : <McpPanel />}
+              {activeTab === 'project' ? <ProjectSidebar /> : activeTab === 'chat' ? <ChatPanel /> : activeTab === 'prompt' ? <PromptGenerator /> : activeTab === 'log' ? <AgentLogPanel /> : <McpPanel />}
               </div>
             </aside>
           </Panel>
@@ -146,7 +156,7 @@ function App() {
 
           {/* 第 3 栏：文件浏览器 */}
           <Panel id="explorer" defaultSize="12%" minSize="8%" maxSize="20%">
-            <FileExplorer selectedFile={selectedFile} onFileSelect={setSelectedFile} />
+            <FileExplorer selectedFile={selectedFile} onFileSelect={(f) => { setSelectedFile(f); setPreviewStartLine(undefined); }} />
           </Panel>
 
           <Separator className="resize-handle" />
@@ -157,6 +167,7 @@ function App() {
               fileName={selectedFile?.split('/').pop()}
               filePath={selectedFile || undefined}
               projectPath={projectPath || undefined}
+              startLine={previewStartLine}
             />
           </Panel>
 
@@ -169,6 +180,7 @@ function App() {
               <Canvas
                 isFocusMode={canvasFocusMode}
                 onToggleFocusMode={() => setCanvasFocusMode((value) => !value)}
+                onNodeSelect={handleNodeSelect}
               />
             </section>
           </Panel>

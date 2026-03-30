@@ -4,9 +4,10 @@ import { useSettingsStore } from '../../store/settingsStore';
 /** MCP 配置示例 */
 const MCP_EXAMPLES = [
   {
-    name: 'Claude Desktop',
-    icon: 'smart_toy',
-    desc: '在 Claude Desktop 中使用 FlowVision',
+    name: 'Claude Code CLI',
+    icon: 'terminal',
+    desc: '在 Claude Code CLI 中使用 FlowVision',
+    brandColor: 'text-amber-600 bg-amber-50',
     config: `{
   "mcpServers": {
     "flowvision": {
@@ -15,12 +16,13 @@ const MCP_EXAMPLES = [
     }
   }
 }`,
-    file: 'claude_desktop_config.json',
+    file: '.claude/settings.json',
   },
   {
     name: 'Cursor',
     icon: 'code',
     desc: '在 Cursor 编辑器中使用',
+    brandColor: 'text-violet-600 bg-violet-50',
     config: `{
   "mcpServers": {
     "flowvision": {
@@ -38,6 +40,7 @@ const MCP_EXAMPLES = [
     name: 'VS Code (Copilot)',
     icon: 'terminal',
     desc: '在 VS Code Copilot 中使用',
+    brandColor: 'text-blue-600 bg-blue-50',
     config: `{
   "mcp": {
     "servers": {
@@ -54,6 +57,7 @@ const MCP_EXAMPLES = [
     name: 'Windsurf',
     icon: 'air',
     desc: '在 Windsurf 中使用',
+    brandColor: 'text-teal-600 bg-teal-50',
     config: `{
   "mcpServers": {
     "flowvision": {
@@ -71,6 +75,7 @@ const MCP_EXAMPLES = [
     name: 'Cline',
     icon: 'extension',
     desc: '在 VS Code Cline 扩展中使用',
+    brandColor: 'text-indigo-600 bg-indigo-50',
     config: `{
   "mcpServers": {
     "flowvision": {
@@ -88,6 +93,7 @@ const MCP_EXAMPLES = [
     name: 'Cherry Studio',
     icon: 'spa',
     desc: '在 Cherry Studio 中使用',
+    brandColor: 'text-pink-600 bg-pink-50',
     config: `{
   "mcpServers": {
     "flowvision": {
@@ -103,20 +109,26 @@ const MCP_EXAMPLES = [
   },
 ];
 
-/** MCP 工具列表 */
+/** MCP 工具列表（按类别分组） */
 const MCP_TOOLS = [
-  { name: 'get_graph', desc: '获取当前完整流程图结构', icon: 'share' },
-  { name: 'add_node', desc: '向流程图中添加新节点（支持 12 种类型）', icon: 'add_circle' },
-  { name: 'remove_node', desc: '删除一个节点（级联删除关联边）', icon: 'remove_circle' },
-  { name: 'connect_nodes', desc: '在两个节点之间创建连线', icon: 'link' },
-  { name: 'update_node', desc: '修改指定节点的属性', icon: 'edit' },
-  { name: 'apply_diff', desc: '批量应用 GraphDiff 到流程图', icon: 'difference' },
-  { name: 'list_nodes', desc: '列出所有节点摘要信息', icon: 'list' },
-  { name: 'get_node', desc: '获取指定节点详情及关联边', icon: 'info' },
-  { name: 'get_stats', desc: '获取流程图统计概览', icon: 'bar_chart' },
-  { name: 'clear_graph', desc: '清空整个画布', icon: 'delete_forever' },
-  { name: 'remove_edge', desc: '删除指定连线', icon: 'link_off' },
+  { name: 'get_graph', desc: '获取当前完整流程图结构', icon: 'share', category: 'query' as const },
+  { name: 'list_nodes', desc: '列出所有节点摘要信息', icon: 'list', category: 'query' as const },
+  { name: 'get_node', desc: '获取指定节点详情及关联边', icon: 'info', category: 'query' as const },
+  { name: 'get_stats', desc: '获取流程图统计概览', icon: 'bar_chart', category: 'query' as const },
+  { name: 'add_node', desc: '向流程图中添加新节点（支持 12 种类型）', icon: 'add_circle', category: 'mutate' as const },
+  { name: 'update_node', desc: '修改指定节点的属性', icon: 'edit', category: 'mutate' as const },
+  { name: 'remove_node', desc: '删除一个节点（级联删除关联边）', icon: 'remove_circle', category: 'mutate' as const },
+  { name: 'connect_nodes', desc: '在两个节点之间创建连线', icon: 'link', category: 'mutate' as const },
+  { name: 'remove_edge', desc: '删除指定连线', icon: 'link_off', category: 'mutate' as const },
+  { name: 'apply_diff', desc: '批量应用 GraphDiff 到流程图', icon: 'difference', category: 'manage' as const },
+  { name: 'clear_graph', desc: '清空整个画布', icon: 'delete_forever', category: 'manage' as const },
 ];
+
+const TOOL_CATEGORIES = {
+  query: { label: '查询', color: 'text-blue-600 bg-blue-50 border-blue-200', icon: 'search' },
+  mutate: { label: '变更', color: 'text-amber-600 bg-amber-50 border-amber-200', icon: 'edit_square' },
+  manage: { label: '管理', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'settings' },
+} as const;
 
 /** 支持的节点类型 */
 const NODE_TYPES = [
@@ -206,16 +218,31 @@ function McpPanel() {
             </div>
           </button>
           {toolsExpanded && (
-          <div className="space-y-1.5 animate-[fadeIn_150ms_ease-out]">
-            {MCP_TOOLS.map((tool) => (
-              <div key={tool.name} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-container-highest/40 ghost-border-soft">
-                <span className="material-symbols-outlined text-sm text-primary/60">{tool.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-mono font-medium text-on-surface">{tool.name}</p>
-                  <p className="text-[10px] text-on-surface-variant truncate">{tool.desc}</p>
+          <div className="space-y-3 animate-[fadeIn_150ms_ease-out]">
+            {(['query', 'mutate', 'manage'] as const).map((cat) => {
+              const catInfo = TOOL_CATEGORIES[cat];
+              const tools = MCP_TOOLS.filter((t) => t.category === cat);
+              return (
+                <div key={cat}>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className={`material-symbols-outlined text-xs ${catInfo.color.split(' ')[0]}`}>{catInfo.icon}</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${catInfo.color.split(' ')[0]}`}>{catInfo.label}</span>
+                    <span className="text-[9px] text-on-surface-variant/30">{tools.length}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {tools.map((tool) => (
+                      <div key={tool.name} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border ${catInfo.color.split(' ')[1]} ${catInfo.color.split(' ')[2]} border-opacity-60`}>
+                        <span className={`material-symbols-outlined text-sm ${catInfo.color.split(' ')[0]}/70`}>{tool.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-mono font-medium text-on-surface">{tool.name}</p>
+                          <p className="text-[10px] text-on-surface-variant truncate">{tool.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           )}
         </div>
@@ -232,7 +259,9 @@ function McpPanel() {
                   onClick={() => setExpandedExample(expandedExample === idx ? null : idx)}
                   className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-surface-container-highest/40 transition-colors"
                 >
-                  <span className="material-symbols-outlined text-lg text-primary/70">{example.icon}</span>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${example.brandColor.split(' ')[1]}`}>
+                    <span className={`material-symbols-outlined text-base ${example.brandColor.split(' ')[0]}`}>{example.icon}</span>
+                  </div>
                   <div className="flex-1 text-left min-w-0">
                     <p className="text-xs font-medium text-on-surface">{example.name}</p>
                     <p className="text-[10px] text-on-surface-variant truncate">{example.desc}</p>
@@ -302,13 +331,22 @@ function McpPanel() {
 
         {/* 使用说明 */}
         <div className="p-4 rounded-xl bg-primary-container/10 ghost-border-soft">
-          <p className="text-[10px] font-bold text-primary-container uppercase tracking-wider mb-2">使用说明</p>
-          <ol className="space-y-1.5 text-[11px] text-on-surface-variant leading-relaxed list-decimal list-inside">
-            <li>确保 MCP 服务器已启用（上方开关）</li>
-            <li>复制对应编辑器的配置，粘贴到配置文件中</li>
-            <li>重启编辑器或 AI 客户端</li>
-            <li>在 AI 对话中使用 FlowVision 工具操作流程图</li>
-          </ol>
+          <p className="text-[10px] font-bold text-primary-container uppercase tracking-wider mb-3">使用说明</p>
+          <div className="space-y-2.5">
+            {[
+              '确保 MCP 服务器已启用（上方开关）',
+              '复制对应编辑器的配置，粘贴到配置文件中',
+              '重启编辑器或 AI 客户端',
+              '在 AI 对话中使用 FlowVision 工具操作流程图',
+            ].map((step, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
+                  {i + 1}
+                </span>
+                <span className="text-[11px] text-on-surface-variant leading-relaxed pt-0.5">{step}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
