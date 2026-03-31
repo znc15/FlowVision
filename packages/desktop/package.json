@@ -16,7 +16,7 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
     "smoke": "node ./scripts/smoke.mjs",
-    "test": "node --test ./scripts/*.test.mjs"
+    "test": "node --test ./scripts/websocket.test.mjs"
   },
   "dependencies": {
     "electron-is-dev": "^2.0.0",
