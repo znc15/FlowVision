@@ -55,21 +55,78 @@ jobs:
             unzip -o docs/export.zip -d _site/docs/
           fi
 
-      # Mintlify 导出的 Next.js 静态站使用绝对路径 /_next/，
-      # 部署在 /FlowVision/docs/ 子路径下需要重写为正确前缀
+      # Mintlify 导出的 Next.js 静态站使用绝对路径，
+      # 部署在 /FlowVision/docs/ 子路径下需全面重写路径
+      # 分两层：1) 静态文本替换  2) 运行时 fetch/XHR 猴子补丁
       - name: 修正文档资源路径
         run: |
-          PREFIX="/FlowVision/docs"
-          # JS/CSS 文件：仅替换 /_next/ 引用
-          find _site/docs -type f \( -name "*.js" -o -name "*.css" \) \
-            -exec sed -i "s|\"/_next/|\"${PREFIX}/_next/|g" {} + \
-            -exec sed -i "s|'/_next/|'${PREFIX}/_next/|g" {} +
-          # HTML 文件：统一替换 href="/ 和 src="/ （自然涵盖 /_next/ 引用）
-          find _site/docs -type f -name "*.html" \
-            -exec sed -i "s|href=\"/|href=\"${PREFIX}/|g" {} + \
-            -exec sed -i "s|src=\"/|src=\"${PREFIX}/|g" {} + \
-            -exec sed -i "s|content=\"/|content=\"${PREFIX}/|g" {} +
-          echo "路径重写完成"
+          cat > /tmp/rewrite-paths.js << 'REWRITE_SCRIPT'
+          const fs = require('fs');
+          const path = require('path');
+          const PREFIX = '/FlowVision/docs';
+          const GUARD = /FlowVision\/docs/;
+
+          function walk(dir) {
+            const out = [];
+            for (const f of fs.readdirSync(dir)) {
+              const p = path.join(dir, f);
+              if (fs.statSync(p).isDirectory()) out.push(...walk(p));
+              else out.push(p);
+            }
+            return out;
+          }
+
+          const files = walk('_site/docs');
+          let changed = 0;
+
+          for (const file of files) {
+            const ext = path.extname(file).toLowerCase();
+            if (!['.html', '.js', '.css', '.json'].includes(ext)) continue;
+
+            let c = fs.readFileSync(file, 'utf-8');
+            const orig = c;
+
+            if (ext === '.js' || ext === '.json') {
+              // 替换所有 "/ 和 '/ 开头的绝对路径字符串
+              c = c.replace(/"\/(?!\/|FlowVision\/docs)/g, '"' + PREFIX + '/');
+              c = c.replace(/'\/(?!\/|FlowVision\/docs)/g, "'" + PREFIX + '/');
+            }
+
+            if (ext === '.css') {
+              c = c.replace(/url\(\/(?!FlowVision)/g, 'url(' + PREFIX + '/');
+              c = c.replace(/url\("\/(?!FlowVision)/g, 'url("' + PREFIX + '/');
+              c = c.replace(/url\('\/(?!FlowVision)/g, "url('" + PREFIX + '/');
+            }
+
+            if (ext === '.html') {
+              c = c.replace(/href="\/(?!FlowVision)/g, 'href="' + PREFIX + '/');
+              c = c.replace(/src="\/(?!FlowVision)/g, 'src="' + PREFIX + '/');
+              c = c.replace(/content="\/(?!FlowVision)/g, 'content="' + PREFIX + '/');
+              c = c.replace(/action="\/(?!FlowVision)/g, 'action="' + PREFIX + '/');
+
+              // 注入运行时猴子补丁：拦截 fetch / XHR 动态请求并补全前缀
+              const rt = [
+                '<script>(function(){',
+                'var P="' + PREFIX + '";',
+                'var oF=window.fetch;',
+                'window.fetch=function(u,o){',
+                  'if(typeof u==="string"&&u.charAt(0)==="/"&&!u.startsWith(P)&&u.charAt(1)!=="/"){u=P+u}',
+                  'return oF.call(this,u,o)};',
+                'var oX=XMLHttpRequest.prototype.open;',
+                'XMLHttpRequest.prototype.open=function(){',
+                  'var u=arguments[1];',
+                  'if(typeof u==="string"&&u.charAt(0)==="/"&&!u.startsWith(P)&&u.charAt(1)!=="/"){arguments[1]=P+u}',
+                  'return oX.apply(this,arguments)};',
+                '})();</script>'
+              ].join('');
+              c = c.replace(/<head>/i, '<head>' + rt);
+            }
+
+            if (c !== orig) { fs.writeFileSync(file, c); changed++; }
+          }
+          console.log('重写了 ' + changed + ' 个文件');
+          REWRITE_SCRIPT
+          node /tmp/rewrite-paths.js
 
       - uses: actions/upload-pages-artifact@v3
         with:
