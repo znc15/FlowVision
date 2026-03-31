@@ -56,15 +56,18 @@ jobs:
           fi
 
       # Mintlify 导出的 Next.js 静态站使用绝对路径，
-      # 部署在 /FlowVision/docs/ 子路径下需全面重写路径
-      # 分两层：1) 静态文本替换  2) 运行时 fetch/XHR 猴子补丁
+      # 部署在 /FlowVision/docs/ 子路径下需重写路径
+      # JS 文件只替换已知前缀（避免破坏正则表达式字面量）
+      # HTML 文件做属性级替换 + 注入运行时猴子补丁
       - name: 修正文档资源路径
         run: |
           cat > /tmp/rewrite-paths.js << 'REWRITE_SCRIPT'
           const fs = require('fs');
           const path = require('path');
           const PREFIX = '/FlowVision/docs';
-          const GUARD = /FlowVision\/docs/;
+
+          // 已知的资源路径前缀 — 这些模式不会出现在正则字面量中，替换安全
+          const KNOWN = ['/_next/', '/_mintlify/', '/images/', '/logo/', '/favicon'];
 
           function walk(dir) {
             const out = [];
@@ -76,6 +79,8 @@ jobs:
             return out;
           }
 
+          function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
           const files = walk('_site/docs');
           let changed = 0;
 
@@ -86,39 +91,59 @@ jobs:
             let c = fs.readFileSync(file, 'utf-8');
             const orig = c;
 
+            // --- JS / JSON: 仅替换已知路径前缀，绝不做全量 "/ 替换 ---
             if (ext === '.js' || ext === '.json') {
-              // 替换所有 "/ 和 '/ 开头的绝对路径字符串
-              c = c.replace(/"\/(?!\/|FlowVision\/docs)/g, '"' + PREFIX + '/');
-              c = c.replace(/'\/(?!\/|FlowVision\/docs)/g, "'" + PREFIX + '/');
+              for (const k of KNOWN) {
+                const ek = escRe(k);
+                c = c.replace(new RegExp('"' + ek, 'g'), '"' + PREFIX + k);
+                c = c.replace(new RegExp("'" + ek, 'g'), "'" + PREFIX + k);
+              }
             }
 
+            // --- CSS: 替换 url() 中的已知路径 ---
             if (ext === '.css') {
-              c = c.replace(/url\(\/(?!FlowVision)/g, 'url(' + PREFIX + '/');
-              c = c.replace(/url\("\/(?!FlowVision)/g, 'url("' + PREFIX + '/');
-              c = c.replace(/url\('\/(?!FlowVision)/g, "url('" + PREFIX + '/');
+              for (const k of KNOWN) {
+                const ek = escRe(k);
+                c = c.replace(new RegExp('url\\(' + ek, 'g'), 'url(' + PREFIX + k);
+                c = c.replace(new RegExp('url\\("' + ek, 'g'), 'url("' + PREFIX + k);
+                c = c.replace(new RegExp("url\\('" + ek, 'g'), "url('" + PREFIX + k);
+              }
             }
 
+            // --- HTML: 属性级替换 + 内联脚本已知路径 + 运行时补丁 ---
             if (ext === '.html') {
+              // 属性值中的绝对路径（安全：HTML 属性无正则字面量）
               c = c.replace(/href="\/(?!FlowVision)/g, 'href="' + PREFIX + '/');
+              c = c.replace(/href='\/(?!FlowVision)/g, "href='" + PREFIX + '/');
               c = c.replace(/src="\/(?!FlowVision)/g, 'src="' + PREFIX + '/');
+              c = c.replace(/src='\/(?!FlowVision)/g, "src='" + PREFIX + '/');
               c = c.replace(/content="\/(?!FlowVision)/g, 'content="' + PREFIX + '/');
               c = c.replace(/action="\/(?!FlowVision)/g, 'action="' + PREFIX + '/');
 
-              // 注入运行时猴子补丁：拦截 fetch / XHR 动态请求并补全前缀
-              const rt = [
-                '<script>(function(){',
-                'var P="' + PREFIX + '";',
-                'var oF=window.fetch;',
-                'window.fetch=function(u,o){',
-                  'if(typeof u==="string"&&u.charAt(0)==="/"&&!u.startsWith(P)&&u.charAt(1)!=="/"){u=P+u}',
-                  'return oF.call(this,u,o)};',
-                'var oX=XMLHttpRequest.prototype.open;',
-                'XMLHttpRequest.prototype.open=function(){',
-                  'var u=arguments[1];',
-                  'if(typeof u==="string"&&u.charAt(0)==="/"&&!u.startsWith(P)&&u.charAt(1)!=="/"){arguments[1]=P+u}',
-                  'return oX.apply(this,arguments)};',
-                '})();</script>'
-              ].join('');
+              // 内联 <script> 中的已知路径前缀
+              for (const k of KNOWN) {
+                const ek = escRe(k);
+                c = c.replace(new RegExp('"' + ek, 'g'), '"' + PREFIX + k);
+                c = c.replace(new RegExp("'" + ek, 'g'), "'" + PREFIX + k);
+              }
+
+              // 运行时猴子补丁：拦截 fetch / XHR / 动态创建的元素
+              const rt = '<script>(function(){'
+                + 'var P="' + PREFIX + '";'
+                + 'function fix(u){return typeof u==="string"&&u.charAt(0)==="/"&&u.charAt(1)!=="/"&&!u.startsWith(P)?P+u:u}'
+                // fetch
+                + 'var oF=window.fetch;'
+                + 'window.fetch=function(u,o){return oF.call(this,fix(u),o)};'
+                // XHR
+                + 'var oX=XMLHttpRequest.prototype.open;'
+                + 'XMLHttpRequest.prototype.open=function(){'
+                +   'arguments[1]=fix(arguments[1]);return oX.apply(this,arguments)};'
+                // 动态创建 link/script/img 元素的 href/src
+                + 'var oSA=Element.prototype.setAttribute;'
+                + 'Element.prototype.setAttribute=function(n,v){'
+                +   'if((n==="href"||n==="src")&&typeof v==="string")v=fix(v);'
+                +   'return oSA.call(this,n,v)};'
+                + '})();</script>';
               c = c.replace(/<head>/i, '<head>' + rt);
             }
 
