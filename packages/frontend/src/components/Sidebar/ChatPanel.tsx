@@ -276,10 +276,6 @@ function ChatPanel() {
       useToastStore.getState().show('请先在文件浏览器打开项目', 'info');
       return;
     }
-    if (projectPath.startsWith('gitee:')) {
-      useToastStore.getState().show('当前暂不支持从 Gitee 项目导入 AI 上下文', 'info');
-      return;
-    }
 
     setImportingProject(true);
     try {
@@ -321,10 +317,6 @@ function ChatPanel() {
     }
     if (!filePath) {
       useToastStore.getState().show('请先在文件浏览器选中文件', 'info');
-      return;
-    }
-    if (projectPath.startsWith('gitee:')) {
-      useToastStore.getState().show('当前暂不支持从 Gitee 文件导入 AI 上下文', 'info');
       return;
     }
 

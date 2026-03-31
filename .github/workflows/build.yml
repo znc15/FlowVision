@@ -12,7 +12,30 @@ permissions:
   contents: write
 
 jobs:
+  preflight:
+    runs-on: windows-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 发布前检查
+        run: pnpm release:check
+
   build:
+    needs: preflight
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +69,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 运行测试
-        run: pnpm test
+        run: pnpm test:run
 
       - name: 构建前端和后端
         run: pnpm turbo run build --filter=@flowvision/frontend --filter=@flowvision/backend

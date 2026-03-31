@@ -89,6 +89,10 @@ export async function readFileContent(
     return readGithubFileContent(projectPath, filePath, reply, token);
   }
 
+  if (projectPath.startsWith('gitee:')) {
+    return readGiteeFileContent(projectPath, filePath, reply);
+  }
+
   const absPath = join(projectPath, filePath);
 
   // 防止路径遍历
@@ -162,6 +166,50 @@ async function readGithubFileContent(projectPath: string, filePath: string, repl
   }
 }
 
+/** 通过 Gitee API 读取文件内容 */
+async function readGiteeFileContent(projectPath: string, filePath: string, reply: FastifyReply) {
+  const repo = projectPath.replace('gitee:', '');
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+    reply.code(400);
+    return { success: false, error: '无效的 Gitee 仓库路径' };
+  }
+
+  const [owner, repoName] = repo.split('/');
+  const branchCandidates = ['master', 'main'];
+
+  for (const branch of branchCandidates) {
+    try {
+      const response = await fetch(
+        `https://gitee.com/api/v5/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/contents/${encodeURIComponent(filePath)}?ref=${encodeURIComponent(branch)}`,
+        { headers: { 'User-Agent': 'FlowVision' } },
+      );
+
+      if (response.status === 404) continue;
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message || `Gitee API 返回 ${response.status}`);
+      }
+
+      const data = await response.json() as { content?: string; size?: number; encoding?: string };
+      if (!data.content || data.encoding !== 'base64') {
+        reply.code(400);
+        return { success: false, error: '无法读取文件内容（可能是目录或过大文件）' };
+      }
+
+      const content = Buffer.from(data.content, 'base64').toString('utf-8');
+      return { success: true, data: { content, size: data.size || content.length } };
+    } catch (error) {
+      if (branch !== branchCandidates[branchCandidates.length - 1]) continue;
+      reply.code(500);
+      return { success: false, error: (error as Error).message || '获取 Gitee 文件失败' };
+    }
+  }
+
+  reply.code(404);
+  return { success: false, error: '文件不存在或无法访问' };
+}
+
 /** 关键文件名，用于 AI 分析时自动读取 */
 const KEY_FILES = new Set([
   'package.json', 'README.md', 'readme.md', 'README.MD',
@@ -172,6 +220,8 @@ const KEY_FILES = new Set([
   'requirements.txt', 'pyproject.toml', 'Dockerfile',
   'docker-compose.yml', 'docker-compose.yaml',
 ]);
+
+const REMOTE_KEY_FILE_NAMES = ['package.json', 'README.md', 'readme.md', 'tsconfig.json', 'go.mod', 'Cargo.toml', 'pyproject.toml', 'requirements.txt'];
 
 /** 代码文件扩展名 */
 const CODE_EXTS = new Set([
@@ -284,6 +334,10 @@ export async function getFileContext(
     return getGithubFileContext(projectPath, reply, token);
   }
 
+  if (projectPath.startsWith('gitee:')) {
+    return getGiteeFileContext(projectPath, reply);
+  }
+
   try {
     statSync(projectPath);
   } catch {
@@ -323,6 +377,7 @@ async function getGithubFileContext(projectPath: string, reply: FastifyReply, to
   // 获取文件树
   const branchCandidates = ['main', 'master'];
   let tree: FileTreeNode[] = [];
+  let resolvedBranch: string | null = null;
 
   for (const branch of branchCandidates) {
     try {
@@ -339,6 +394,7 @@ async function getGithubFileContext(projectPath: string, reply: FastifyReply, to
 
       const data = (await response.json()) as { tree?: { path: string; type: string }[] };
       tree = buildGithubTree(data.tree || []);
+      resolvedBranch = branch;
       break;
     } catch {
       continue;
@@ -346,14 +402,13 @@ async function getGithubFileContext(projectPath: string, reply: FastifyReply, to
   }
 
   // 获取关键文件内容
-  const keyFileNames = ['package.json', 'README.md', 'readme.md', 'tsconfig.json', 'go.mod', 'Cargo.toml', 'pyproject.toml', 'requirements.txt'];
   const keyFiles: { path: string; content: string }[] = [];
 
-  for (const fileName of keyFileNames) {
+  for (const fileName of REMOTE_KEY_FILE_NAMES) {
     if (keyFiles.length >= 5) break;
     try {
       const response = await fetch(
-        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/contents/${fileName}`,
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/contents/${encodeURIComponent(fileName)}${resolvedBranch ? `?ref=${encodeURIComponent(resolvedBranch)}` : ''}`,
         { headers },
       );
       if (!response.ok) continue;
@@ -368,9 +423,82 @@ async function getGithubFileContext(projectPath: string, reply: FastifyReply, to
     }
   }
 
+  const allFiles = flattenTree(tree);
+
   return {
     success: true,
-    data: { tree, keyFiles },
+    data: { tree, keyFiles, allFiles },
+  };
+}
+
+/** Gitee 仓库的 file-context：获取文件树和关键文件 */
+async function getGiteeFileContext(projectPath: string, reply: FastifyReply) {
+  const repo = projectPath.replace('gitee:', '');
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+    reply.code(400);
+    return { success: false, error: '无效的 Gitee 仓库路径' };
+  }
+
+  const [owner, repoName] = repo.split('/');
+  const branchCandidates = ['master', 'main'];
+  let tree: FileTreeNode[] = [];
+  let resolvedBranch: string | null = null;
+
+  for (const branchName of branchCandidates) {
+    try {
+      const response = await fetch(
+        `https://gitee.com/api/v5/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/git/trees/${encodeURIComponent(branchName)}?recursive=1`,
+        { headers: { 'User-Agent': 'FlowVision' } },
+      );
+
+      if (response.status === 404) continue;
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message || `Gitee API 返回 ${response.status}`);
+      }
+
+      const data = (await response.json()) as { tree?: { path: string; type: string }[] };
+      tree = buildGithubTree(data.tree || []);
+      resolvedBranch = branchName;
+      break;
+    } catch (error) {
+      if (branchName !== branchCandidates[branchCandidates.length - 1]) continue;
+      reply.code(500);
+      return { success: false, error: (error as Error).message || '获取 Gitee 仓库失败' };
+    }
+  }
+
+  if (!resolvedBranch) {
+    reply.code(404);
+    return { success: false, error: '未找到仓库或分支，请检查仓库地址是否正确' };
+  }
+
+  const keyFiles: { path: string; content: string }[] = [];
+
+  for (const fileName of REMOTE_KEY_FILE_NAMES) {
+    if (keyFiles.length >= 5) break;
+    try {
+      const response = await fetch(
+        `https://gitee.com/api/v5/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/contents/${encodeURIComponent(fileName)}?ref=${encodeURIComponent(resolvedBranch)}`,
+        { headers: { 'User-Agent': 'FlowVision' } },
+      );
+      if (!response.ok) continue;
+
+      const data = await response.json() as { content?: string; encoding?: string };
+      if (data.content && data.encoding === 'base64') {
+        const content = Buffer.from(data.content, 'base64').toString('utf-8');
+        keyFiles.push({ path: fileName, content: content.slice(0, 5000) });
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  const allFiles = flattenTree(tree);
+
+  return {
+    success: true,
+    data: { tree, keyFiles, allFiles },
   };
 }
 
