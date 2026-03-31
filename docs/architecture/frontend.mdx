@@ -1,0 +1,73 @@
+---
+title: 前端架构
+description: FlowVision 前端技术架构详解
+---
+
+# 前端架构
+
+## 技术栈
+
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| React | 18 | UI 框架 |
+| TypeScript | 5.4 | 类型安全 |
+| Vite | 5.2 | 构建工具 |
+| React Flow | v12 | 流程图画布 |
+| Zustand | - | 状态管理 |
+| Tailwind CSS | 3.4 | CSS 框架 |
+
+## 目录结构
+
+```
+packages/frontend/src/
+├── App.tsx              应用根组件
+├── main.tsx             入口文件
+├── components/
+│   ├── Canvas/          画布组件（React Flow）
+│   ├── CodePreview/     代码预览面板
+│   ├── Explorer/        文件浏览器
+│   ├── Sidebar/         侧边栏
+│   ├── Toolbar/         工具栏
+│   ├── Workbench/       工作台
+│   ├── SettingsDialog   设置对话框
+│   ├── SideNavBar       左侧导航栏
+│   └── TopNavBar        顶部导航栏
+├── hooks/
+│   ├── useKeyboardShortcuts  快捷键逻辑
+│   ├── useNodeEdit           节点编辑逻辑
+│   └── useWebSocket          WebSocket 连接
+├── store/
+│   ├── graphStore       流程图状态（节点、连线）
+│   ├── chatStore        对话状态
+│   ├── previewStore     预览状态
+│   ├── historyStore     历史记录
+│   └── logStore         日志状态
+├── types/               TypeScript 类型定义
+└── utils/               工具函数
+```
+
+## 状态管理
+
+使用 Zustand 进行集中式状态管理：
+
+- **graphStore** — 核心流程图数据（节点、连线、选中状态）
+- **chatStore** — AI 对话消息列表
+- **historyStore** — 撤销/重做操作栈
+- **previewStore** — 代码预览面板状态
+
+## 画布渲染
+
+基于 React Flow v12 构建画布：
+
+- 自定义节点组件（12 种类型）
+- 四向连接点（Handle）
+- 多种连线渲染器
+- 拖拽与框选交互
+
+## 实时通信
+
+通过 `useWebSocket` Hook 维持与后端的 WebSocket 连接：
+
+- 接收 MCP 操作触发的状态更新
+- 接收 AI 生成的实时结果
+- 自动重连机制

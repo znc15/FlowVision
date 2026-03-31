@@ -1,0 +1,93 @@
+---
+title: 桌面端架构
+description: FlowVision Electron 桌面应用架构
+---
+
+# 桌面端架构
+
+## 技术栈
+
+| 技术 | 用途 |
+|------|------|
+| Electron | 桌面应用框架 |
+| electron-builder | 跨平台打包 |
+
+## 架构设计
+
+FlowVision 桌面端采用「壳」模式 — Electron 仅负责窗口管理和原生能力，核心逻辑复用 Web 版：
+
+```
+┌──────────────────────────────┐
+│          Electron            │
+│  ┌────────────────────────┐  │
+│  │    BrowserWindow       │  │
+│  │  ┌──────────────────┐  │  │
+│  │  │   Frontend        │  │  │
+│  │  │   (React App)     │  │  │
+│  │  └──────────────────┘  │  │
+│  └────────────────────────┘  │
+│                              │
+│  ┌────────────────────────┐  │
+│  │  Backend (子进程)      │  │
+│  │  Fastify + MCP Server  │  │
+│  └────────────────────────┘  │
+└──────────────────────────────┘
+```
+
+## 目录结构
+
+```
+packages/desktop/
+├── main.js            Electron 主进程
+├── preload.js         预加载脚本（IPC 桥接）
+├── package.json       桌面端配置 + electron-builder 配置
+└── scripts/
+    ├── smoke.mjs      冒烟测试
+    └── websocket.mjs  WebSocket 测试工具
+```
+
+## 主进程
+
+`main.js` 负责：
+
+- 创建 BrowserWindow 并加载前端页面
+- 启动后端服务（子进程）
+- 管理应用生命周期（启动、退出）
+- 提供原生菜单和快捷键
+
+## 预加载脚本
+
+`preload.js` 通过 `contextBridge` 暴露安全的 API：
+
+- 文件对话框（打开/保存）
+- 系统信息
+- 应用版本号
+
+## 构建打包
+
+使用 electron-builder 构建三平台安装包：
+
+| 平台 | 输出格式 | 配置 |
+|------|----------|------|
+| Windows | `.exe` (NSIS) | `nsis` target |
+| macOS | `.dmg` | `dmg` target |
+| Linux | `.AppImage` | `appImage` target |
+
+### 构建命令
+
+```bash
+# 构建桌面应用
+pnpm build:desktop
+
+# 发布前检查（测试 + 构建 + 冒烟测试）
+pnpm release:check
+```
+
+## CI/CD
+
+GitHub Actions 自动构建流程：
+
+1. 推送版本号格式标签（如 `1.0.0`）
+2. 触发 `.github/workflows/build.yml`
+3. 并行编译 Windows / macOS / Linux
+4. 自动上传到 GitHub Releases

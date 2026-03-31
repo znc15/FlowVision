@@ -1,0 +1,76 @@
+---
+title: 后端架构
+description: FlowVision 后端服务架构详解
+---
+
+# 后端架构
+
+## 技术栈
+
+| 技术 | 用途 |
+|------|------|
+| Fastify | HTTP 服务框架 |
+| Node.js | 运行时 |
+| @modelcontextprotocol/sdk | MCP 协议实现 |
+| SSE | 流式传输 |
+| WebSocket | 实时通信 |
+| esbuild | 构建打包 |
+
+## 目录结构
+
+```
+packages/backend/src/
+├── server.ts          服务入口（Fastify 实例）
+├── routes/
+│   ├── ai.ts          AI 生成路由
+│   ├── aiProvider.ts  AI 提供商适配层
+│   ├── analyze.ts     项目分析路由
+│   └── files.ts       文件操作路由
+├── mcp/
+│   ├── server.ts      MCP 服务器实例
+│   ├── httpClient.ts  MCP HTTP 传输
+│   └── tools/         16 个 MCP 工具实现
+├── state/
+│   ├── graphState.ts  图状态管理（单例）
+│   ├── graphDiff.ts   差异计算
+│   └── graphDiff.test.ts
+├── types/
+│   └── graph.ts       图数据类型定义
+└── ws/
+    └── broadcaster.ts WebSocket 广播器
+```
+
+## 核心模块
+
+### AI 路由
+
+`routes/ai.ts` 处理 AI 生成请求：
+
+- 接收用户 Prompt
+- 调用 `aiProvider` 适配层选择模型
+- 支持同步和流式（SSE）两种响应模式
+- 将生成结果通过 WebSocket 广播到前端
+
+### 图状态管理
+
+`state/graphState.ts` 维护全局流程图状态：
+
+- 单例模式，全局唯一
+- 被 REST API 和 MCP 工具共同操作
+- 变更时通过 WebSocket broadcaster 广播
+
+### MCP 服务器
+
+`mcp/server.ts` 使用 `@modelcontextprotocol/sdk` 实现 MCP 服务：
+
+- 注册 16 个标准工具
+- 通过 HTTP Streamable 传输暴露在 `/mcp`
+- 工具调用直接操作 graphState
+
+### WebSocket 广播
+
+`ws/broadcaster.ts` 管理所有 WebSocket 连接：
+
+- 维护活跃连接列表
+- 广播图状态变更
+- 支持多客户端并发连接

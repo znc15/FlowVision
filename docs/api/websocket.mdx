@@ -1,0 +1,58 @@
+---
+title: WebSocket
+description: FlowVision WebSocket 实时通信协议
+---
+
+# WebSocket
+
+FlowVision 使用 WebSocket 实现前后端实时通信，主要用于：
+
+- 画布操作的实时广播
+- MCP 客户端操作的实时同步
+- 多标签页/多窗口的状态同步
+
+## 连接
+
+WebSocket 端点：
+
+```
+ws://localhost:3001/ws
+```
+
+## 消息格式
+
+所有消息采用 JSON 格式：
+
+```json
+{
+  "type": "graph-update",
+  "payload": {
+    "nodes": [...],
+    "edges": [...]
+  }
+}
+```
+
+## 消息类型
+
+| 类型 | 方向 | 说明 |
+|------|------|------|
+| `graph-update` | Server → Client | 流程图数据更新 |
+| `node-added` | Server → Client | 新增节点通知 |
+| `node-removed` | Server → Client | 删除节点通知 |
+| `edge-added` | Server → Client | 新增连线通知 |
+| `edge-removed` | Server → Client | 删除连线通知 |
+
+## 使用场景
+
+### MCP 实时同步
+
+当 AI 客户端通过 MCP 修改流程图时，WebSocket 自动将变更推送到前端画布：
+
+```
+AI 客户端 → MCP Server → 修改图状态 → WebSocket 广播 → 前端画布更新
+```
+
+### 多窗口同步
+
+多个浏览器标签页同时打开 FlowVision 时，通过 WebSocket 保持状态一致。

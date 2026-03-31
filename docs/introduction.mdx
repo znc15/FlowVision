@@ -1,0 +1,49 @@
+---
+title: 简介
+description: FlowVision — AI 驱动的智能流程图设计工具
+---
+
+# FlowVision
+
+**AI 驱动的智能流程图设计工具** — 一键分析项目代码，自动生成架构流程图，可视化编辑，MCP 实时同步。
+
+<img src="/images/main.png" alt="FlowVision 主界面" />
+
+## 核心能力
+
+<CardGroup cols={2}>
+  <Card title="AI 智能生成" icon="wand-magic-sparkles">
+    用自然语言描述需求，AI 自动生成完整流程图。支持 OpenAI / Anthropic / DeepSeek / Ollama。
+  </Card>
+  <Card title="项目分析" icon="folder-open">
+    导入本地或 GitHub / Gitee 项目，AI 深度分析代码结构，生成可视化架构图。
+  </Card>
+  <Card title="可视化编辑" icon="pen-to-square">
+    拖拽式画布，12 种节点类型、4 种连线、分组容器、自动布局、撤销重做。
+  </Card>
+  <Card title="MCP 协议集成" icon="plug">
+    内置 MCP 服务器 16 个工具，支持 Claude Desktop、Cursor、VS Code 实时同步。
+  </Card>
+</CardGroup>
+
+## 技术栈
+
+| 层 | 技术 |
+|----|------|
+| **前端** | React 18 · TypeScript · React Flow v12 · Zustand · Tailwind CSS · Vite 5 |
+| **后端** | Fastify · Node.js · SSE · WebSocket |
+| **AI** | OpenAI · Anthropic · DeepSeek · Ollama |
+| **MCP** | @modelcontextprotocol/sdk · 16 个标准工具 |
+| **桌面** | Electron · electron-builder |
+| **构建** | pnpm 9 · Turborepo · GitHub Actions CI/CD |
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="快速开始" icon="rocket" href="/quickstart">
+    几分钟内启动开发环境或下载桌面应用
+  </Card>
+  <Card title="功能指南" icon="book" href="/features/ai-generate">
+    深入了解各项功能的使用方法
+  </Card>
+</CardGroup>

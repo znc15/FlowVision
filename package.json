@@ -4,11 +4,12 @@
   "private": true,
   "description": "一键分析项目流程图 · 可视化编辑 · AI 生成 · MCP 服务器同步",
   "scripts": {
-    "dev": "turbo run dev --filter=!@flowvision/desktop",
+    "dev": "turbo run dev --filter=!@flowvision/desktop --filter=!@flowvision/website",
     "dev:desktop": "turbo run dev --filter=@flowvision/desktop",
     "dev:all": "turbo run dev",
     "build": "turbo run build",
     "build:desktop": "turbo run build --filter=@flowvision/frontend --filter=@flowvision/backend && pnpm --filter @flowvision/backend build:bundle && pnpm --filter @flowvision/desktop build",
+    "build:website": "pnpm --filter @flowvision/website build",
     "test:run": "pnpm --filter @flowvision/analyzer exec vitest run && pnpm --filter @flowvision/backend exec vitest run && pnpm --filter @flowvision/frontend exec vitest run && pnpm --filter @flowvision/desktop test",
     "release:check": "pnpm test:run && pnpm smoke:desktop",
     "smoke:desktop": "pnpm build:desktop && pnpm --filter @flowvision/desktop smoke",

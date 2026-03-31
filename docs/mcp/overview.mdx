@@ -1,0 +1,59 @@
+---
+title: MCP 概述
+description: FlowVision 的 Model Context Protocol 集成概述
+---
+
+# MCP 协议集成
+
+FlowVision 内置 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) 服务器，让 AI 客户端能够直接操作流程图。
+
+## 什么是 MCP
+
+MCP 是一个标准化协议，允许 AI 应用与外部工具进行双向通信。FlowVision 作为 MCP 服务器，暴露 16 个标准化工具，AI 客户端可以：
+
+- 读取当前流程图结构
+- 添加、修改、删除节点和连线
+- 触发 AI 生成和项目分析
+- 导出流程图数据
+- 执行撤销/重做操作
+
+## 架构
+
+```
+┌─────────────────┐     MCP 协议      ┌──────────────┐
+│  Claude Desktop │ ◄──────────────► │  FlowVision  │
+│  Cursor         │   HTTP SSE       │  MCP Server  │
+│  VS Code        │                  │  :3001/mcp   │
+└─────────────────┘                  └──────────────┘
+```
+
+FlowVision 使用 `@modelcontextprotocol/sdk` 提供 Streamable HTTP 传输，在后端 `/mcp` 路径上暴露服务。
+
+## 快速接入
+
+在 MCP 客户端的配置文件中添加：
+
+```json
+{
+  "mcpServers": {
+    "flowvision": {
+      "url": "http://localhost:3001/mcp"
+    }
+  }
+}
+```
+
+<Note>
+  确保 FlowVision 已启动且后端运行在默认端口 3001。
+</Note>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="工具参考" icon="wrench" href="/mcp/tools-reference">
+    查看 16 个 MCP 工具的详细参数说明
+  </Card>
+  <Card title="客户端配置" icon="gear" href="/mcp/client-setup">
+    各主流 AI 客户端的详细配置方法
+  </Card>
+</CardGroup>

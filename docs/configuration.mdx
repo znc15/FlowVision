@@ -1,0 +1,55 @@
+---
+title: 配置指南
+description: FlowVision 的详细配置选项说明
+---
+
+# 配置指南
+
+## AI 提供商配置
+
+FlowVision 支持多种 AI 服务提供商，在设置面板中切换：
+
+### OpenAI
+
+| 配置项 | 说明 |
+|--------|------|
+| API Key | OpenAI API 密钥 |
+| 模型 | `gpt-4o`、`gpt-4o-mini` 等 |
+| Base URL | 可选，自定义 API 地址（用于代理） |
+
+### Anthropic
+
+| 配置项 | 说明 |
+|--------|------|
+| API Key | Anthropic API 密钥 |
+| 模型 | `claude-sonnet-4-20250514`、`claude-3-5-haiku` 等 |
+
+### DeepSeek
+
+| 配置项 | 说明 |
+|--------|------|
+| API Key | DeepSeek API 密钥 |
+| 模型 | `deepseek-chat`、`deepseek-reasoner` 等 |
+
+### Ollama（本地模型）
+
+| 配置项 | 说明 |
+|--------|------|
+| Base URL | Ollama 服务地址，默认 `http://localhost:11434` |
+| 模型 | 已拉取的本地模型名称 |
+
+<Note>
+  Ollama 无需 API Key，确保 Ollama 服务已启动即可。
+</Note>
+
+## 后端端口配置
+
+默认后端端口为 `3001`，可通过环境变量修改：
+
+```bash
+PORT=3001 pnpm dev
+```
+
+## MCP 服务配置
+
+MCP 服务默认在后端同端口暴露 `/mcp` 路径。详见 [MCP 集成](/mcp/overview)。

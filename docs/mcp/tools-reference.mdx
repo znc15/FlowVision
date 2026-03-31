@@ -1,0 +1,149 @@
+---
+title: MCP 工具参考
+description: FlowVision 暴露的 16 个 MCP 工具详细说明
+---
+
+# MCP 工具参考
+
+FlowVision 暴露以下 16 个 MCP 标准工具：
+
+## 图操作
+
+### get_graph
+
+获取当前流程图完整结构。
+
+- **参数**：无
+- **返回**：完整的节点和连线数据
+
+### clear_graph
+
+清空画布上的所有节点和连线。
+
+- **参数**：无
+- **返回**：操作确认
+
+### get_stats
+
+获取当前图的统计信息。
+
+- **参数**：无
+- **返回**：节点数、连线数等统计数据
+
+## 节点操作
+
+### add_node
+
+添加新节点到画布。
+
+- **参数**：
+  - `label` (string) — 节点标签
+  - `type` (string, 可选) — 节点类型
+  - `position` (object, 可选) — 位置坐标 {x, y}
+- **返回**：新建节点 ID
+
+### remove_node
+
+删除指定节点。
+
+- **参数**：
+  - `nodeId` (string) — 节点 ID
+- **返回**：操作确认
+
+### update_node
+
+更新节点属性。
+
+- **参数**：
+  - `nodeId` (string) — 节点 ID
+  - `label` (string, 可选) — 新标签
+  - `type` (string, 可选) — 新类型
+- **返回**：更新后的节点数据
+
+### get_node
+
+获取单个节点详情。
+
+- **参数**：
+  - `nodeId` (string) — 节点 ID
+- **返回**：节点完整数据
+
+### list_nodes
+
+列出所有节点摘要。
+
+- **参数**：无
+- **返回**：节点 ID 和标签列表
+
+### search_nodes
+
+按关键词搜索节点。
+
+- **参数**：
+  - `query` (string) — 搜索关键词
+- **返回**：匹配的节点列表
+
+### batch_add_nodes
+
+批量添加多个节点。
+
+- **参数**：
+  - `nodes` (array) — 节点数组
+- **返回**：新建节点 ID 列表
+
+## 连线操作
+
+### connect_nodes
+
+连接两个节点。
+
+- **参数**：
+  - `sourceId` (string) — 源节点 ID
+  - `targetId` (string) — 目标节点 ID
+  - `label` (string, 可选) — 连线标签
+- **返回**：新建连线 ID
+
+### remove_edge
+
+删除指定连线。
+
+- **参数**：
+  - `edgeId` (string) — 连线 ID
+- **返回**：操作确认
+
+### update_edge
+
+修改连线属性。
+
+- **参数**：
+  - `edgeId` (string) — 连线 ID
+  - `label` (string, 可选) — 新标签
+  - `type` (string, 可选) — 连线类型
+  - `animated` (boolean, 可选) — 是否动画
+- **返回**：更新后的连线数据
+
+## 高级操作
+
+### apply_diff
+
+批量变更操作（增 / 删 / 改）。
+
+- **参数**：
+  - `diff` (object) — 包含 addNodes / removeNodes / updateNodes / addEdges / removeEdges 的差异对象
+- **返回**：操作结果摘要
+
+### get_subgraph
+
+获取指定节点及其连通子图。
+
+- **参数**：
+  - `nodeId` (string) — 起始节点 ID
+  - `depth` (number, 可选) — 遍历深度
+- **返回**：子图数据
+
+### export_graph
+
+导出流程图为 Mermaid 格式文本。
+
+- **参数**：无
+- **返回**：Mermaid 格式文本

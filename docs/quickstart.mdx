@@ -1,0 +1,70 @@
+---
+title: 快速开始
+description: 快速搭建 FlowVision 开发环境或下载桌面应用
+---
+
+# 快速开始
+
+## 环境要求
+
+- **Node.js** ≥ 20
+- **pnpm** ≥ 9
+
+## Web 开发模式
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/YangXiaoMian/FlowVision.git
+cd FlowVision
+
+# 2. 安装依赖
+pnpm install
+
+# 3. 启动开发环境（前端 + 后端）
+pnpm dev
+```
+
+启动后：
+- 前端运行在 `http://localhost:5173`
+- 后端运行在 `http://localhost:3001`
+
+## 桌面应用
+
+FlowVision 提供 Electron 桌面端，支持 Windows、macOS、Linux 三平台。
+
+### 下载安装
+
+前往 [GitHub Releases](https://github.com/YangXiaoMian/FlowVision/releases/latest) 下载对应平台安装包：
+
+| 平台 | 格式 | 说明 |
+|------|------|------|
+| Windows | `.exe` | NSIS 安装包 |
+| macOS | `.dmg` | 磁盘镜像 |
+| Linux | `.AppImage` | 免安装运行 |
+
+### 从源码构建
+
+```bash
+# 安装依赖
+pnpm install
+
+# 构建桌面应用
+pnpm build:desktop
+```
+
+构建产物在 `packages/desktop/dist/` 目录。
+
+<Note>
+  推送版本号格式的 Git 标签（如 `1.0.0`）会触发 GitHub Actions 自动编译三平台安装包。
+</Note>
+
+## 配置 AI 模型
+
+启动后在设置面板中配置 AI 服务：
+
+1. 点击右上角设置图标
+2. 选择 AI 提供商（OpenAI / Anthropic / DeepSeek / Ollama）
+3. 填入 API Key（Ollama 无需 key）
+4. 选择模型并保存
+
+<img src="/images/settings.png" alt="设置面板" />

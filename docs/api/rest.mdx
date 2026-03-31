@@ -1,0 +1,101 @@
+---
+title: REST API
+description: FlowVision 后端 REST API 端点参考
+---
+
+# REST API
+
+FlowVision 后端提供以下 REST API 端点，默认运行在 `http://localhost:3001`。
+
+## AI 生成
+
+### POST /api/ai/generate
+
+同步生成流程图。
+
+**请求体**：
+
+```json
+{
+  "prompt": "用户注册登录流程",
+  "provider": "openai",
+  "model": "gpt-4o"
+}
+```
+
+**响应**：完整的流程图节点和连线数据。
+
+---
+
+### POST /api/ai/generate-stream
+
+流式生成流程图（SSE）。
+
+**请求体**：与同步接口相同。
+
+**响应**：Server-Sent Events 流，逐步返回生成结果。
+
+```
+event: data
+data: {"type": "node", "node": {...}}
+
+event: data
+data: {"type": "edge", "edge": {...}}
+
+event: done
+data: {"message": "生成完成"}
+```
+
+## 项目分析
+
+### POST /api/analyze
+
+分析项目代码结构。
+
+**请求体**：
+
+```json
+{
+  "path": "/path/to/project",
+  "type": "local"
+}
+```
+
+或远程仓库：
+
+```json
+{
+  "url": "https://github.com/username/repo",
+  "type": "github"
+}
+```
+
+**响应**：项目结构分析结果和流程图数据。
+
+## 文件操作
+
+### GET /api/files
+
+读取项目文件树。
+
+**查询参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `path` | string | 目录路径 |
+
+**响应**：文件和目录列表。
+
+## 健康检查
+
+### GET /health
+
+服务健康检查。
+
+**响应**：
+
+```json
+{
+  "status": "ok"
+}
+```

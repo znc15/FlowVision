@@ -1,0 +1,65 @@
+---
+title: 架构概述
+description: FlowVision 整体架构设计
+---
+
+# 架构概述
+
+FlowVision 采用 Monorepo 架构，使用 pnpm Workspaces + Turborepo 管理多个包。
+
+## 项目结构
+
+```
+flowvision/
+├── packages/
+│   ├── frontend/      前端应用（React + Vite）
+│   ├── backend/       后端服务（Fastify + MCP）
+│   ├── analyzer/      代码分析引擎
+│   ├── desktop/       Electron 桌面壳
+│   └── website/       项目官网
+├── docs/              Mintlify 文档
+├── turbo.json         Turborepo 构建编排
+└── pnpm-workspace.yaml
+```
+
+## 数据流
+
+```
+用户操作
+  │
+  ├── 聊天输入 ──► 后端 AI 路由 ──► AI 模型 ──► 流程图数据
+  │                                                │
+  │                                          WebSocket 广播
+  │                                                │
+  ├── 画布编辑 ──► Zustand Store ◄─────────────────┘
+  │                    │
+  │              React Flow 渲染
+  │
+  └── MCP 客户端 ──► MCP Server ──► 图状态 ──► WebSocket 广播
+```
+
+## 核心模块交互
+
+| 模块 | 职责 | 通信方式 |
+|------|------|----------|
+| **Frontend** | UI 渲染、画布编辑、状态管理 | HTTP / WebSocket |
+| **Backend** | AI 调用、MCP 服务、文件操作 | REST / SSE / WS |
+| **Analyzer** | 代码结构分析、依赖提取 | 被 Backend 调用 |
+| **Desktop** | Electron 壳、跨平台打包 | 嵌入 Frontend |
+
+## 构建系统
+
+Turborepo 管理构建依赖关系：
+
+```json
+{
+  "build": {
+    "dependsOn": ["^build"],
+    "outputs": ["dist/**"]
+  }
+}
+```
+
+- `pnpm dev` — 并行启动前端和后端开发服务器
+- `pnpm build` — 按依赖顺序构建所有包
+- `pnpm build:desktop` — 构建 Electron 桌面应用

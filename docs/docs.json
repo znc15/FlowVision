@@ -1,0 +1,72 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "FlowVision 文档",
+  "logo": {
+    "dark": "/logo/logo_256.png",
+    "light": "/logo/logo_256.png"
+  },
+  "favicon": "/logo/logo_128.png",
+  "colors": {
+    "primary": "#0050cb",
+    "light": "#3B82F6",
+    "dark": "#003A99",
+    "anchors": {
+      "from": "#0050cb",
+      "to": "#3B82F6"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/YangXiaoMian/FlowVision"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "下载",
+    "url": "https://github.com/YangXiaoMian/FlowVision/releases/latest"
+  },
+  "tabs": [
+    { "name": "功能指南", "url": "features" },
+    { "name": "MCP 集成", "url": "mcp" },
+    { "name": "API 参考", "url": "api" },
+    { "name": "架构设计", "url": "architecture" }
+  ],
+  "navigation": [
+    {
+      "group": "开始",
+      "pages": ["introduction", "quickstart", "configuration"]
+    },
+    {
+      "group": "功能指南",
+      "pages": [
+        "features/ai-generate",
+        "features/project-analysis",
+        "features/visual-editor",
+        "features/slash-commands",
+        "features/prompt-generate",
+        "features/keyboard-shortcuts",
+        "features/export-import"
+      ]
+    },
+    {
+      "group": "MCP 集成",
+      "pages": ["mcp/overview", "mcp/tools-reference", "mcp/client-setup"]
+    },
+    {
+      "group": "API 参考",
+      "pages": ["api/rest", "api/websocket"]
+    },
+    {
+      "group": "架构设计",
+      "pages": [
+        "architecture/overview",
+        "architecture/frontend",
+        "architecture/backend",
+        "architecture/desktop"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/YangXiaoMian/FlowVision"
+  }
+}

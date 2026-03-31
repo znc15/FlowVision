@@ -1,0 +1,73 @@
+---
+title: 客户端配置
+description: 各主流 MCP 客户端的详细配置方法
+---
+
+# 客户端配置
+
+## Claude Desktop
+
+编辑 Claude Desktop 配置文件：
+
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "flowvision": {
+      "url": "http://localhost:3001/mcp"
+    }
+  }
+}
+```
+
+重启 Claude Desktop 后，可在对话中直接操作 FlowVision 流程图。
+
+## Cursor
+
+在 Cursor 设置中添加 MCP 服务器：
+
+1. 打开 Cursor Settings → MCP
+2. 添加新的 MCP 服务器
+3. 填入配置：
+
+```json
+{
+  "mcpServers": {
+    "flowvision": {
+      "url": "http://localhost:3001/mcp"
+    }
+  }
+}
+```
+
+## VS Code (GitHub Copilot)
+
+在 VS Code 设置中配置 MCP：
+
+1. 打开 Settings → 搜索 "MCP"
+2. 或在 `.vscode/settings.json` 中添加：
+
+```json
+{
+  "github.copilot.chat.mcpServers": {
+    "flowvision": {
+      "url": "http://localhost:3001/mcp"
+    }
+  }
+}
+```
+
+## 验证连接
+
+配置完成后，在 AI 客户端中验证：
+
+1. 确保 FlowVision 已启动（`pnpm dev`）
+2. 在 AI 对话中尝试调用工具，例如："获取当前流程图"
+3. AI 应返回当前画布上的节点和连线数据
+
+<Warning>
+  确保 FlowVision 后端已启动且运行在端口 3001。如修改了端口，请同步更新 MCP 配置中的 URL。
+</Warning>

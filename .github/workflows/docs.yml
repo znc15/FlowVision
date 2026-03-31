@@ -1,0 +1,74 @@
+name: Deploy Docs & Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'packages/website/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # 构建项目网站
+      - name: 构建网站
+        run: pnpm --filter @flowvision/website build
+
+      # 安装 Mintlify CLI 并导出静态文档
+      - name: 安装 Mintlify CLI
+        run: npm install -g mintlify@latest
+
+      - name: 导出 Mintlify 文档
+        working-directory: docs
+        run: mintlify export
+
+      # 合并网站和文档到统一输出目录
+      - name: 合并输出
+        run: |
+          mkdir -p _site
+          cp -r packages/website/dist/* _site/
+          mkdir -p _site/docs
+          if [ -f docs/output.zip ]; then
+            unzip -o docs/output.zip -d _site/docs/
+          elif [ -d docs/.output ]; then
+            cp -r docs/.output/* _site/docs/
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
