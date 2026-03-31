@@ -30,7 +30,7 @@ function DocumentNode({ id, data, selected }: NodeProps<FlowNode>) {
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); openEditDialog(id); }}
-            className="hover:bg-slate-100 rounded-md p-0.5 transition-colors duration-150"
+            className="node-edit-btn hover:bg-slate-100 rounded-md p-0.5 transition-colors duration-150"
             title="编辑节点"
           >
             <span className="material-symbols-outlined text-sm text-slate-400 hover:text-primary">more_horiz</span>

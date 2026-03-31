@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 import { useSettingsStore } from '../../store/settingsStore';
 
 interface CodePreviewProps {
@@ -171,7 +172,7 @@ function CodePreview({
             prose-img:rounded-lg prose-hr:border-outline-variant/30
             prose-th:text-on-surface prose-td:text-on-surface/80
             prose-li:text-on-surface/80">
-            <Markdown components={{
+            <Markdown rehypePlugins={[rehypeRaw]} components={{
               a: ({ href, children, ...props }) => {
                 // 相对链接标记但不阻止显示
                 const isRelative = href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('#');

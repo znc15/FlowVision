@@ -584,69 +584,6 @@ ${fileContextStr}
 
           {/* 可滚动内容区域 */}
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-          {/* Agent 工作日志 — 项目分析 */}
-          {generating && (
-            <div className="mb-6 rounded-2xl border border-primary/10 bg-white shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-base">smart_toy</span>
-                  <span className="text-xs font-semibold text-slate-700">Agent 工作日志</span>
-                </div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-medium text-primary">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse"></span>
-                  运行中
-                </span>
-              </div>
-              <div className="px-4 py-3 space-y-3">
-                <div className="flex items-center gap-2.5">
-                  {analysisStep > 1
-                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    : <span className="material-symbols-outlined text-sm text-primary animate-spin shrink-0">progress_activity</span>}
-                  <span className={`text-xs ${analysisStep > 1 ? 'text-slate-500' : 'text-slate-800 font-medium'}`}>获取项目文件上下文</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  {analysisStep > 2
-                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    : analysisStep >= 2
-                      ? <span className="material-symbols-outlined text-sm text-primary animate-spin shrink-0">progress_activity</span>
-                      : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0"></span>}
-                  <span className={`text-xs ${analysisStep > 2 ? 'text-slate-500' : analysisStep >= 2 ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>发送 AI 分析请求</span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  {analysisStep > 3
-                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0 mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    : analysisStep >= 3
-                      ? <span className="material-symbols-outlined text-sm text-primary animate-spin shrink-0 mt-0.5">progress_activity</span>
-                      : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0 mt-0.5"></span>}
-                  <div className="flex-1 min-w-0">
-                    <span className={`text-xs ${analysisStep > 3 ? 'text-slate-500' : analysisStep >= 3 ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>AI 分析代码结构</span>
-                    {analysisStep === 3 && streamingOverviewText && (
-                      <div className="mt-1.5 rounded-lg bg-slate-50 px-3 py-2 max-h-28 overflow-y-auto">
-                        <pre className="text-[10px] text-slate-500 leading-relaxed whitespace-pre-wrap break-words font-mono">{streamingOverviewText.slice(-300)}</pre>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  {analysisStep >= 4
-                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0"></span>}
-                  <span className={`text-xs ${analysisStep >= 4 ? 'text-slate-500' : 'text-slate-400'}`}>解析并生成概览</span>
-                </div>
-              </div>
-              <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/30 flex items-center gap-4 text-[10px] text-slate-400">
-                <span className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[11px]">token</span>
-                  ~{Math.max(1, Math.round(streamingOverviewText.length / 4))} tokens
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[11px]">smart_toy</span>
-                  1 次 AI 调用
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* 项目分析流输出窗口 */}
           {generating && streamingOverviewText && (
             <div className="mb-6 rounded-2xl border border-primary/10 bg-white shadow-sm overflow-hidden">
@@ -659,67 +596,6 @@ ${fileContextStr}
               </div>
               <div className="px-4 py-3 max-h-64 overflow-y-auto bg-slate-900 font-mono">
                 <pre className="text-[10px] text-green-400 leading-relaxed whitespace-pre-wrap break-words">{streamingOverviewText}</pre>
-              </div>
-            </div>
-          )}
-
-          {/* Agent 工作日志 — 架构图生成 */}
-          {generatingCanvas && (
-            <div className="mb-6 rounded-2xl border border-secondary/15 bg-white shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-secondary text-base">account_tree</span>
-                  <span className="text-xs font-semibold text-slate-700">架构图生成日志</span>
-                </div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[10px] font-medium text-secondary">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-secondary animate-pulse"></span>
-                  运行中
-                </span>
-              </div>
-              <div className="px-4 py-3 space-y-3">
-                <div className="flex items-center gap-2.5">
-                  {canvasStep > 1
-                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    : <span className="material-symbols-outlined text-sm text-secondary animate-spin shrink-0">progress_activity</span>}
-                  <span className={`text-xs ${canvasStep > 1 ? 'text-slate-500' : 'text-slate-800 font-medium'}`}>获取项目文件上下文</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  {canvasStep > 2
-                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    : canvasStep >= 2
-                      ? <span className="material-symbols-outlined text-sm text-secondary animate-spin shrink-0">progress_activity</span>
-                      : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0"></span>}
-                  <span className={`text-xs ${canvasStep > 2 ? 'text-slate-500' : canvasStep >= 2 ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>发送架构图生成请求</span>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  {canvasStep > 3
-                    ? <span className="material-symbols-outlined text-sm text-green-500 shrink-0 mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    : canvasStep >= 3
-                      ? <span className="material-symbols-outlined text-sm text-secondary animate-spin shrink-0 mt-0.5">progress_activity</span>
-                      : <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0 mt-0.5"></span>}
-                  <div className="flex-1 min-w-0">
-                    <span className={`text-xs ${canvasStep > 3 ? 'text-slate-500' : canvasStep >= 3 ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>AI 生成节点与连线</span>
-                    {canvasStep === 3 && streamingCanvasText && (
-                      <div className="mt-1.5 rounded-lg bg-slate-50 px-3 py-2 max-h-28 overflow-y-auto">
-                        <pre className="text-[10px] text-slate-500 leading-relaxed whitespace-pre-wrap break-words font-mono">{streamingCanvasText.slice(-300)}</pre>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <span className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0"></span>
-                  <span className="text-xs text-slate-400">写入画布</span>
-                </div>
-              </div>
-              <div className="px-4 py-2 border-t border-slate-100 bg-slate-50/30 flex items-center gap-4 text-[10px] text-slate-400">
-                <span className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[11px]">token</span>
-                  ~{Math.max(1, Math.round(streamingCanvasText.length / 4))} tokens
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[11px]">smart_toy</span>
-                  1 次 AI 调用
-                </span>
               </div>
             </div>
           )}
@@ -981,15 +857,15 @@ ${fileContextStr}
               <div className="p-3 rounded-xl bg-green-50/50 ghost-border-soft space-y-2 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs text-on-surface-variant truncate">框架</span>
-                  <span className="text-xs font-medium text-on-surface shrink-0 whitespace-nowrap text-right">{displayOverview.testInfo.framework}</span>
+                  <span className="text-xs font-medium text-on-surface text-right break-words min-w-0">{displayOverview.testInfo.framework}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs text-on-surface-variant truncate">覆盖率</span>
-                  <span className="text-xs font-medium text-green-600 shrink-0 whitespace-nowrap text-right">{displayOverview.testInfo.coverage}</span>
+                  <span className="text-xs font-medium text-green-600 text-right break-words min-w-0">{displayOverview.testInfo.coverage}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs text-on-surface-variant truncate">测试文件数</span>
-                  <span className="text-xs font-medium text-on-surface shrink-0 whitespace-nowrap text-right">{displayOverview.testInfo.testFiles}</span>
+                  <span className="text-xs font-medium text-on-surface text-right break-words min-w-0">{displayOverview.testInfo.testFiles}</span>
                 </div>
               </div>
             </div>

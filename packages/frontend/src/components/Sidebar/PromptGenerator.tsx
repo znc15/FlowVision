@@ -1,18 +1,6 @@
 import { useState, useRef } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useLogStore } from '../../store/logStore';
-import { useGraphStore } from '../../store/graphStore';
-import { useTabStore } from '../../store/tabStore';
-
-/** 快速场景卡片 */
-const QUICK_SCENARIOS = [
-  { icon: 'login', label: '用户认证', hint: '用户登录注册流程，包含 OAuth 第三方登录、密码重置、验证码校验' },
-  { icon: 'shopping_cart', label: '电商交易', hint: '电商订单完整生命周期，包含下单、支付、库存扣减、发货、退款' },
-  { icon: 'approval', label: '审批流程', hint: '多级审批流程，包含提交、逐级审核、驳回修改、最终通知' },
-  { icon: 'cloud_sync', label: '数据管道', hint: 'ETL 数据处理管道，包含采集、清洗、转换、加载、质量校验' },
-  { icon: 'rocket_launch', label: 'DevOps', hint: 'CI/CD 持续集成部署流程，包含构建、测试、灰度发布、回滚' },
-  { icon: 'support_agent', label: '客服工单', hint: '客服工单处理流程，包含创建、分配、处理、升级、关闭' },
-];
 
 /** 生成 Prompt 的元提示词 */
 const META_SYSTEM_PROMPT = `你是一个专业的流程图 Prompt 工程师。用户会描述一个场景，你需要生成一段高质量的 Prompt，帮助 AI 流程图生成器产出清晰、完整、专业的流程图。
@@ -30,54 +18,7 @@ function PromptGenerator() {
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [useCanvas, setUseCanvas] = useState(false);
-  const [selectedTabId, setSelectedTabId] = useState<string>('');
   const abortRef = useRef<AbortController | null>(null);
-
-  const tabs = useTabStore((s) => s.tabs);
-  const activeTabId = useTabStore((s) => s.activeTabId);
-  const currentNodes = useGraphStore((s) => s.nodes);
-  const currentEdges = useGraphStore((s) => s.edges);
-
-  /** 获取选中画布数据描述 */
-  const getCanvasContext = (): string => {
-    if (!useCanvas) return '';
-    const tabId = selectedTabId || activeTabId;
-    let nodes = currentNodes;
-    let edges = currentEdges;
-
-    if (tabId && tabId !== activeTabId) {
-      const tab = tabs.find((t) => t.id === tabId);
-      if (tab) {
-        nodes = tab.graph.nodes;
-        edges = tab.graph.edges;
-      }
-    }
-
-    if (nodes.length === 0) return '';
-
-    const nodeDescriptions = nodes.map((n) =>
-      `- [${n.type}] ${n.data.label}${n.data.description ? ': ' + n.data.description : ''}`
-    ).join('\n');
-    const edgeDescriptions = edges.map((e) => {
-      const srcNode = nodes.find((n) => n.id === e.source);
-      const tgtNode = nodes.find((n) => n.id === e.target);
-      return `- ${srcNode?.data.label || e.source} → ${tgtNode?.data.label || e.target}${e.label ? ' (' + e.label + ')' : ''}`;
-    }).join('\n');
-
-    return `\n\n当前画布包含以下流程图内容，请基于此生成优化的 Prompt：\n节点 (${nodes.length} 个):\n${nodeDescriptions}\n连线 (${edges.length} 条):\n${edgeDescriptions}`;
-  };
-
-  /** 获取项目上下文 */
-  const getProjectContext = (): string => {
-    try {
-      const raw = localStorage.getItem('flowvision-project-overview');
-      if (!raw) return '';
-      const overview = JSON.parse(raw)?.data;
-      if (!overview) return '';
-      return `\n\n项目信息: ${overview.name} - ${overview.description}\n技术栈: ${(overview.techStack || []).join(', ')}`;
-    } catch { return ''; }
-  };
 
   const handleGenerate = async (scenarioHint?: string) => {
     const userInput = (scenarioHint || input).trim();
@@ -93,9 +34,7 @@ function PromptGenerator() {
     const { provider, apiKey, model, baseURL, customHeaders, httpProxy } = useSettingsStore.getState();
     useLogStore.getState().add('info', 'Prompt生成', `开始生成 Prompt: ${userInput}`);
 
-    const canvasCtx = getCanvasContext();
-    const projectCtx = getProjectContext();
-    const fullPrompt = userInput + canvasCtx + projectCtx;
+    const fullPrompt = userInput;
 
     try {
       const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
@@ -176,24 +115,6 @@ function PromptGenerator() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-        {/* 快速场景卡片 */}
-        <div>
-          <p className="text-[10px] font-semibold text-on-surface-variant/50 uppercase tracking-widest mb-2">快速场景</p>
-          <div className="grid grid-cols-3 gap-1.5">
-            {QUICK_SCENARIOS.map((s) => (
-              <button
-                key={s.label}
-                onClick={() => { setInput(s.hint); void handleGenerate(s.hint); }}
-                disabled={generating}
-                className="flex flex-col items-center gap-1 p-2 rounded-lg bg-primary/5 hover:bg-primary/10 transition-all duration-200 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] ghost-border-soft"
-              >
-                <span className="material-symbols-outlined text-base text-primary">{s.icon}</span>
-                <span className="text-[9px] text-on-surface-variant leading-tight">{s.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* 输入区域 */}
         <div>
           <label className="text-[10px] font-semibold text-on-surface-variant/50 uppercase tracking-widest block mb-2">
@@ -207,32 +128,6 @@ function PromptGenerator() {
             className="w-full rounded-xl bg-surface-container-highest/92 py-3 px-4 text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none ghost-border-soft focus:ring-2 focus:ring-primary/20 transition-all duration-200 resize-none"
             disabled={generating}
           />
-        </div>
-
-        {/* 画布和项目选择 */}
-        <div className="space-y-2">
-          <label
-            className="flex items-center gap-2 cursor-pointer select-none group"
-            onClick={() => setUseCanvas((v) => !v)}
-          >
-            <span className={`w-4 h-4 rounded flex items-center justify-center border transition-all duration-200 ${useCanvas ? 'bg-primary border-primary' : 'border-slate-300 group-hover:border-primary/50'}`}>
-              {useCanvas && <span className="material-symbols-outlined text-white text-xs">check</span>}
-            </span>
-            <span className="text-[10px] text-on-surface-variant">基于画布流程图生成 Prompt</span>
-          </label>
-          {useCanvas && tabs.length > 0 && (
-            <select
-              value={selectedTabId || activeTabId}
-              onChange={(e) => setSelectedTabId(e.target.value)}
-              className="w-full rounded-lg bg-surface-container-highest/60 py-1.5 px-3 text-[10px] text-on-surface outline-none ghost-border-soft"
-            >
-              {tabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.title}{tab.id === activeTabId ? ' (当前)' : ''} · {tab.graph.nodes.length} 节点
-                </option>
-              ))}
-            </select>
-          )}
         </div>
 
         <div>

@@ -281,7 +281,8 @@
 body.flowvision-exporting .react-flow__panel,
 body.flowvision-exporting .react-flow__controls,
 body.flowvision-exporting .react-flow__minimap,
-body.flowvision-exporting .react-flow__attribution {
+body.flowvision-exporting .react-flow__attribution,
+body.flowvision-exporting .node-edit-btn {
   display: none !important;
 }
 
