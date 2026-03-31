@@ -1,11 +1,12 @@
-const REPO_URL = 'https://github.com/YangXiaoMian/FlowVision'
+const REPO_URL = 'https://github.com/znc15/FlowVision'
+const DOCS_URL = 'https://znc15.github.io/FlowVision-Docs'
 
 const links = [
-  { label: '快速开始', href: 'docs/quickstart' },
-  { label: '功能文档', href: 'docs/features/ai-generate' },
-  { label: 'MCP 集成', href: 'docs/mcp/overview' },
-  { label: 'API 参考', href: 'docs/api/rest' },
-  { label: '架构设计', href: 'docs/architecture/overview' },
+  { label: '快速开始', href: `${DOCS_URL}/quickstart` },
+  { label: '功能文档', href: `${DOCS_URL}/features/ai-generate` },
+  { label: 'MCP 集成', href: `${DOCS_URL}/mcp/overview` },
+  { label: 'API 参考', href: `${DOCS_URL}/api/rest` },
+  { label: '架构设计', href: `${DOCS_URL}/architecture/overview` },
   { label: 'GitHub', href: REPO_URL },
 ]
 

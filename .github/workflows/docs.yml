@@ -1,10 +1,9 @@
-name: Deploy Docs & Website
+name: Deploy Website
 
 on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
       - 'packages/website/**'
   workflow_dispatch:
 
@@ -33,129 +32,12 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
-      # 构建项目网站
       - name: 构建网站
         run: pnpm --filter @flowvision/website build
 
-      # 安装 Mintlify CLI 并导出静态文档
-      - name: 安装 Mintlify CLI
-        run: npm install -g mintlify@latest
-
-      - name: 导出 Mintlify 文档
-        working-directory: docs
-        run: mintlify export --output export.zip
-
-      # 合并网站和文档到统一输出目录
-      - name: 合并输出
-        run: |
-          mkdir -p _site
-          cp -r packages/website/dist/* _site/
-          mkdir -p _site/docs
-          if [ -f docs/export.zip ]; then
-            unzip -o docs/export.zip -d _site/docs/
-          fi
-
-      # Mintlify 导出的 Next.js 静态站使用绝对路径，
-      # 部署在 /FlowVision/docs/ 子路径下需重写路径
-      # JS 文件只替换已知前缀（避免破坏正则表达式字面量）
-      # HTML 文件做属性级替换 + 注入运行时猴子补丁
-      - name: 修正文档资源路径
-        run: |
-          cat > /tmp/rewrite-paths.js << 'REWRITE_SCRIPT'
-          const fs = require('fs');
-          const path = require('path');
-          const PREFIX = '/FlowVision/docs';
-
-          // 已知的资源路径前缀 — 这些模式不会出现在正则字面量中，替换安全
-          const KNOWN = ['/_next/', '/_mintlify/', '/images/', '/logo/', '/favicon'];
-
-          function walk(dir) {
-            const out = [];
-            for (const f of fs.readdirSync(dir)) {
-              const p = path.join(dir, f);
-              if (fs.statSync(p).isDirectory()) out.push(...walk(p));
-              else out.push(p);
-            }
-            return out;
-          }
-
-          function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-          const files = walk('_site/docs');
-          let changed = 0;
-
-          for (const file of files) {
-            const ext = path.extname(file).toLowerCase();
-            if (!['.html', '.js', '.css', '.json'].includes(ext)) continue;
-
-            let c = fs.readFileSync(file, 'utf-8');
-            const orig = c;
-
-            // --- JS / JSON: 仅替换已知路径前缀，绝不做全量 "/ 替换 ---
-            if (ext === '.js' || ext === '.json') {
-              for (const k of KNOWN) {
-                const ek = escRe(k);
-                c = c.replace(new RegExp('"' + ek, 'g'), '"' + PREFIX + k);
-                c = c.replace(new RegExp("'" + ek, 'g'), "'" + PREFIX + k);
-              }
-            }
-
-            // --- CSS: 替换 url() 中的已知路径 ---
-            if (ext === '.css') {
-              for (const k of KNOWN) {
-                const ek = escRe(k);
-                c = c.replace(new RegExp('url\\(' + ek, 'g'), 'url(' + PREFIX + k);
-                c = c.replace(new RegExp('url\\("' + ek, 'g'), 'url("' + PREFIX + k);
-                c = c.replace(new RegExp("url\\('" + ek, 'g'), "url('" + PREFIX + k);
-              }
-            }
-
-            // --- HTML: 属性级替换 + 内联脚本已知路径 + 运行时补丁 ---
-            if (ext === '.html') {
-              // 属性值中的绝对路径（安全：HTML 属性无正则字面量）
-              c = c.replace(/href="\/(?!FlowVision)/g, 'href="' + PREFIX + '/');
-              c = c.replace(/href='\/(?!FlowVision)/g, "href='" + PREFIX + '/');
-              c = c.replace(/src="\/(?!FlowVision)/g, 'src="' + PREFIX + '/');
-              c = c.replace(/src='\/(?!FlowVision)/g, "src='" + PREFIX + '/');
-              c = c.replace(/content="\/(?!FlowVision)/g, 'content="' + PREFIX + '/');
-              c = c.replace(/action="\/(?!FlowVision)/g, 'action="' + PREFIX + '/');
-
-              // 内联 <script> 中的已知路径前缀
-              for (const k of KNOWN) {
-                const ek = escRe(k);
-                c = c.replace(new RegExp('"' + ek, 'g'), '"' + PREFIX + k);
-                c = c.replace(new RegExp("'" + ek, 'g'), "'" + PREFIX + k);
-              }
-
-              // 运行时猴子补丁：拦截 fetch / XHR / 动态创建的元素
-              const rt = '<script>(function(){'
-                + 'var P="' + PREFIX + '";'
-                + 'function fix(u){return typeof u==="string"&&u.charAt(0)==="/"&&u.charAt(1)!=="/"&&!u.startsWith(P)?P+u:u}'
-                // fetch
-                + 'var oF=window.fetch;'
-                + 'window.fetch=function(u,o){return oF.call(this,fix(u),o)};'
-                // XHR
-                + 'var oX=XMLHttpRequest.prototype.open;'
-                + 'XMLHttpRequest.prototype.open=function(){'
-                +   'arguments[1]=fix(arguments[1]);return oX.apply(this,arguments)};'
-                // 动态创建 link/script/img 元素的 href/src
-                + 'var oSA=Element.prototype.setAttribute;'
-                + 'Element.prototype.setAttribute=function(n,v){'
-                +   'if((n==="href"||n==="src")&&typeof v==="string")v=fix(v);'
-                +   'return oSA.call(this,n,v)};'
-                + '})();</script>';
-              c = c.replace(/<head>/i, '<head>' + rt);
-            }
-
-            if (c !== orig) { fs.writeFileSync(file, c); changed++; }
-          }
-          console.log('重写了 ' + changed + ' 个文件');
-          REWRITE_SCRIPT
-          node /tmp/rewrite-paths.js
-
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: packages/website/dist
 
   deploy:
     needs: build

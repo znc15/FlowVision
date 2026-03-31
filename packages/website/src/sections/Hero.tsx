@@ -42,7 +42,7 @@ export default function Hero() {
         {/* CTA 按钮 */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <a
-            href="docs/quickstart"
+            href="https://znc15.github.io/FlowVision-Docs/quickstart"
             className="inline-flex items-center px-8 py-3 text-base font-semibold text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors shadow-md shadow-primary/20"
           >
             快速开始
