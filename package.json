@@ -9,7 +9,7 @@
     "dev:all": "turbo run dev",
     "build": "turbo run build",
     "build:desktop": "turbo run build --filter=@flowvision/frontend --filter=@flowvision/backend && pnpm --filter @flowvision/backend build:bundle && pnpm --filter @flowvision/desktop build",
-    "test:run": "pnpm --filter @flowvision/analyzer exec vitest run && pnpm --filter @flowvision/backend exec vitest run && pnpm --filter @flowvision/frontend exec vitest run",
+    "test:run": "pnpm --filter @flowvision/analyzer exec vitest run && pnpm --filter @flowvision/backend exec vitest run && pnpm --filter @flowvision/frontend exec vitest run && pnpm --filter @flowvision/desktop test",
     "release:check": "pnpm test:run && pnpm smoke:desktop",
     "smoke:desktop": "pnpm build:desktop && pnpm --filter @flowvision/desktop smoke",
     "test": "turbo run test",

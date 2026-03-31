@@ -7,6 +7,8 @@ import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import { resolveWebSocketCtor } from './websocket.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const desktopRoot = path.resolve(__dirname, '..');
@@ -72,10 +74,12 @@ class CdpClient {
     this.socket = null;
     this.nextId = 1;
     this.pending = new Map();
+    this.WebSocketCtor = null;
   }
 
   async connect() {
-    this.socket = new WebSocket(this.webSocketUrl);
+    this.WebSocketCtor = await resolveWebSocketCtor();
+    this.socket = new this.WebSocketCtor(this.webSocketUrl);
 
     await new Promise((resolve, reject) => {
       const onOpen = () => resolve();
@@ -110,7 +114,8 @@ class CdpClient {
   }
 
   async send(method, params = {}) {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    const openState = this.WebSocketCtor?.OPEN ?? 1;
+    if (!this.socket || this.socket.readyState !== openState) {
       throw new Error(`CDP 连接未就绪，无法发送 ${method}`);
     }
 
@@ -145,7 +150,8 @@ class CdpClient {
 
   async close() {
     if (!this.socket) return;
-    if (this.socket.readyState === WebSocket.OPEN) {
+    const openState = this.WebSocketCtor?.OPEN ?? 1;
+    if (this.socket.readyState === openState) {
       this.socket.close();
     }
   }

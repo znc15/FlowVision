@@ -100,6 +100,9 @@ importers:
       electron-is-dev:
         specifier: ^2.0.0
         version: 2.0.0
+      ws:
+        specifier: ^8.18.3
+        version: 8.20.0
     devDependencies:
       electron:
         specifier: ^31.0.0
