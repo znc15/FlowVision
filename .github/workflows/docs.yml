@@ -43,7 +43,7 @@ jobs:
 
       - name: 导出 Mintlify 文档
         working-directory: docs
-        run: mintlify export
+        run: mintlify export --output export.zip
 
       # 合并网站和文档到统一输出目录
       - name: 合并输出
@@ -51,10 +51,8 @@ jobs:
           mkdir -p _site
           cp -r packages/website/dist/* _site/
           mkdir -p _site/docs
-          if [ -f docs/output.zip ]; then
-            unzip -o docs/output.zip -d _site/docs/
-          elif [ -d docs/.output ]; then
-            cp -r docs/.output/* _site/docs/
+          if [ -f docs/export.zip ]; then
+            unzip -o docs/export.zip -d _site/docs/
           fi
 
       - uses: actions/upload-pages-artifact@v3
