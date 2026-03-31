@@ -55,6 +55,21 @@ jobs:
             unzip -o docs/export.zip -d _site/docs/
           fi
 
+      # Mintlify 导出的 Next.js 静态站使用绝对路径 /_next/，
+      # 部署在 /FlowVision/docs/ 子路径下需要重写为正确前缀
+      - name: 修正文档资源路径
+        run: |
+          echo "重写 /_next/ 为 /FlowVision/docs/_next/ ..."
+          find _site/docs -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" \) \
+            -exec sed -i 's|"/_next/|"/FlowVision/docs/_next/|g' {} + \
+            -exec sed -i "s|'/_next/|'/FlowVision/docs/_next/|g" {} + \
+            -exec sed -i 's|=/_next/|=/FlowVision/docs/_next/|g' {} +
+          # 修正其它可能的绝对路径引用（如字体、图片）
+          find _site/docs -type f -name "*.html" \
+            -exec sed -i 's|href="/|href="/FlowVision/docs/|g' {} + \
+            -exec sed -i 's|src="/|src="/FlowVision/docs/|g' {} +
+          echo "路径重写完成"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
