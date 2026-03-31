@@ -14,7 +14,7 @@ interface TabStore {
   activeTabId: string;
 
   /** 新建标签 */
-  addTab: (title?: string) => void;
+  addTab: (title?: string, graph?: GraphData) => string;
   /** 关闭标签 */
   closeTab: (tabId: string) => void;
   /** 切换标签 */
@@ -27,12 +27,12 @@ interface TabStore {
 
 let tabSeq = 0;
 
-function createTab(title?: string): CanvasTab {
+function createTab(title?: string, graph?: GraphData): CanvasTab {
   const id = `tab-${Date.now()}-${++tabSeq}`;
   return {
     id,
     title: title ?? `画布 ${tabSeq}`,
-    graph: { nodes: [], edges: [] },
+    graph: graph ?? { nodes: [], edges: [] },
   };
 }
 
@@ -67,13 +67,14 @@ export const useTabStore = create<TabStore>((set) => ({
   tabs: saved ? saved.tabs : [initialTab],
   activeTabId: saved ? saved.activeTabId : initialTab.id,
 
-  addTab: (title) => {
-    const tab = createTab(title);
+  addTab: (title, graph) => {
+    const tab = createTab(title, graph);
     set((s) => {
       const next = { tabs: [...s.tabs, tab], activeTabId: tab.id };
       persistTabs(next.tabs, next.activeTabId);
       return next;
     });
+    return tab.id;
   },
 
   closeTab: (tabId) =>

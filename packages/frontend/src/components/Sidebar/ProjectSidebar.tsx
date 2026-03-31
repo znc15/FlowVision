@@ -45,6 +45,16 @@ const MODULE_COLORS = [
   { bg: 'bg-purple-500', shadow: 'shadow-[0_0_8px_rgba(168,85,247,0.4)]' },
 ];
 
+function buildAnalysisLogDetail(detail: Record<string, unknown>): string {
+  return JSON.stringify(detail, null, 2);
+}
+
+function getStreamPreview(text: string, maxChars = 800): string | undefined {
+  const normalized = text.trim();
+  if (!normalized) return undefined;
+  return normalized.length > maxChars ? `...[截断]\n${normalized.slice(-maxChars)}` : normalized;
+}
+
 /** 从缓存加载概览 */
 function loadCachedOverview(projectPath: string): ProjectOverview | null {
   try {
@@ -122,6 +132,7 @@ function ProjectSidebar() {
     abortRef.current = controller;
 
     const { provider, apiKey, model, baseURL, customHeaders, githubToken, httpProxy } = useSettingsStore.getState();
+    let fullText = '';
 
     try {
       // 先获取项目上下文（文件树+关键文件内容）
@@ -217,8 +228,6 @@ function ProjectSidebar() {
 
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullText = '';
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -263,7 +272,19 @@ function ProjectSidebar() {
       if ((e as Error).name !== 'AbortError') {
         const msg = e instanceof Error ? e.message : '生成失败';
         setGenError(msg);
-        useLogStore.getState().add('error', 'AI分析', `项目概览生成失败: ${msg}`);
+        useLogStore.getState().add(
+          'error',
+          'AI分析',
+          `项目概览生成失败: ${msg}`,
+          buildAnalysisLogDetail({
+            stage: 'project-overview',
+            projectPath,
+            provider,
+            model: model || '默认模型',
+            message: msg,
+            partialOutput: getStreamPreview(fullText),
+          }),
+        );
       }
     } finally {
       setGenerating(false);
@@ -279,6 +300,7 @@ function ProjectSidebar() {
     setCanvasStep(1);
 
     const { provider, apiKey, model, baseURL, customHeaders: customHeaders2, githubToken: githubToken2, httpProxy: httpProxy2 } = useSettingsStore.getState();
+  let fullText = '';
 
     // 获取项目文件上下文，为 AI 识别入口和调用链提供支撑
     let fileContextStr = '';
@@ -367,7 +389,6 @@ ${fileContextStr}
       setCanvasStep(3);
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullText = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -405,10 +426,35 @@ ${fileContextStr}
       const msg = e instanceof Error ? e.message : '架构图生成失败';
       if ((e as Error).name === 'AbortError') {
         setCanvasError('生成超时，请尝试简化项目或检查网络连接');
-        useLogStore.getState().add('error', 'AI分析', '架构图生成超时');
+        useLogStore.getState().add(
+          'error',
+          'AI分析',
+          '架构图生成超时',
+          buildAnalysisLogDetail({
+            stage: 'architecture-canvas',
+            projectPath,
+            provider,
+            model: model || '默认模型',
+            idleTimeoutMs: 180000,
+            partialOutput: getStreamPreview(fullText),
+            hint: '请尝试缩小项目范围、减少上下文文件数量，或检查网络连接。',
+          }),
+        );
       } else {
         setCanvasError(msg);
-        useLogStore.getState().add('error', 'AI分析', `架构图生成失败: ${msg}`);
+        useLogStore.getState().add(
+          'error',
+          'AI分析',
+          `架构图生成失败: ${msg}`,
+          buildAnalysisLogDetail({
+            stage: 'architecture-canvas',
+            projectPath,
+            provider,
+            model: model || '默认模型',
+            message: msg,
+            partialOutput: getStreamPreview(fullText),
+          }),
+        );
       }
     } finally {
       timeout.dispose();
@@ -933,17 +979,17 @@ ${fileContextStr}
                 测试信息
               </label>
               <div className="p-3 rounded-xl bg-green-50/50 ghost-border-soft space-y-2 shadow-sm">
-                <div className="flex justify-between">
-                  <span className="text-xs text-on-surface-variant">框架</span>
-                  <span className="text-xs font-medium text-on-surface">{displayOverview.testInfo.framework}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-on-surface-variant truncate">框架</span>
+                  <span className="text-xs font-medium text-on-surface shrink-0 whitespace-nowrap text-right">{displayOverview.testInfo.framework}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-xs text-on-surface-variant">覆盖率</span>
-                  <span className="text-xs font-medium text-green-600">{displayOverview.testInfo.coverage}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-on-surface-variant truncate">覆盖率</span>
+                  <span className="text-xs font-medium text-green-600 shrink-0 whitespace-nowrap text-right">{displayOverview.testInfo.coverage}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-xs text-on-surface-variant">测试文件数</span>
-                  <span className="text-xs font-medium text-on-surface">{displayOverview.testInfo.testFiles}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-on-surface-variant truncate">测试文件数</span>
+                  <span className="text-xs font-medium text-on-surface shrink-0 whitespace-nowrap text-right">{displayOverview.testInfo.testFiles}</span>
                 </div>
               </div>
             </div>

@@ -4,7 +4,45 @@ import { usePreviewStore } from '../../store/previewStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
 import { useLogStore } from '../../store/logStore';
+import { useToastStore } from '../../store/toastStore';
+import { useTabStore } from '../../store/tabStore';
 import { logger } from '../../utils/logger';
+import type { GraphData, GraphDiff } from '../../types/graph';
+import { applyDiff as applyGraphDiff } from '../../utils/graphDiff';
+import {
+  buildFileImportContext,
+  buildProjectImportContext,
+  composePromptWithImports,
+} from '../../utils/chatContext';
+
+const PROJECT_PATH_KEY = 'flowvision-project-path';
+const SELECTED_FILE_KEY = 'flowvision-selected-file';
+
+interface ImportedContextItem {
+  path: string;
+  label: string;
+  text: string;
+}
+
+function readStoredValue(key: string): string {
+  try {
+    return localStorage.getItem(key) || '';
+  } catch {
+    return '';
+  }
+}
+
+function getPathLabel(path: string): string {
+  const normalized = path.replace(/^github:/, '').replace(/^gitee:/, '');
+  const parts = normalized.split(/[/\\]/).filter(Boolean);
+  return parts[parts.length - 1] || normalized || '未命名';
+}
+
+function buildCanvasTabTitle(prompt: string): string {
+  const normalized = prompt.replace(/\s+/g, ' ').trim();
+  if (!normalized) return 'AI 新画布';
+  return `AI · ${normalized.slice(0, 12)}`;
+}
 
 // 预设 prompt 模板
 const PRESET_TEMPLATES = [
@@ -219,6 +257,11 @@ function ChatPanel() {
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashSelectedIdx, setSlashSelectedIdx] = useState(0);
+  const [drawInNewTab, setDrawInNewTab] = useState(false);
+  const [importingProject, setImportingProject] = useState(false);
+  const [importingFile, setImportingFile] = useState(false);
+  const [importedProject, setImportedProject] = useState<ImportedContextItem | null>(null);
+  const [importedFile, setImportedFile] = useState<ImportedContextItem | null>(null);
   const streamingMsgId = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -226,6 +269,93 @@ function ChatPanel() {
   const edges = useGraphStore((state) => state.edges);
   const clearPreview = usePreviewStore((state) => state.clear);
   const setPreviewFromDiff = usePreviewStore((state) => state.setPreviewFromDiff);
+
+  const handleImportProject = useCallback(async () => {
+    const projectPath = readStoredValue(PROJECT_PATH_KEY).trim();
+    if (!projectPath) {
+      useToastStore.getState().show('请先在文件浏览器打开项目', 'info');
+      return;
+    }
+    if (projectPath.startsWith('gitee:')) {
+      useToastStore.getState().show('当前暂不支持从 Gitee 项目导入 AI 上下文', 'info');
+      return;
+    }
+
+    setImportingProject(true);
+    try {
+      const params = new URLSearchParams({ projectPath });
+      const { maxDepth, maxSubCalls, githubToken } = useSettingsStore.getState();
+      params.set('maxDepth', String(maxDepth));
+      params.set('maxFiles', String(maxSubCalls));
+      if (githubToken && projectPath.startsWith('github:')) {
+        params.set('token', githubToken);
+      }
+
+      const response = await fetch(`http://localhost:3001/api/file-context?${params}`);
+      const data = await response.json();
+      if (!response.ok || !data.success || !data.data) {
+        throw new Error(data.error || '项目上下文导入失败');
+      }
+
+      setImportedProject({
+        path: projectPath,
+        label: getPathLabel(projectPath),
+        text: buildProjectImportContext(projectPath, data.data),
+      });
+      useToastStore.getState().show(`已导入项目：${getPathLabel(projectPath)}`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '项目上下文导入失败';
+      useToastStore.getState().show(message, 'error');
+      useLogStore.getState().add('error', 'AI请求', '导入项目上下文失败', JSON.stringify({ projectPath, message }, null, 2));
+    } finally {
+      setImportingProject(false);
+    }
+  }, []);
+
+  const handleImportFile = useCallback(async () => {
+    const projectPath = readStoredValue(PROJECT_PATH_KEY).trim();
+    const filePath = readStoredValue(SELECTED_FILE_KEY).trim();
+    if (!projectPath) {
+      useToastStore.getState().show('请先在文件浏览器打开项目', 'info');
+      return;
+    }
+    if (!filePath) {
+      useToastStore.getState().show('请先在文件浏览器选中文件', 'info');
+      return;
+    }
+    if (projectPath.startsWith('gitee:')) {
+      useToastStore.getState().show('当前暂不支持从 Gitee 文件导入 AI 上下文', 'info');
+      return;
+    }
+
+    setImportingFile(true);
+    try {
+      const params = new URLSearchParams({ projectPath, filePath });
+      const { githubToken } = useSettingsStore.getState();
+      if (githubToken && projectPath.startsWith('github:')) {
+        params.set('token', githubToken);
+      }
+
+      const response = await fetch(`http://localhost:3001/api/file-content?${params}`);
+      const data = await response.json();
+      if (!response.ok || !data.success || typeof data.data?.content !== 'string') {
+        throw new Error(data.error || '文件上下文导入失败');
+      }
+
+      setImportedFile({
+        path: filePath,
+        label: getPathLabel(filePath),
+        text: buildFileImportContext(filePath, data.data.content),
+      });
+      useToastStore.getState().show(`已导入文件：${getPathLabel(filePath)}`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '文件上下文导入失败';
+      useToastStore.getState().show(message, 'error');
+      useLogStore.getState().add('error', 'AI请求', '导入文件上下文失败', JSON.stringify({ projectPath, filePath, message }, null, 2));
+    } finally {
+      setImportingFile(false);
+    }
+  }, []);
 
   // 消息列表自动滚动到底部
   useEffect(() => {
@@ -252,9 +382,29 @@ function ChatPanel() {
     );
   }, [clearPreview, setPreviewFromDiff, nodes, edges]);
 
-  const handleSend = async (promptOverride?: string) => {
+  const openGraphInNewTab = useCallback((sourceTabId: string, baseGraph: GraphData, diff: GraphDiff, prompt: string) => {
+    const nextGraph = applyGraphDiff(baseGraph, diff);
+    const tabTitle = buildCanvasTabTitle(prompt);
+    const { saveTabGraph, addTab } = useTabStore.getState();
+
+    saveTabGraph(sourceTabId, baseGraph);
+    addTab(tabTitle, nextGraph);
+    clearPreview();
+    useGraphStore.getState().replaceGraph(nextGraph);
+    useToastStore.getState().show(`已在新画布生成：${tabTitle}`, 'success');
+  }, [clearPreview]);
+
+  const handleSend = async (promptOverride?: string, target?: 'current' | 'new-tab') => {
     const userPrompt = (promptOverride || input).trim();
     if (!userPrompt || isLoading) return;
+
+    const renderTarget = target || (drawInNewTab ? 'new-tab' : 'current');
+    const sourceTabId = useTabStore.getState().activeTabId;
+    const baseGraphSnapshot: GraphData = { nodes, edges };
+    const effectivePrompt = composePromptWithImports(userPrompt, {
+      projectContext: importedProject?.text,
+      fileContext: importedFile?.text,
+    });
 
     addMessage({ role: 'user', content: userPrompt });
     setInput('');
@@ -269,8 +419,13 @@ function ChatPanel() {
 
     const requestBody = {
       prompt: userPrompt,
-      currentGraph: { nodes, edges },
+      currentGraph: { nodeCount: nodes.length, edgeCount: edges.length },
       mode: 'incremental',
+      target: renderTarget,
+      imports: {
+        projectPath: importedProject?.path,
+        filePath: importedFile?.path,
+      },
       provider,
       ...(apiKey && { apiKey: '***' }),
       ...(model && { model }),
@@ -287,8 +442,8 @@ function ChatPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: userPrompt,
-          currentGraph: { nodes, edges },
+          prompt: effectivePrompt,
+          currentGraph: baseGraphSnapshot,
           mode: 'incremental',
           provider,
           ...(apiKey && { apiKey }),
@@ -338,12 +493,17 @@ function ChatPanel() {
               if (event.diff) {
                 // 保存 diff 到消息，以供"再次填入"
                 setMessageDiff(assistantId, event.diff);
-                setPreviewFromDiff(
-                  event.diff,
-                  nodes.map((n) => n.id),
-                  edges.map((e) => e.id)
-                );
-                appendToMessage(assistantId, '\n\n已生成预览，请到画布确认是否应用。');
+                if (renderTarget === 'new-tab') {
+                  openGraphInNewTab(sourceTabId, baseGraphSnapshot, event.diff, userPrompt);
+                  appendToMessage(assistantId, '\n\n已在新画布标签中生成结果。');
+                } else {
+                  setPreviewFromDiff(
+                    event.diff,
+                    baseGraphSnapshot.nodes.map((node) => node.id),
+                    baseGraphSnapshot.edges.map((edge) => edge.id)
+                  );
+                  appendToMessage(assistantId, '\n\n已生成预览，请到画布确认是否应用。');
+                }
               } else if (event.text) {
                 // AI 返回自然语言对话（非 JSON），确保完整文本已设置
                 const currentMsg = useChatStore.getState().messages.find((m) => m.id === assistantId);
@@ -615,6 +775,60 @@ function ChatPanel() {
             ))}
           </div>
         )}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => void handleImportProject()}
+            disabled={isLoading || importingProject}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-surface-container-highest/80 px-2.5 py-1 text-[10px] font-medium text-on-surface-variant transition-all duration-200 hover:bg-surface-container-highest disabled:opacity-50"
+            title="导入当前项目到 AI 对话上下文"
+          >
+            <span className={`material-symbols-outlined text-sm ${importingProject ? 'animate-spin' : ''}`}>{importingProject ? 'progress_activity' : 'folder_open'}</span>
+            当前项目
+          </button>
+          <button
+            onClick={() => void handleImportFile()}
+            disabled={isLoading || importingFile}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-surface-container-highest/80 px-2.5 py-1 text-[10px] font-medium text-on-surface-variant transition-all duration-200 hover:bg-surface-container-highest disabled:opacity-50"
+            title="导入当前选中文件到 AI 对话上下文"
+          >
+            <span className={`material-symbols-outlined text-sm ${importingFile ? 'animate-spin' : ''}`}>{importingFile ? 'progress_activity' : 'description'}</span>
+            当前文件
+          </button>
+          <button
+            onClick={() => setDrawInNewTab((value) => !value)}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-medium transition-all duration-200 ${
+              drawInNewTab
+                ? 'bg-primary/12 text-primary ring-1 ring-primary/20'
+                : 'bg-surface-container-highest/80 text-on-surface-variant hover:bg-surface-container-highest'
+            }`}
+            title="本次结果输出到新建画布标签页"
+          >
+            <span className="material-symbols-outlined text-sm">dashboard_customize</span>
+            新画布
+          </button>
+        </div>
+        {(importedProject || importedFile) && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {importedProject && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] text-blue-700">
+                <span className="material-symbols-outlined text-xs">folder</span>
+                项目: {importedProject.label}
+                <button type="button" onClick={() => setImportedProject(null)} className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-blue-100">
+                  <span className="material-symbols-outlined text-[10px]">close</span>
+                </button>
+              </span>
+            )}
+            {importedFile && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">
+                <span className="material-symbols-outlined text-xs">article</span>
+                文件: {importedFile.label}
+                <button type="button" onClick={() => setImportedFile(null)} className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-emerald-100">
+                  <span className="material-symbols-outlined text-[10px]">close</span>
+                </button>
+              </span>
+            )}
+          </div>
+        )}
         <div className="flex gap-2">
           <button
             onClick={() => setThinkingEnabled((v) => !v)}
@@ -673,7 +887,11 @@ function ChatPanel() {
           </button>
         </div>
         <p className="text-[9px] text-on-surface-variant/60 mt-2">
-          {thinkingEnabled ? '🧠 思考模式已开启 · AI 将展示推理过程' : '提示：输入 / 查看快捷命令，或直接描述需求'}
+          {thinkingEnabled
+            ? '思考模式已开启，AI 将展示推理过程'
+            : drawInNewTab
+            ? '新画布模式已开启，生成结果会落到新建标签页'
+            : '提示：输入 / 查看快捷命令，或先导入当前项目/文件后再提问'}
         </p>
       </div>
     </div>
