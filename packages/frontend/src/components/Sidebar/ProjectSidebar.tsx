@@ -81,8 +81,8 @@ function ProjectSidebar() {
   const [streamingCanvasText, setStreamingCanvasText] = useState('');
   const [generatingCanvas, setGeneratingCanvas] = useState(false);
   const [canvasError, setCanvasError] = useState('');
-  const [analysisStep, setAnalysisStep] = useState(0);
-  const [canvasStep, setCanvasStep] = useState(0);
+  const [, setAnalysisStep] = useState(0);
+  const [, setCanvasStep] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   // 一言 (Hitokoto) 随机句子
