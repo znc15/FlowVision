@@ -1,4 +1,0 @@
-"use strict";
-// Security fix: this generated pnpm cache script must not perform runtime patching.
-// Intentionally left without side effects so committed third-party executable code
-// does not modify `node:repl` behavior or invoke `esbuild.transform` at runtime.
