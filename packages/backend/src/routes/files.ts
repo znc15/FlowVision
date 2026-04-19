@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, extname, parse as parsePath } from 'node:path';
+import { join, relative, extname, parse as parsePath, resolve, sep } from 'node:path';
 import { homedir, platform } from 'node:os';
 import { execSync } from 'node:child_process';
 
@@ -96,7 +96,9 @@ export async function readFileContent(
   const absPath = join(projectPath, filePath);
 
   // 防止路径遍历
-  if (!absPath.startsWith(projectPath)) {
+  const resolvedProject = resolve(projectPath);
+  const prefix = resolvedProject.endsWith(sep) ? resolvedProject : resolvedProject + sep;
+  if (!resolve(absPath).startsWith(prefix)) {
     reply.code(403);
     return { success: false, error: '禁止访问项目目录外的文件' };
   }
