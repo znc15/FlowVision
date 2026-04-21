@@ -5,7 +5,6 @@ import {
   Background,
   Controls,
   MiniMap,
-  Panel,
   Node,
   NodeTypes,
   EdgeTypes,
@@ -20,16 +19,32 @@ import { useReactFlow } from '@xyflow/react';
 import { useGraphStore } from '../../store/graphStore';
 import { usePreviewStore } from '../../store/previewStore';
 import { useHistoryStore } from '../../store/historyStore';
+import { useTabStore } from '../../store/tabStore';
 import { NodeType, GraphNode } from '../../types/graph';
 import { forceRelayout } from '../../utils/layout';
+import { exportJSON, exportPNG, exportMarkdown, importJSON, exportSystemPrompt } from '../../utils/export';
+import { shareGraph } from '../../utils/share';
+import { createPortal } from 'react-dom';
 
 let _nodeSeq = 0;
 
-/** 视图操作按钮（需在 ReactFlow 上下文内） */
-function ViewControls({ isFocusMode, onToggleFocusMode }: { isFocusMode: boolean; onToggleFocusMode?: () => void }) {
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+/** 视图操作和文件操作按钮（需在 ReactFlow 上下文内） */
+function ViewControls({
+  isFocusMode,
+  onToggleFocusMode,
+  onShowHistory,
+}: {
+  isFocusMode: boolean;
+  onToggleFocusMode?: () => void;
+  onShowHistory?: () => void;
+}) {
+  const { fitView, zoomIn, zoomOut, getNodes, setViewport, toObject } = useReactFlow();
   const { nodes, edges } = useGraphStore();
   const { pushHistory } = useHistoryStore();
+  const { saveTabGraph, activeTabId } = useTabStore();
+  const [saved, setSaved] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const handleAutoLayout = useCallback(() => {
     const graph = forceRelayout({ nodes, edges });
@@ -38,9 +53,124 @@ function ViewControls({ isFocusMode, onToggleFocusMode }: { isFocusMode: boolean
     setTimeout(() => fitView({ padding: 0.2 }), 50);
   }, [nodes, edges, pushHistory, fitView]);
 
+  /** 保存当前画布到标签页 */
+  const handleSave = useCallback(() => {
+    saveTabGraph(activeTabId, { nodes, edges });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }, [nodes, edges, saveTabGraph, activeTabId]);
+
+  /** 清空画布 */
+  const handleClear = useCallback(() => {
+    pushHistory({ nodes, edges });
+    useGraphStore.getState().clear();
+  }, [nodes, edges, pushHistory]);
+
+  /** 分享 */
+  const handleShare = useCallback(async () => {
+    const url = await shareGraph({ nodes, edges });
+    setShareUrl(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [nodes, edges]);
+
+  /** 导入 JSON 文件 */
+  const handleImport = useCallback(async () => {
+    const data = await importJSON();
+    if (data) {
+      pushHistory({ nodes, edges });
+      useGraphStore.getState().replaceGraph(data);
+    }
+  }, [nodes, edges, pushHistory]);
+
+  /** 复制链接 */
+  const handleCopyLink = useCallback(async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* 忽略 */ }
+  }, [shareUrl]);
+
+  const handleExportPng = useCallback(async () => {
+    const exportNodes = getNodes();
+    if (exportNodes.length === 0) {
+      await exportPNG(exportNodes);
+      return;
+    }
+
+    const shouldUseDesktopCapture = Boolean(window.electron?.desktop?.capturePage);
+    const previousViewport = shouldUseDesktopCapture ? toObject().viewport : null;
+
+    try {
+      if (shouldUseDesktopCapture) {
+        await fitView({ padding: 0.16, duration: 0 });
+      }
+      await exportPNG(exportNodes);
+    } catch (error) {
+      console.error('导出 PNG 失败', error);
+    } finally {
+      if (previousViewport) {
+        await setViewport(previousViewport, { duration: 0 }).catch(() => undefined);
+      }
+    }
+  }, [fitView, getNodes, setViewport, toObject]);
+
+  const shareDialog = shareUrl ? (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setShareUrl(null)}>
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl w-[400px] overflow-hidden animate-[scaleIn_200ms_ease-out]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="h-1 bg-gradient-to-r from-primary via-secondary to-tertiary" />
+        <div className="px-6 pt-5 pb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>share</span>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">分享流程图</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">链接已复制到剪贴板</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShareUrl(null)}
+              className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+            >
+              <span className="material-symbols-outlined text-slate-400 text-base">close</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 mb-4">
+            <span className="material-symbols-outlined text-sm text-slate-400">link</span>
+            <p className="flex-1 text-[11px] text-slate-600 font-mono truncate">{shareUrl.slice(0, 60)}...</p>
+            <button
+              onClick={handleCopyLink}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200 ${
+                copied
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-primary text-white hover:bg-primary/90'
+              }`}
+            >
+              {copied ? '已复制' : '复制'}
+            </button>
+          </div>
+          <div className="flex items-start gap-2 p-2.5 bg-amber-50 rounded-lg border border-amber-100">
+            <span className="material-symbols-outlined text-xs text-amber-500 mt-0.5">info</span>
+            <p className="text-[10px] text-amber-700 leading-relaxed">
+              分享链接包含完整的流程图数据。{nodes.length} 个节点、{edges.length} 条连线将嵌入在链接中。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
-      <div className="w-px h-5 bg-outline-variant/20 shrink-0 mx-1" />
+      {/* 第一行：视图控制 */}
       <button type="button" onClick={() => zoomIn()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="放大"><span className="material-symbols-outlined text-base">zoom_in</span></button>
       <button type="button" onClick={() => zoomOut()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="缩小"><span className="material-symbols-outlined text-base">zoom_out</span></button>
       <button type="button" onClick={() => fitView({ padding: 0.2 })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="适应画布"><span className="material-symbols-outlined text-base">fit_screen</span></button>
@@ -48,6 +178,22 @@ function ViewControls({ isFocusMode, onToggleFocusMode }: { isFocusMode: boolean
       {onToggleFocusMode && (
         <button type="button" onClick={onToggleFocusMode} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title={isFocusMode ? '退出画布全屏 (Esc)' : '画布全屏显示 (F11)'}><span className="material-symbols-outlined text-base">{isFocusMode ? 'fullscreen_exit' : 'fullscreen'}</span></button>
       )}
+
+      <div className="w-px h-5 bg-outline-variant/20 shrink-0 mx-1" />
+
+      {/* 第二行：文件操作 */}
+      <button type="button" onClick={handleClear} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="清空画布"><span className="material-symbols-outlined text-base">delete_sweep</span></button>
+      <button type="button" onClick={handleSave} className={`icon-button-soft h-8 w-8 rounded-xl shrink-0 ${saved ? 'text-green-600' : ''}`} title="保存画布 (Ctrl+S)"><span className="material-symbols-outlined text-base">{saved ? 'check_circle' : 'save'}</span></button>
+      <button type="button" onClick={() => exportJSON({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 JSON"><span className="material-symbols-outlined text-base">data_object</span></button>
+      <button type="button" onClick={() => void handleExportPng()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 PNG"><span className="material-symbols-outlined text-base">image</span></button>
+      <button type="button" onClick={() => exportMarkdown({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 Markdown 报告"><span className="material-symbols-outlined text-base">description</span></button>
+      <button type="button" onClick={handleImport} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导入 JSON"><span className="material-symbols-outlined text-base">upload_file</span></button>
+      <button type="button" onClick={() => exportSystemPrompt({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="生成系统提示词"><span className="material-symbols-outlined text-base">smart_toy</span></button>
+      <button type="button" onClick={onShowHistory} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="版本历史"><span className="material-symbols-outlined text-base">history</span></button>
+      <button type="button" onClick={handleShare} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="分享"><span className="material-symbols-outlined text-base">share</span></button>
+
+      {/* 分享对话框 */}
+      {shareDialog && (typeof document !== 'undefined' ? createPortal(shareDialog, document.body) : shareDialog)}
     </>
   );
 }
@@ -84,7 +230,6 @@ import InitialStateNode from './nodes/InitialStateNode';
 import FinalStateNode from './nodes/FinalStateNode';
 import ChoiceNode from './nodes/ChoiceNode';
 import FlowEdge from './edges/FlowEdge';
-import Toolbar from '../Toolbar/Toolbar';
 import NodeEditDialog from './NodeEditDialog';
 import VersionHistoryDialog from '../VersionHistoryDialog';
 import { CanvasContext } from './CanvasContext';
@@ -286,10 +431,14 @@ function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: Canvas
       {/* 节点编辑对话框 */}
       <NodeEditDialog nodeId={editingNodeId} onClose={() => setEditingNodeId(null)} />
 
-      {/* 顶部工具栏 - 只保留视图控制 */}
+      {/* 顶部工具栏 */}
       <div className="absolute top-0 left-0 right-0 workbench-panel-header z-10 overflow-x-auto scrollbar-none">
         <div className="flex items-center gap-1 w-full min-w-max">
-          <ViewControls isFocusMode={isFocusMode} onToggleFocusMode={onToggleFocusMode} />
+          <ViewControls
+            isFocusMode={isFocusMode}
+            onToggleFocusMode={onToggleFocusMode}
+            onShowHistory={() => setHistoryOpen(true)}
+          />
           <div className="flex-1 min-w-4" />
           {/* 图例 */}
           <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant whitespace-nowrap shrink-0">
@@ -364,13 +513,6 @@ function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: Canvas
 
           {/* 控制按钮 */}
           <Controls className="!bottom-12 !left-auto !right-6 !bg-surface-container-lowest/88 !backdrop-blur-md ghost-border-soft !rounded-xl !shadow-none" />
-
-          {/* 工具栏 —— 必须在 ReactFlow 内部以使用 useReactFlow */}
-          <Panel position="top-center" className="mt-2 w-[min(1080px,calc(100%-2rem))]">
-            <Toolbar
-              onShowHistory={() => setHistoryOpen(true)}
-            />
-          </Panel>
         </ReactFlow>
       </div>
 
