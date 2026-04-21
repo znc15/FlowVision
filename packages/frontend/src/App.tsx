@@ -24,6 +24,7 @@ import { useGraphStore } from './store/graphStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useLogStore } from './store/logStore';
 import { restorePersistentData, startAutoSync } from './utils/persistentStorage';
+import { startAutoBackup } from './utils/autoBackup';
 
 const LAYOUT_KEY = 'flowvision-layout';
 const DEFAULT_LAYOUT: Layout = {
@@ -77,7 +78,11 @@ function App() {
     });
     // 启动自动同步（将 localStorage 关键数据定期写入 Electron userData）
     const stopSync = startAutoSync(30000);
-    return () => stopSync();
+    // 启动自动备份
+    startAutoBackup();
+    return () => {
+      stopSync();
+    };
   }, []);
 
   // 持久化选中文件

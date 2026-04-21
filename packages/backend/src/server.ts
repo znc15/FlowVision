@@ -2,6 +2,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { config } from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 import { graphState } from './state/graphState';
 import { broadcaster } from './ws/broadcaster';
 import { generateGraph, generateGraphStream } from './routes/ai';
@@ -181,6 +183,43 @@ server.get('/api/github-tree', fetchGithubTree);
  * 获取 Gitee 仓库文件树
  */
 server.get('/api/gitee-tree', fetchGiteeTree);
+
+/**
+ * POST /api/backup - 保存备份到本地文件
+ */
+server.post<{
+  Body: { data: string; path?: string };
+}>('/api/backup', async (request, reply) => {
+  try {
+    const { data, path: customPath } = request.body;
+    if (!data) {
+      reply.code(400);
+      return { success: false, error: '备份数据为空' };
+    }
+
+    const backupDir = path.join(process.cwd(), 'backups');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const filename = `flowvision-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    const backupPath = customPath
+      ? (path.isAbsolute(customPath) ? customPath : path.join(process.cwd(), customPath))
+      : path.join(backupDir, filename);
+
+    // 确保目录存在
+    const dir = path.dirname(backupPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(backupPath, data, 'utf8');
+    return { success: true, path: backupPath };
+  } catch (error: any) {
+    reply.code(500);
+    return { success: false, error: error.message || '备份失败' };
+  }
+});
 
 // ===== WebSocket 路由 =====
 

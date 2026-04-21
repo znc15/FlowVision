@@ -204,7 +204,8 @@ export async function generateGraph(
 
 /**
  * POST /api/ai/generate-stream
- * 流式生成流程图，使用 SSE 推送文本片段
+ * 流式生成流程图，使用 SSE 推送文本片段。
+ * 如果模型不支持流式或流式失败，自动降级为非流式。
  */
 export async function generateGraphStream(
   request: FastifyRequest<{ Body: AIGenerateRequest }>,
@@ -238,18 +239,36 @@ export async function generateGraphStream(
     let wasTruncated = false;
     let truncatedMessage = '';
 
-    for await (const chunk of aiProvider.generateStream(effectiveSystemPrompt, userMessage, undefined, thinking)) {
-      if (chunk.type === 'thinking') {
-        reply.raw.write(`data: ${JSON.stringify({ type: 'thinking', text: chunk.content })}\n\n`);
-      } else if (chunk.type === 'truncated') {
-        wasTruncated = true;
-        truncatedMessage = chunk.content;
-        reply.raw.write(`data: ${JSON.stringify({ type: 'warning', message: chunk.content })}\n\n`);
-      } else {
-        accumulatedText += chunk.content;
-        // 推送文本片段
-        reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: chunk.content })}\n\n`);
+    // 尝试流式生成，失败时降级为非流式
+    const useStream = aiProvider.supportsStreaming();
+    if (useStream) {
+      try {
+        for await (const chunk of aiProvider.generateStream(effectiveSystemPrompt, userMessage, undefined, thinking)) {
+          if (chunk.type === 'thinking') {
+            reply.raw.write(`data: ${JSON.stringify({ type: 'thinking', text: chunk.content })}\n\n`);
+          } else if (chunk.type === 'truncated') {
+            wasTruncated = true;
+            truncatedMessage = chunk.content;
+            reply.raw.write(`data: ${JSON.stringify({ type: 'warning', message: chunk.content })}\n\n`);
+          } else {
+            accumulatedText += chunk.content;
+            reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: chunk.content })}\n\n`);
+          }
+        }
+      } catch (streamError: any) {
+        // 流式失败，降级为非流式
+        request.log.warn({ error: streamError }, '流式生成失败，降级为非流式');
+        reply.raw.write(`data: ${JSON.stringify({ type: 'warning', message: '流式输出不可用，已切换为非流式模式' })}\n\n`);
+        const fallbackResult = await aiProvider.generate(effectiveSystemPrompt, userMessage);
+        accumulatedText = fallbackResult.text;
+        // 非流式一次性输出全部内容
+        reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: accumulatedText })}\n\n`);
       }
+    } else {
+      // 模型不支持流式，直接使用非流式
+      const result = await aiProvider.generate(effectiveSystemPrompt, userMessage);
+      accumulatedText = result.text;
+      reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: accumulatedText })}\n\n`);
     }
 
     // rawMode 跳过 GraphDiff 解析，直接结束
@@ -261,11 +280,9 @@ export async function generateGraphStream(
         const diff = parseGraphDiff(accumulatedText);
         const nextGraph = applyDiffToGraph(graphState.getGraph(), diff);
         graphState.setGraph(nextGraph);
-        // 不通过 WebSocket 广播，由前端 SSE 处理预览→确认流程，避免竞态
 
         reply.raw.write(`data: ${JSON.stringify({ type: 'done', diff, graph: nextGraph })}\n\n`);
       } catch {
-        // AI 返回的是自然语言文本（非 JSON），视为对话回复
         reply.raw.write(`data: ${JSON.stringify({ type: 'done', text: accumulatedText })}\n\n`);
       }
     }

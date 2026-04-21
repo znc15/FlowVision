@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useLogStore } from '../../store/logStore';
+import { getBackendUrl } from '../../utils/backend';
 
 /** 文件树节点数据结构 */
 export interface FileTreeNode {
@@ -133,7 +134,7 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
     if (!path || propTree || path.startsWith('github:') || path.startsWith('gitee:')) return;
     setLoading(true);
     setError('');
-    fetch(`http://localhost:3001/api/files?projectPath=${encodeURIComponent(path)}`)
+    fetch(`${getBackendUrl()}/api/files?projectPath=${encodeURIComponent(path)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -202,8 +203,8 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
     setBrowseLoading(true);
     try {
       const url = path
-        ? `http://localhost:3001/api/browse-dirs?path=${encodeURIComponent(path)}`
-        : 'http://localhost:3001/api/browse-dirs';
+        ? `${getBackendUrl()}/api/browse-dirs?path=${encodeURIComponent(path)}`
+        : `${getBackendUrl()}/api/browse-dirs`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
@@ -269,7 +270,7 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
       const githubToken = useSettingsStore.getState().githubToken;
       const params = new URLSearchParams({ repo: trimmed });
       if (githubToken) params.set('token', githubToken);
-      const res = await fetch(`http://localhost:3001/api/github-tree?${params}`);
+      const res = await fetch(`${getBackendUrl()}/api/github-tree?${params}`);
       const data = await res.json();
       if (data.success) {
         setFetchedTree(data.data);
@@ -300,7 +301,7 @@ function FileExplorer({ projectPath: propProjectPath, tree: propTree, selectedFi
     setError('');
     try {
       const params = new URLSearchParams({ repo: trimmed });
-      const res = await fetch(`http://localhost:3001/api/gitee-tree?${params}`);
+      const res = await fetch(`${getBackendUrl()}/api/gitee-tree?${params}`);
       const data = await res.json();
       if (data.success) {
         setFetchedTree(data.data);

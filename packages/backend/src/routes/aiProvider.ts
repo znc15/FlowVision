@@ -31,6 +31,7 @@ interface AIProvider {
   generate(system: string, userMessage: string, maxTokens?: number): Promise<GenerateResult>;
   generateStream(system: string, userMessage: string, maxTokens?: number, thinking?: boolean): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }>;
   listModels(): Promise<ModelInfo[]>;
+  supportsStreaming(): boolean;
 }
 
 // Claude Provider 实现
@@ -122,6 +123,10 @@ class ClaudeProvider implements AIProvider {
       { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet (Thinking)' },
       { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
     ];
+  }
+
+  supportsStreaming(): boolean {
+    return true;
   }
 }
 
@@ -253,9 +258,11 @@ class OpenAIProvider implements AIProvider {
       ];
     }
   }
-}
 
-// 默认模型映射
+  supportsStreaming(): boolean {
+    return true;
+  }
+}
 const DEFAULT_MODELS: Record<string, string> = {
   claude: 'claude-sonnet-4-20250514',
   openai: 'gpt-4.1',

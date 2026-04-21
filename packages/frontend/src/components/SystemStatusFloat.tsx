@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getBackendUrl } from '../utils/backend';
 
 function SystemStatusFloat() {
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -11,7 +12,7 @@ function SystemStatusFloat() {
     let mounted = true;
     const checkHealth = async () => {
       try {
-        const res = await fetch('http://localhost:3001/health');
+        const res = await fetch(`${getBackendUrl()}/health`);
         if (!mounted) return;
         if (res.ok) {
           const data = await res.json();

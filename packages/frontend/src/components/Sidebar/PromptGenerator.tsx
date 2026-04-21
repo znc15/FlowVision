@@ -1,9 +1,22 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useLogStore } from '../../store/logStore';
+import { useGraphStore } from '../../store/graphStore';
+import { useToastStore } from '../../store/toastStore';
+import { getBackendUrl } from '../../utils/backend';
+import { buildFileImportContext } from '../../utils/chatContext';
+
+const PROJECT_PATH_KEY = 'flowvision-project-path';
+const SELECTED_FILE_KEY = 'flowvision-selected-file';
+
+interface ImportedContextItem {
+  path: string;
+  label: string;
+  text: string;
+}
 
 /** 生成 Prompt 的元提示词 */
-const META_SYSTEM_PROMPT = `你是一个专业的流程图 Prompt 工程师。用户会描述一个场景，你需要生成一段高质量的 Prompt，帮助 AI 流程图生成器产出清晰、完整、专业的流程图。
+const META_SYSTEM_PROMPT = `你是一个专业的流程图 Prompt 工程师。用户会描述一个场景或提供现有流程图/代码，你需要生成一段高质量的 Prompt，帮助 AI 流程图生成器产出清晰、完整、专业的流程图。
 
 ## 输出规则
 1. 直接输出 Prompt 文本，不要包含解释或前缀
@@ -11,14 +24,67 @@ const META_SYSTEM_PROMPT = `你是一个专业的流程图 Prompt 工程师。�
 3. 长度适中（100-300 字），既详细又不冗余
 4. 使用自然语言描述，不要输出 JSON 或代码
 5. 包含关键节点类型提示（如"使用 decision 节点表示分支判断"）
-6. 尽量覆盖正常流程和异常流程`;
+6. 尽量覆盖正常流程和异常流程
+7. 如果用户提供了现有流程图或代码，基于其内容优化和扩展`;
 
 function PromptGenerator() {
   const [input, setInput] = useState('');
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [includeCanvas, setIncludeCanvas] = useState(false);
+  const [importingFile, setImportingFile] = useState(false);
+  const [importedFile, setImportedFile] = useState<ImportedContextItem | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const nodes = useGraphStore((s) => s.nodes);
+  const edges = useGraphStore((s) => s.edges);
+
+  const handleImportFile = useCallback(async () => {
+    const projectPath = (() => {
+      try { return localStorage.getItem(PROJECT_PATH_KEY) || ''; } catch { return ''; }
+    })();
+    const filePath = (() => {
+      try { return localStorage.getItem(SELECTED_FILE_KEY) || ''; } catch { return ''; }
+    })();
+
+    if (!projectPath) {
+      useToastStore.getState().show('请先在文件浏览器打开项目', 'info');
+      return;
+    }
+    if (!filePath) {
+      useToastStore.getState().show('请先在文件浏览器选中文件', 'info');
+      return;
+    }
+
+    setImportingFile(true);
+    try {
+      const params = new URLSearchParams({ projectPath, filePath });
+      const { githubToken } = useSettingsStore.getState();
+      if (githubToken && projectPath.startsWith('github:')) {
+        params.set('token', githubToken);
+      }
+
+      const response = await fetch(`${getBackendUrl()}/api/file-content?${params}`);
+      const data = await response.json();
+      if (!response.ok || !data.success || typeof data.data?.content !== 'string') {
+        throw new Error(data.error || '文件上下文导入失败');
+      }
+
+      const label = filePath.split(/[/\\]/).pop() || filePath;
+      setImportedFile({
+        path: filePath,
+        label,
+        text: buildFileImportContext(filePath, data.data.content),
+      });
+      useToastStore.getState().show(`已导入文件：${label}`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '文件上下文导入失败';
+      useToastStore.getState().show(message, 'error');
+    } finally {
+      setImportingFile(false);
+    }
+  }, []);
 
   const handleGenerate = async (scenarioHint?: string) => {
     const userInput = (scenarioHint || input).trim();
@@ -34,10 +100,21 @@ function PromptGenerator() {
     const { provider, apiKey, model, baseURL, customHeaders, httpProxy, maxOutputTokens, maxContextTokens } = useSettingsStore.getState();
     useLogStore.getState().add('info', 'Prompt生成', `开始生成 Prompt: ${userInput}`);
 
-    const fullPrompt = userInput;
+    // 构建完整 prompt，包含画布和文件上下文
+    let fullPrompt = userInput;
+
+    if (includeCanvas && nodes.length > 0) {
+      const canvasContext = `当前画布内容（${nodes.length} 个节点，${edges.length} 条连线）：
+${JSON.stringify({ nodes: nodes.map(n => ({ id: n.id, type: n.type, label: n.data?.label })), edges: edges.map(e => ({ source: e.source, target: e.target, label: e.label })) }, null, 2)}`;
+      fullPrompt = `${canvasContext}\n\n用户需求：${userInput}`;
+    }
+
+    if (importedFile) {
+      fullPrompt = `${importedFile.text}\n\n${fullPrompt}`;
+    }
 
     try {
-      const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
+      const response = await fetch(`${getBackendUrl()}/api/ai/generate-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -112,7 +189,6 @@ function PromptGenerator() {
       <div className="workbench-panel-header px-5">
         <div>
           <h2 className="text-title-sm font-semibold text-on-surface">Prompt 生成</h2>
-          <p className="text-[9px] text-on-surface-variant/50 mt-0.5">AI 辅助生成高质量流程图 Prompt</p>
         </div>
       </div>
 
@@ -130,6 +206,44 @@ function PromptGenerator() {
             className="w-full rounded-xl bg-surface-container-highest/92 py-3 px-4 text-xs text-on-surface placeholder:text-on-surface-variant/40 outline-none ghost-border-soft focus:ring-2 focus:ring-primary/20 transition-all duration-200 resize-none"
             disabled={generating}
           />
+        </div>
+
+        {/* 上下文选项 */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setIncludeCanvas(!includeCanvas)}
+            disabled={generating || nodes.length === 0}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200 ${
+              includeCanvas
+                ? 'bg-primary text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            <span className="material-symbols-outlined text-sm">dashboard</span>
+            包含画布 ({nodes.length})
+          </button>
+          <button
+            onClick={handleImportFile}
+            disabled={generating || importingFile}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-200 disabled:opacity-50"
+          >
+            <span className={`material-symbols-outlined text-sm ${importingFile ? 'animate-spin' : ''}`}>
+              {importingFile ? 'progress_activity' : 'upload_file'}
+            </span>
+            {importingFile ? '导入中...' : '导入文件'}
+          </button>
+          {importedFile && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-green-50 text-green-700">
+              <span className="material-symbols-outlined text-sm">description</span>
+              {importedFile.label}
+              <button
+                onClick={() => setImportedFile(null)}
+                className="ml-1 hover:text-green-900"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div>
@@ -195,7 +309,7 @@ function PromptGenerator() {
           <div className="flex flex-col items-center text-center py-6 opacity-60">
             <span className="material-symbols-outlined text-3xl text-on-surface-variant/30 mb-2">auto_awesome</span>
             <p className="text-[10px] text-on-surface-variant/50 leading-relaxed">
-              描述你想要的流程图场景<br />AI 将生成优化的 Prompt
+              描述你想要的流程图场景<br />可选：包含画布内容或导入文件
             </p>
           </div>
         )}

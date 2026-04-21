@@ -14,6 +14,7 @@ import {
   buildProjectImportContext,
   composePromptWithImports,
 } from '../../utils/chatContext';
+import { getBackendUrl } from '../../utils/backend';
 
 const PROJECT_PATH_KEY = 'flowvision-project-path';
 const SELECTED_FILE_KEY = 'flowvision-selected-file';
@@ -287,7 +288,7 @@ function ChatPanel() {
         params.set('token', githubToken);
       }
 
-      const response = await fetch(`http://localhost:3001/api/file-context?${params}`);
+      const response = await fetch(`${getBackendUrl()}/api/file-context?${params}`);
       const data = await response.json();
       if (!response.ok || !data.success || !data.data) {
         throw new Error(data.error || '项目上下文导入失败');
@@ -328,7 +329,7 @@ function ChatPanel() {
         params.set('token', githubToken);
       }
 
-      const response = await fetch(`http://localhost:3001/api/file-content?${params}`);
+      const response = await fetch(`${getBackendUrl()}/api/file-content?${params}`);
       const data = await response.json();
       if (!response.ok || !data.success || typeof data.data?.content !== 'string') {
         throw new Error(data.error || '文件上下文导入失败');
@@ -432,7 +433,7 @@ function ChatPanel() {
     useLogStore.getState().add('info', 'AI请求', `发送生成请求: ${provider}/${model || '默认模型'}`, JSON.stringify(requestBody, null, 2));
 
     try {
-      const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
+      const response = await fetch(`${getBackendUrl()}/api/ai/generate-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

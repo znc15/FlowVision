@@ -3,6 +3,7 @@ import Markdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { useSettingsStore } from '../../store/settingsStore';
+import { getBackendUrl } from '../../utils/backend';
 
 interface CodePreviewProps {
   /** 文件名 */
@@ -83,7 +84,7 @@ function CodePreview({
     const params = new URLSearchParams({ projectPath, filePath });
     const githubToken = useSettingsStore.getState().githubToken;
     if (githubToken) params.set('token', githubToken);
-    fetch(`http://localhost:3001/api/file-content?${params}`)
+    fetch(`${getBackendUrl()}/api/file-content?${params}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setFetchedCode(data.data.content);
@@ -209,7 +210,7 @@ function CodePreview({
                   const githubToken = useSettingsStore.getState().githubToken;
                   const params = new URLSearchParams({ projectPath, filePath: resolvedPath });
                   if (githubToken) params.set('token', githubToken);
-                  imgSrc = `http://localhost:3001/api/file-content?${params}&raw=1`;
+                  imgSrc = `${getBackendUrl()}/api/file-content?${params}&raw=1`;
                 }
                 return <img src={imgSrc} alt={alt || ''} {...props} />;
               },

@@ -3,6 +3,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useGraphStore } from '../../store/graphStore';
 import { useLogStore } from '../../store/logStore';
 import { createIdleStreamTimeout } from '../../utils/streamTimeout';
+import { getBackendUrl } from '../../utils/backend';
 import { extractOverviewJsonText, formatStreamingOverviewText } from '../../utils/projectOverviewStream';
 
 /** AI 生成的项目概览数据 */
@@ -143,7 +144,7 @@ function ProjectSidebar() {
         ctxParams.set('maxDepth', String(maxDepth));
         ctxParams.set('maxFiles', String(maxSubCalls));
         const ctxRes = await fetch(
-          `http://localhost:3001/api/file-context?${ctxParams}`,
+          `${getBackendUrl()}/api/file-context?${ctxParams}`,
           { signal: controller.signal },
         );
         if (ctxRes.ok) {
@@ -198,7 +199,7 @@ function ProjectSidebar() {
   "performanceNotes": ["性能建议1"]
 }`;
 
-      const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
+      const response = await fetch(`${getBackendUrl()}/api/ai/generate-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -311,7 +312,7 @@ function ProjectSidebar() {
       if (githubToken2) ctxParams.set('token', githubToken2);
       ctxParams.set('maxDepth', String(maxDepth));
       ctxParams.set('maxFiles', String(maxSubCalls));
-      const ctxRes = await fetch(`http://localhost:3001/api/file-context?${ctxParams}`);
+      const ctxRes = await fetch(`${getBackendUrl()}/api/file-context?${ctxParams}`);
       if (ctxRes.ok) {
         const ctxData = await ctxRes.json();
         if (ctxData.success && ctxData.data) {
@@ -361,7 +362,7 @@ ${fileContextStr}
 重要：这是自动化一键生成场景，不允许提问或要求澄清。请根据已有信息直接生成最佳的架构流程图。如果信息不足，请基于合理推断生成。`;
 
     try {
-      const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
+      const response = await fetch(`${getBackendUrl()}/api/ai/generate-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

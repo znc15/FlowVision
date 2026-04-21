@@ -22,6 +22,12 @@ interface SettingsState {
   maxSubCalls: number;
   maxOutputTokens: number;
   maxContextTokens: number;
+  backendPort: number;
+  autoBackupEnabled: boolean;
+  autoBackupInterval: number; // 分钟
+  autoBackupMode: 'local' | 'webdav';
+  autoBackupWebDAV: { url: string; username: string; password: string; path: string };
+  autoBackupLocalPath: string;
   models: ModelInfo[];
   modelsLoading: boolean;
   setProvider: (provider: AIProvider) => void;
@@ -38,6 +44,12 @@ interface SettingsState {
   setMaxSubCalls: (count: number) => void;
   setMaxOutputTokens: (tokens: number) => void;
   setMaxContextTokens: (tokens: number) => void;
+  setBackendPort: (port: number) => void;
+  setAutoBackupEnabled: (enabled: boolean) => void;
+  setAutoBackupInterval: (minutes: number) => void;
+  setAutoBackupMode: (mode: 'local' | 'webdav') => void;
+  setAutoBackupWebDAV: (config: { url: string; username: string; password: string; path: string }) => void;
+  setAutoBackupLocalPath: (path: string) => void;
   fetchModels: () => Promise<void>;
   save: () => void;
   load: () => void;
@@ -75,6 +87,12 @@ function saveToStorage(state: {
   maxSubCalls: number;
   maxOutputTokens: number;
   maxContextTokens: number;
+  backendPort: number;
+  autoBackupEnabled: boolean;
+  autoBackupInterval: number;
+  autoBackupMode: 'local' | 'webdav';
+  autoBackupWebDAV: { url: string; username: string; password: string; path: string };
+  autoBackupLocalPath: string;
 }) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -101,6 +119,12 @@ function persistState(get: () => SettingsState) {
     maxSubCalls: s.maxSubCalls,
     maxOutputTokens: s.maxOutputTokens,
     maxContextTokens: s.maxContextTokens,
+    backendPort: s.backendPort,
+    autoBackupEnabled: s.autoBackupEnabled,
+    autoBackupInterval: s.autoBackupInterval,
+    autoBackupMode: s.autoBackupMode,
+    autoBackupWebDAV: s.autoBackupWebDAV,
+    autoBackupLocalPath: s.autoBackupLocalPath,
   });
 }
 
@@ -121,6 +145,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     maxSubCalls: (stored as any).maxSubCalls ?? 200,
     maxOutputTokens: (stored as any).maxOutputTokens ?? 16384,
     maxContextTokens: (stored as any).maxContextTokens ?? 128000,
+    backendPort: (stored as any).backendPort ?? 3001,
+    autoBackupEnabled: (stored as any).autoBackupEnabled ?? false,
+    autoBackupInterval: (stored as any).autoBackupInterval ?? 30,
+    autoBackupMode: (stored as any).autoBackupMode ?? 'local',
+    autoBackupWebDAV: (stored as any).autoBackupWebDAV ?? { url: '', username: '', password: '', path: '/flowvision-backup.json' },
+    autoBackupLocalPath: (stored as any).autoBackupLocalPath ?? '',
     models: [],
     modelsLoading: false,
 
@@ -196,6 +226,36 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       persistState(get);
     },
 
+    setBackendPort: (backendPort) => {
+      set({ backendPort });
+      persistState(get);
+    },
+
+    setAutoBackupEnabled: (autoBackupEnabled) => {
+      set({ autoBackupEnabled });
+      persistState(get);
+    },
+
+    setAutoBackupInterval: (autoBackupInterval) => {
+      set({ autoBackupInterval });
+      persistState(get);
+    },
+
+    setAutoBackupMode: (autoBackupMode) => {
+      set({ autoBackupMode });
+      persistState(get);
+    },
+
+    setAutoBackupWebDAV: (autoBackupWebDAV) => {
+      set({ autoBackupWebDAV });
+      persistState(get);
+    },
+
+    setAutoBackupLocalPath: (autoBackupLocalPath) => {
+      set({ autoBackupLocalPath });
+      persistState(get);
+    },
+
     fetchModels: async () => {
       const { provider, apiKey, baseURL } = get();
       set({ modelsLoading: true });
@@ -203,7 +263,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
         const params = new URLSearchParams({ provider });
         if (apiKey) params.set('apiKey', apiKey);
         if (baseURL) params.set('baseURL', baseURL);
-        const res = await fetch(`http://localhost:3001/api/ai/models?${params}`);
+        const res = await fetch(`http://127.0.0.1:${get().backendPort || 3001}/api/ai/models?${params}`);
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           set({ models: json.data });
@@ -237,6 +297,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           maxSubCalls: (stored as any).maxSubCalls ?? 200,
           maxOutputTokens: (stored as any).maxOutputTokens ?? 16384,
           maxContextTokens: (stored as any).maxContextTokens ?? 128000,
+          backendPort: (stored as any).backendPort ?? 3001,
+          autoBackupEnabled: (stored as any).autoBackupEnabled ?? false,
+          autoBackupInterval: (stored as any).autoBackupInterval ?? 30,
+          autoBackupMode: (stored as any).autoBackupMode ?? 'local',
+          autoBackupWebDAV: (stored as any).autoBackupWebDAV ?? { url: '', username: '', password: '', path: '/flowvision-backup.json' },
+          autoBackupLocalPath: (stored as any).autoBackupLocalPath ?? '',
         });
       }
     },
