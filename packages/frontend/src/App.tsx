@@ -22,6 +22,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { loadSharedGraph } from './utils/share';
 import { useGraphStore } from './store/graphStore';
 import { useSettingsStore } from './store/settingsStore';
+import { useLogStore } from './store/logStore';
 
 const LAYOUT_KEY = 'flowvision-layout';
 const DEFAULT_LAYOUT: Layout = {
@@ -67,6 +68,11 @@ function App() {
   }, []);
 
   useWebSocketSync();
+
+  // 启动时加载持久化的日志
+  useEffect(() => {
+    useLogStore.getState().load();
+  }, []);
 
   // 持久化选中文件
   useEffect(() => {

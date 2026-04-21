@@ -27,7 +27,7 @@ export interface ModelInfo {
 // 统一 Provider 接口
 interface AIProvider {
   generate(system: string, userMessage: string, maxTokens?: number): Promise<GenerateResult>;
-  generateStream(system: string, userMessage: string, maxTokens?: number, thinking?: boolean): AsyncIterable<{ type: 'thinking' | 'text'; content: string }>;
+  generateStream(system: string, userMessage: string, maxTokens?: number, thinking?: boolean): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }>;
   listModels(): Promise<ModelInfo[]>;
 }
 
@@ -180,7 +180,7 @@ class OpenAIProvider implements AIProvider {
     };
   }
 
-  async *generateStream(system: string, userMessage: string, maxTokens = 4096, _thinking = false): AsyncIterable<{ type: 'thinking' | 'text'; content: string }> {
+  async *generateStream(system: string, userMessage: string, maxTokens = 16384, _thinking = false): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }> {
     if (this.useResponsesApi()) {
       const stream = await this.client.responses.create({
         model: this.model,
@@ -212,6 +212,11 @@ class OpenAIProvider implements AIProvider {
       const delta = chunk.choices[0]?.delta?.content;
       if (delta) {
         yield { type: 'text', content: delta };
+      }
+      // 检测是否因长度截断
+      const finishReason = chunk.choices[0]?.finish_reason;
+      if (finishReason === 'length') {
+        yield { type: 'truncated', content: '输出因达到 token 限制被截断，请尝试简化请求或分批处理' };
       }
     }
   }

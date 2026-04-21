@@ -231,10 +231,16 @@ export async function generateGraphStream(
     });
 
     let accumulatedText = '';
+    let wasTruncated = false;
+    let truncatedMessage = '';
 
     for await (const chunk of aiProvider.generateStream(effectiveSystemPrompt, userMessage, undefined, thinking)) {
       if (chunk.type === 'thinking') {
         reply.raw.write(`data: ${JSON.stringify({ type: 'thinking', text: chunk.content })}\n\n`);
+      } else if (chunk.type === 'truncated') {
+        wasTruncated = true;
+        truncatedMessage = chunk.content;
+        reply.raw.write(`data: ${JSON.stringify({ type: 'warning', message: chunk.content })}\n\n`);
       } else {
         accumulatedText += chunk.content;
         // 推送文本片段
@@ -244,7 +250,7 @@ export async function generateGraphStream(
 
     // rawMode 跳过 GraphDiff 解析，直接结束
     if (rawMode) {
-      reply.raw.write(`data: ${JSON.stringify({ type: 'done', text: accumulatedText })}\n\n`);
+      reply.raw.write(`data: ${JSON.stringify({ type: 'done', text: accumulatedText, truncated: wasTruncated, truncatedMessage })}\n\n`);
     } else {
       // 流结束后，尝试解析完整 JSON 并应用到图
       try {

@@ -52,12 +52,22 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'latest' | 'update' | 'error'>('idle');
   const [updateData, setUpdateData] = useState<{ tag_name: string; body: string; published_at: string; html_url: string } | null>(null);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [modelSelectDialogOpen, setModelSelectDialogOpen] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [clientCount, setClientCount] = useState(0);
   const [backendHost, setBackendHost] = useState('127.0.0.1');
 
   const models = useSettingsStore((s) => s.models);
   const modelsLoading = useSettingsStore((s) => s.modelsLoading);
+
+  // 获取模型并显示选择对话框
+  const handleFetchModels = async () => {
+    await store.fetchModels();
+    // 获取完成后打开选择对话框
+    if (store.models.length > 0) {
+      setModelSelectDialogOpen(true);
+    }
+  };
 
   // 打开弹窗时同步 store 状态并获取模型列表
   useEffect(() => {
@@ -277,6 +287,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   ];
 
   return (
+    <>
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       {/* 遮罩 */}
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={onClose} />
@@ -362,7 +373,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                     模型
                   </label>
                   <button
-                    onClick={() => store.fetchModels()}
+                    onClick={handleFetchModels}
                     disabled={modelsLoading || !apiKey}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                     title={apiKey ? '从 API 获取模型列表' : '请先填写 API Key'}
@@ -1408,6 +1419,72 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         </div>
       </div>
     </div>
+
+      {/* 模型选择对话框 */}
+      {modelSelectDialogOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setModelSelectDialogOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-[min(90vw,480px)] max-h-[70vh] overflow-hidden animate-[scaleIn_250ms_ease-out] flex flex-col">
+            {/* 标题 */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-lg">model_training</span>
+                选择模型
+              </h3>
+              <button onClick={() => setModelSelectDialogOpen(false)} className="icon-button-soft h-7 w-7">
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+
+            {/* 模型列表 */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <p className="text-xs text-slate-500 mb-3">从 API 获取到 {models.length} 个可用模型，请选择一个：</p>
+              <div className="space-y-1.5">
+                {models.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      handleModelChange(m.id);
+                      setModelSelectDialogOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-left transition-all duration-150 ${
+                      m.id === model
+                        ? 'bg-primary/10 text-primary font-medium ring-1 ring-primary/20'
+                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      {m.id === model ? 'check_circle' : 'radio_button_unchecked'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate font-medium">{m.name}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{m.id}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 底部操作 */}
+            <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50">
+              <button
+                onClick={() => setModelSelectDialogOpen(false)}
+                className="px-4 py-2 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => setModelSelectDialogOpen(false)}
+                disabled={!model}
+                className="px-5 py-2 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
+              >
+                确认选择
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

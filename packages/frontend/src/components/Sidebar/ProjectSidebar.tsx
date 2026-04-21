@@ -357,7 +357,7 @@ ${fileContextStr}
 8. 使用 data.tags 标注模块分类（如 ["入口", "路由"], ["核心逻辑"], ["数据层"]）
 9. 连线 label 标注调用方式或条件（如 "HTTP请求", "import", "事件触发"）
 
-生成一个清晰的、可逐层下钻探索的架构调用链全景图。`;
+重要：这是自动化一键生成场景，不允许提问或要求澄清。请根据已有信息直接生成最佳的架构流程图。如果信息不足，请基于合理推断生成。`;
 
     try {
       const response = await fetch('http://localhost:3001/api/ai/generate-stream', {
@@ -416,6 +416,37 @@ ${fileContextStr}
             if (event.type === 'done' && event.graph) {
               useGraphStore.getState().replaceGraph(event.graph);
               useLogStore.getState().add('success', 'AI分析', `架构图生成完成，${event.graph.nodes?.length || 0} 个节点`);
+            }
+            // AI 返回文本而非 JSON（可能是提问或说明）
+            if (event.type === 'done' && event.text && !event.graph) {
+              // 检查是否包含问题标记
+              const hasQuestion = event.text.includes('❓') || event.text.includes('?') || event.text.includes('？');
+              if (hasQuestion) {
+                setCanvasError('AI 需要更多信息才能生成架构图。建议：使用 Chat 面板与 AI 对话澄清需求后再生成。');
+                useLogStore.getState().add(
+                  'warn',
+                  'AI分析',
+                  'AI 返回了提问而非架构图',
+                  buildAnalysisLogDetail({
+                    stage: 'architecture-canvas',
+                    projectPath,
+                    aiResponse: event.text.slice(0, 500),
+                    hint: '请使用 Chat 面板与 AI 对话，或提供更详细的项目信息。',
+                  }),
+                );
+              } else {
+                setCanvasError('AI 返回了文本说明而非架构图 JSON');
+                useLogStore.getState().add(
+                  'warn',
+                  'AI分析',
+                  'AI 返回了文本而非架构图',
+                  buildAnalysisLogDetail({
+                    stage: 'architecture-canvas',
+                    projectPath,
+                    aiResponse: event.text.slice(0, 500),
+                  }),
+                );
+              }
             }
           } catch (e) {
             if (e instanceof Error && e.message !== jsonStr) throw e;
