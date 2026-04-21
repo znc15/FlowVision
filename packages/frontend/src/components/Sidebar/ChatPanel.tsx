@@ -393,7 +393,12 @@ function ChatPanel() {
 
     const renderTarget = target || (drawInNewTab ? 'new-tab' : 'current');
     const sourceTabId = useTabStore.getState().activeTabId;
-    const baseGraphSnapshot: GraphData = { nodes, edges };
+    const diagramType = useGraphStore.getState().diagramType;
+    const baseGraphSnapshot: GraphData = {
+      nodes,
+      edges,
+      ...(diagramType !== 'flowchart' && { meta: { diagramType } }),
+    };
     const effectivePrompt = composePromptWithImports(userPrompt, {
       projectContext: importedProject?.text,
       fileContext: importedFile?.text,

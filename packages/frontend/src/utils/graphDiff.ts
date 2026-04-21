@@ -70,7 +70,14 @@ export function applyDiff(current: GraphData, diff: GraphDiff): GraphData {
   edges = filterValidEdges(nodes, [...edges, ...newEdges]);
 
   // 4. 应用自动布局（仅对新增节点计算位置）
-  return applyAutoLayout({ nodes, edges });
+  const result = applyAutoLayout({ nodes, edges });
+
+  // 5. 传播 meta.diagramType
+  if (diff.meta?.diagramType) {
+    result.meta = { ...result.meta, diagramType: diff.meta.diagramType };
+  }
+
+  return result;
 }
 
 /**
@@ -91,6 +98,7 @@ export function mergeDiffs(base: GraphDiff, incoming: GraphDiff): GraphDiff {
       nodeIds: [...base.remove.nodeIds, ...incoming.remove.nodeIds],
       edgeIds: [...base.remove.edgeIds, ...incoming.remove.edgeIds],
     },
+    meta: incoming.meta ?? base.meta,
   };
 }
 

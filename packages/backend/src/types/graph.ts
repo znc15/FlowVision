@@ -40,6 +40,7 @@ export interface GraphData {
     createdAt?: string;
     sourceProject?: string;
     analyzeMode?: 'module' | 'function' | 'class';
+    diagramType?: DiagramType;
   };
 }
 
@@ -56,7 +57,21 @@ export interface GraphDiff {
     nodeIds: string[];
     edgeIds: string[];
   };
+  /** AI 生成时可选指定图表类型 */
+  meta?: {
+    diagramType?: DiagramType;
+  };
 }
+
+export type DiagramType =
+  | 'flowchart'
+  | 'er'
+  | 'functional'
+  | 'usecase'
+  | 'sequence'
+  | 'uml_class'
+  | 'uml_activity'
+  | 'uml_state';
 
 export type WsMessage =
   | { type: 'graph:diff'; payload: GraphDiff }

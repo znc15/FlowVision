@@ -63,5 +63,9 @@ export function applyDiffToGraph(current: GraphData, diff: GraphDiff): GraphData
     .map(sanitizeEdge);
   edges = filterValidEdges(nodes, [...edges, ...newEdges]);
 
-  return { ...current, nodes, edges };
+  const result: GraphData = { ...current, nodes, edges };
+  if (diff.meta?.diagramType) {
+    result.meta = { ...result.meta, diagramType: diff.meta.diagramType };
+  }
+  return result;
 }

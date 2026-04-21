@@ -89,6 +89,10 @@ export interface GraphDiff {
     nodeIds: string[];
     edgeIds: string[];
   };
+  /** AI 生成时可选指定图表类型 */
+  meta?: {
+    diagramType?: DiagramType;
+  };
 }
 
 // ===== WebSocket 消息类型 =====
