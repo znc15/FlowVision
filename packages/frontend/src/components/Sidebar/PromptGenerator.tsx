@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useLogStore } from '../../store/logStore';
-import { useGraphStore } from '../../store/graphStore';
 import { useToastStore } from '../../store/toastStore';
+import { useTabStore } from '../../store/tabStore';
 import { getBackendUrl } from '../../utils/backend';
-import { buildFileImportContext } from '../../utils/chatContext';
+import { buildFileImportContext, buildProjectImportContext } from '../../utils/chatContext';
 
 const PROJECT_PATH_KEY = 'flowvision-project-path';
 const SELECTED_FILE_KEY = 'flowvision-selected-file';
@@ -34,11 +34,53 @@ function PromptGenerator() {
   const [copied, setCopied] = useState(false);
   const [includeCanvas, setIncludeCanvas] = useState(false);
   const [importingFile, setImportingFile] = useState(false);
-  const [importedFile, setImportedFile] = useState<ImportedContextItem | null>(null);
+  const [importingProject, setImportingProject] = useState(false);
+  const [importedFiles, setImportedFiles] = useState<ImportedContextItem[]>([]);
+  const [importedProject, setImportedProject] = useState<ImportedContextItem | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const nodes = useGraphStore((s) => s.nodes);
-  const edges = useGraphStore((s) => s.edges);
+  const canvasTabs = useTabStore((s) => s.tabs);
+
+  const handleImportProject = useCallback(async () => {
+    const projectPath = (() => {
+      try { return localStorage.getItem(PROJECT_PATH_KEY) || ''; } catch { return ''; }
+    })();
+
+    if (!projectPath) {
+      useToastStore.getState().show('请先在文件浏览器打开项目', 'info');
+      return;
+    }
+
+    setImportingProject(true);
+    try {
+      const params = new URLSearchParams({ projectPath });
+      const { maxDepth, maxSubCalls, githubToken } = useSettingsStore.getState();
+      params.set('maxDepth', String(maxDepth));
+      params.set('maxFiles', String(maxSubCalls));
+      if (githubToken && projectPath.startsWith('github:')) {
+        params.set('token', githubToken);
+      }
+
+      const response = await fetch(`${getBackendUrl()}/api/file-context?${params}`);
+      const data = await response.json();
+      if (!response.ok || !data.success || !data.data) {
+        throw new Error(data.error || '项目上下文导入失败');
+      }
+
+      const label = projectPath.split(/[/\\]/).pop() || projectPath;
+      setImportedProject({
+        path: projectPath,
+        label,
+        text: buildProjectImportContext(projectPath, data.data),
+      });
+      useToastStore.getState().show(`已导入项目：${label}`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '项目上下文导入失败';
+      useToastStore.getState().show(message, 'error');
+    } finally {
+      setImportingProject(false);
+    }
+  }, []);
 
   const handleImportFile = useCallback(async () => {
     const projectPath = (() => {
@@ -72,10 +114,14 @@ function PromptGenerator() {
       }
 
       const label = filePath.split(/[/\\]/).pop() || filePath;
-      setImportedFile({
+      const newItem: ImportedContextItem = {
         path: filePath,
         label,
         text: buildFileImportContext(filePath, data.data.content),
+      };
+      setImportedFiles((prev) => {
+        if (prev.some((f) => f.path === filePath)) return prev;
+        return [...prev, newItem];
       });
       useToastStore.getState().show(`已导入文件：${label}`, 'success');
     } catch (error) {
@@ -84,6 +130,10 @@ function PromptGenerator() {
     } finally {
       setImportingFile(false);
     }
+  }, []);
+
+  const removeImportedFile = useCallback((path: string) => {
+    setImportedFiles((prev) => prev.filter((f) => f.path !== path));
   }, []);
 
   const handleGenerate = async (scenarioHint?: string) => {
@@ -103,14 +153,26 @@ function PromptGenerator() {
     // 构建完整 prompt，包含画布和文件上下文
     let fullPrompt = userInput;
 
-    if (includeCanvas && nodes.length > 0) {
-      const canvasContext = `当前画布内容（${nodes.length} 个节点，${edges.length} 条连线）：
-${JSON.stringify({ nodes: nodes.map(n => ({ id: n.id, type: n.type, label: n.data?.label })), edges: edges.map(e => ({ source: e.source, target: e.target, label: e.label })) }, null, 2)}`;
-      fullPrompt = `${canvasContext}\n\n用户需求：${userInput}`;
+    if (includeCanvas && canvasTabs.length > 0) {
+      const allTabsContext = canvasTabs.map((tab) => {
+        const tabNodes = tab.graph?.nodes || [];
+        const tabEdges = tab.graph?.edges || [];
+        if (tabNodes.length === 0) return null;
+        return `画布「${tab.title}」（${tabNodes.length} 个节点，${tabEdges.length} 条连线）：
+${JSON.stringify({ nodes: tabNodes.map((n: any) => ({ id: n.id, type: n.type, label: n.data?.label })), edges: tabEdges.map((e: any) => ({ source: e.source, target: e.target, label: e.label })) }, null, 2)}`;
+      }).filter(Boolean).join('\n\n');
+
+      if (allTabsContext) {
+        fullPrompt = `${allTabsContext}\n\n用户需求：${userInput}`;
+      }
     }
 
-    if (importedFile) {
-      fullPrompt = `${importedFile.text}\n\n${fullPrompt}`;
+    if (importedProject) {
+      fullPrompt = `${importedProject.text}\n\n${fullPrompt}`;
+    }
+
+    for (const file of importedFiles) {
+      fullPrompt = `${file.text}\n\n${fullPrompt}`;
     }
 
     try {
@@ -212,7 +274,7 @@ ${JSON.stringify({ nodes: nodes.map(n => ({ id: n.id, type: n.type, label: n.dat
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setIncludeCanvas(!includeCanvas)}
-            disabled={generating || nodes.length === 0}
+            disabled={generating || canvasTabs.length === 0}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200 ${
               includeCanvas
                 ? 'bg-primary text-white'
@@ -220,10 +282,20 @@ ${JSON.stringify({ nodes: nodes.map(n => ({ id: n.id, type: n.type, label: n.dat
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <span className="material-symbols-outlined text-sm">dashboard</span>
-            包含画布 ({nodes.length})
+            包含画布 ({canvasTabs.length})
           </button>
           <button
-            onClick={handleImportFile}
+            onClick={() => void handleImportProject()}
+            disabled={generating || importingProject}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-200 disabled:opacity-50"
+          >
+            <span className={`material-symbols-outlined text-sm ${importingProject ? 'animate-spin' : ''}`}>
+              {importingProject ? 'progress_activity' : 'folder_open'}
+            </span>
+            {importingProject ? '导入中...' : '导入项目'}
+          </button>
+          <button
+            onClick={() => void handleImportFile()}
             disabled={generating || importingFile}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all duration-200 disabled:opacity-50"
           >
@@ -232,18 +304,30 @@ ${JSON.stringify({ nodes: nodes.map(n => ({ id: n.id, type: n.type, label: n.dat
             </span>
             {importingFile ? '导入中...' : '导入文件'}
           </button>
-          {importedFile && (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-green-50 text-green-700">
-              <span className="material-symbols-outlined text-sm">description</span>
-              {importedFile.label}
+          {importedProject && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-blue-50 text-blue-700">
+              <span className="material-symbols-outlined text-sm">folder</span>
+              项目: {importedProject.label}
               <button
-                onClick={() => setImportedFile(null)}
-                className="ml-1 hover:text-green-900"
+                onClick={() => setImportedProject(null)}
+                className="ml-1 hover:text-blue-900"
               >
                 <span className="material-symbols-outlined text-sm">close</span>
               </button>
             </div>
           )}
+          {importedFiles.map((file) => (
+            <div key={file.path} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-green-50 text-green-700">
+              <span className="material-symbols-outlined text-sm">description</span>
+              {file.label}
+              <button
+                onClick={() => removeImportedFile(file.path)}
+                className="ml-1 hover:text-green-900"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+          ))}
         </div>
 
         <div>

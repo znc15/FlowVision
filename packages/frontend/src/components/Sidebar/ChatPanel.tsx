@@ -262,7 +262,7 @@ function ChatPanel() {
   const [importingProject, setImportingProject] = useState(false);
   const [importingFile, setImportingFile] = useState(false);
   const [importedProject, setImportedProject] = useState<ImportedContextItem | null>(null);
-  const [importedFile, setImportedFile] = useState<ImportedContextItem | null>(null);
+  const [importedFiles, setImportedFiles] = useState<ImportedContextItem[]>([]);
   const streamingMsgId = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -335,10 +335,14 @@ function ChatPanel() {
         throw new Error(data.error || '文件上下文导入失败');
       }
 
-      setImportedFile({
+      const newItem: ImportedContextItem = {
         path: filePath,
         label: getPathLabel(filePath),
         text: buildFileImportContext(filePath, data.data.content),
+      };
+      setImportedFiles((prev) => {
+        if (prev.some((f) => f.path === filePath)) return prev;
+        return [...prev, newItem];
       });
       useToastStore.getState().show(`已导入文件：${getPathLabel(filePath)}`, 'success');
     } catch (error) {
@@ -401,7 +405,7 @@ function ChatPanel() {
     };
     const effectivePrompt = composePromptWithImports(userPrompt, {
       projectContext: importedProject?.text,
-      fileContext: importedFile?.text,
+      fileContext: importedFiles.map((f) => f.text).join('\n\n') || undefined,
     });
 
     addMessage({ role: 'user', content: userPrompt });
@@ -422,7 +426,7 @@ function ChatPanel() {
       target: renderTarget,
       imports: {
         projectPath: importedProject?.path,
-        filePath: importedFile?.path,
+        filePath: importedFiles.map((f) => f.path).join(', ') || undefined,
       },
       provider,
       ...(apiKey && { apiKey: '***' }),
@@ -809,7 +813,7 @@ function ChatPanel() {
             新画布
           </button>
         </div>
-        {(importedProject || importedFile) && (
+        {(importedProject || importedFiles.length > 0) && (
           <div className="mb-2 flex flex-wrap gap-2">
             {importedProject && (
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] text-blue-700">
@@ -820,15 +824,15 @@ function ChatPanel() {
                 </button>
               </span>
             )}
-            {importedFile && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">
+            {importedFiles.map((file) => (
+              <span key={file.path} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">
                 <span className="material-symbols-outlined text-xs">article</span>
-                文件: {importedFile.label}
-                <button type="button" onClick={() => setImportedFile(null)} className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-emerald-100">
+                文件: {file.label}
+                <button type="button" onClick={() => setImportedFiles((prev) => prev.filter((f) => f.path !== file.path))} className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-emerald-100">
                   <span className="material-symbols-outlined text-[10px]">close</span>
                 </button>
               </span>
-            )}
+            ))}
           </div>
         )}
         <div className="flex gap-2">

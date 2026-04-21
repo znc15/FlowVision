@@ -1008,91 +1008,6 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 />
                 <p className="text-[10px] text-slate-400 mt-1.5">修改后需重启应用生效（默认 3001）</p>
               </div>
-
-              {/* 自动备份 */}
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                  自动备份
-                </label>
-                <div className="space-y-3 p-4 rounded-xl bg-slate-50 ghost-border-soft">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-700">启用自动备份</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">定时备份所有应用数据</p>
-                    </div>
-                    <button
-                      onClick={() => setAutoBackupEnabled(!autoBackupEnabled)}
-                      className={`relative w-11 h-6 rounded-full transition-all duration-200 ${autoBackupEnabled ? 'bg-primary' : 'bg-slate-300'}`}
-                    >
-                      <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${autoBackupEnabled ? 'translate-x-5' : ''}`} />
-                    </button>
-                  </div>
-
-                  {autoBackupEnabled && (
-                    <>
-                      <div className="border-t border-slate-200 pt-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[12px] font-medium text-slate-700">备份方式</span>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setAutoBackupMode('local')}
-                              className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-colors ${autoBackupMode === 'local' ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}
-                            >
-                              本地
-                            </button>
-                            <button
-                              onClick={() => setAutoBackupMode('webdav')}
-                              className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-colors ${autoBackupMode === 'webdav' ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}
-                            >
-                              WebDAV
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[12px] font-medium text-slate-700">备份间隔</span>
-                          <span className="text-[11px] text-primary font-semibold">{autoBackupInterval} 分钟</span>
-                        </div>
-                        <input
-                          type="range"
-                          min={5}
-                          max={120}
-                          step={5}
-                          value={autoBackupInterval}
-                          onChange={(e) => setAutoBackupInterval(Number(e.target.value))}
-                          className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
-                        />
-                      </div>
-                      {autoBackupMode === 'webdav' && (
-                        <div className="border-t border-slate-200 pt-3 space-y-2">
-                          <input
-                            type="url"
-                            value={autoBackupWebDAV.url}
-                            onChange={(e) => setAutoBackupWebDAV({ ...autoBackupWebDAV, url: e.target.value })}
-                            placeholder="https://dav.example.com/remote.php/webdav"
-                            className="w-full rounded-lg bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25"
-                          />
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              type="text"
-                              value={autoBackupWebDAV.username}
-                              onChange={(e) => setAutoBackupWebDAV({ ...autoBackupWebDAV, username: e.target.value })}
-                              placeholder="用户名"
-                              className="rounded-lg bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25"
-                            />
-                            <input
-                              type="password"
-                              value={autoBackupWebDAV.password}
-                              onChange={(e) => setAutoBackupWebDAV({ ...autoBackupWebDAV, password: e.target.value })}
-                              placeholder="密码"
-                              className="rounded-lg bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
             </div>
           )}
 
@@ -1218,6 +1133,94 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
               {/* WebDAV 云备份 */}
               <WebDAVBackupSection nodes={nodes} edges={edges} />
+
+              {/* 自动备份 */}
+              <div className="rounded-2xl bg-slate-50 p-5 ghost-border-soft space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">自动备份</h3>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                    按设定间隔自动备份所有应用数据，防止意外丢失。
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">启用自动备份</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">定时备份所有应用数据</p>
+                    </div>
+                    <button
+                      onClick={() => setAutoBackupEnabled(!autoBackupEnabled)}
+                      className={`relative w-11 h-6 rounded-full transition-all duration-200 ${autoBackupEnabled ? 'bg-primary' : 'bg-slate-300'}`}
+                    >
+                      <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${autoBackupEnabled ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+
+                  {autoBackupEnabled && (
+                    <>
+                      <div className="border-t border-slate-200 pt-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[12px] font-medium text-slate-700">备份方式</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setAutoBackupMode('local')}
+                              className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-colors ${autoBackupMode === 'local' ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}
+                            >
+                              本地
+                            </button>
+                            <button
+                              onClick={() => setAutoBackupMode('webdav')}
+                              className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-colors ${autoBackupMode === 'webdav' ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}
+                            >
+                              WebDAV
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[12px] font-medium text-slate-700">备份间隔</span>
+                          <span className="text-[11px] text-primary font-semibold">{autoBackupInterval} 分钟</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={5}
+                          max={120}
+                          step={5}
+                          value={autoBackupInterval}
+                          onChange={(e) => setAutoBackupInterval(Number(e.target.value))}
+                          className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
+                        />
+                      </div>
+                      {autoBackupMode === 'webdav' && (
+                        <div className="border-t border-slate-200 pt-3 space-y-2">
+                          <input
+                            type="url"
+                            value={autoBackupWebDAV.url}
+                            onChange={(e) => setAutoBackupWebDAV({ ...autoBackupWebDAV, url: e.target.value })}
+                            placeholder="https://dav.example.com/remote.php/webdav"
+                            className="w-full rounded-lg bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={autoBackupWebDAV.username}
+                              onChange={(e) => setAutoBackupWebDAV({ ...autoBackupWebDAV, username: e.target.value })}
+                              placeholder="用户名"
+                              className="rounded-lg bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25"
+                            />
+                            <input
+                              type="password"
+                              value={autoBackupWebDAV.password}
+                              onChange={(e) => setAutoBackupWebDAV({ ...autoBackupWebDAV, password: e.target.value })}
+                              placeholder="密码"
+                              className="rounded-lg bg-white py-2 px-3 text-sm outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1464,7 +1467,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 ghost-border-soft">
                   <div className={`w-3 h-3 rounded-full ${backendStatus === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : backendStatus === 'offline' ? 'bg-red-500' : 'bg-amber-400 animate-pulse'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800">localhost:3001</p>
+                    <p className="text-sm font-medium text-slate-800">localhost:{backendPort}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">Fastify 后端服务</p>
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${statusBadgeClass}`}>
@@ -1528,7 +1531,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <span className="material-symbols-outlined text-xl text-slate-400">hub</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800">MCP 端点</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">http://localhost:3001/mcp</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{`http://localhost:${backendPort}/mcp`}</p>
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${statusBadgeClass}`}>
                     {backendStatus === 'online' ? '可用' : '不可用'}
