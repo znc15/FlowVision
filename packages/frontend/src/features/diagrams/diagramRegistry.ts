@@ -17,7 +17,7 @@ const DIAGRAM_REGISTRY: Record<DiagramType, DiagramConfig> = {
     labelEn: 'Flowchart',
     icon: 'account_tree',
     description: '标准流程图，展示步骤、判断和流程走向',
-    nodeTypes: ['process', 'decision', 'start', 'end', 'data', 'group', 'subprocess', 'delay', 'document', 'manual_input', 'annotation', 'connector'],
+    nodeTypes: ['process', 'decision', 'start', 'end', 'data', 'group', 'subprocess', 'delay', 'document', 'manual_input', 'annotation', 'connector', 'preparation', 'merge', 'timer', 'queue'],
     edgeRelations: ['association'],
   },
   er: {
@@ -26,7 +26,7 @@ const DIAGRAM_REGISTRY: Record<DiagramType, DiagramConfig> = {
     labelEn: 'ER Diagram',
     icon: 'schema',
     description: '实体关系图，展示数据模型和实体间的关系',
-    nodeTypes: ['entity', 'attribute', 'relationship'],
+    nodeTypes: ['entity', 'attribute', 'relationship', 'database'],
     edgeRelations: ['association', 'aggregation', 'composition', 'inheritance'],
   },
   functional: {
@@ -71,7 +71,7 @@ const DIAGRAM_REGISTRY: Record<DiagramType, DiagramConfig> = {
     labelEn: 'UML Activity Diagram',
     icon: 'play_circle',
     description: 'UML 活动图，展示系统活动的控制流',
-    nodeTypes: ['process', 'decision', 'start', 'end', 'data', 'subprocess', 'group'],
+    nodeTypes: ['process', 'decision', 'start', 'end', 'data', 'subprocess', 'group', 'fork_join', 'swimlane'],
     edgeRelations: ['association'],
   },
   uml_state: {
@@ -127,6 +127,14 @@ export function getNodeTypeLabel(type: NodeType): string {
     initial_state: '初始状态',
     final_state: '终态',
     choice: '选择',
+    preparation: '准备',
+    merge: '合并',
+    timer: '定时器',
+    queue: '队列',
+    database: '数据库',
+    fork_join: '分叉/汇合',
+    swimlane: '泳道',
+    note: '备注',
   };
   return labels[type] ?? '节点';
 }
@@ -165,6 +173,14 @@ export function getNodeTypeIcon(type: NodeType): string {
     initial_state: 'radio_button_checked',
     final_state: 'stop_circle',
     choice: 'diamond',
+    preparation: 'hexagon',
+    merge: 'call_merge',
+    timer: 'timer',
+    queue: 'view_agenda',
+    database: 'storage',
+    fork_join: 'call_split',
+    swimlane: 'view_column',
+    note: 'sticky_note_2',
   };
   return icons[type] ?? 'crop_square';
 }

@@ -8,7 +8,7 @@
 
 一键分析项目代码 · 自动生成架构流程图 · 可视化编辑 · MCP 实时同步
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Node.js](https://img.shields.io/badge/Node.js-≥20-339933?logo=node.js&logoColor=white)](https://nodejs.org) [![pnpm](https://img.shields.io/badge/pnpm-≥9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io) [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev) [![Electron](https://img.shields.io/badge/Electron-桌面端-47848F?logo=electron&logoColor=white)](https://www.electronjs.org) [![Version](https://img.shields.io/badge/version-1.2.0-green)](../../releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Node.js](https://img.shields.io/badge/Node.js-≥20-339933?logo=node.js&logoColor=white)](https://nodejs.org) [![pnpm](https://img.shields.io/badge/pnpm-≥9-F69220?logo=pnpm&logoColor=white)](https://pnpm.io) [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev) [![Electron](https://img.shields.io/badge/Electron-桌面端-47848F?logo=electron&logoColor=white)](https://www.electronjs.org) [![Version](https://img.shields.io/badge/version-1.2.2-green)](../../releases)
 
 </div>
 
@@ -40,9 +40,8 @@
 
 ### 可视化编辑
 
-拖拽节点与连线，12 种节点类型，分组容器，
-四向连接（上下左右），贝塞尔 / 直线 / 折线连线，
-自动布局，撤销 / 重做，导出 PNG / JSON / Markdown。
+拖拽节点与连线，39 种节点类型覆盖 8 种图表（流程图、ER图、类图、时序图、
+用例图、状态图、活动图、功能结构图），四向连接，自动布局，撤销 / 重做，导出 PNG / JSON / Markdown。
 
 </td>
 <td>
@@ -151,7 +150,7 @@ flowvision/
 | **前端** | React 18 · TypeScript · React Flow v12 · Zustand · Tailwind CSS · Vite 5 |
 | **后端** | Fastify · Node.js · SSE · WebSocket                                      |
 | **AI**   | OpenAI · Anthropic · DeepSeek · Ollama 多模型切换                        |
-| **MCP**  | @modelcontextprotocol/sdk · 16 个标准工具                                |
+| **MCP**  | @modelcontextprotocol/sdk · 27 个标准工具                                |
 | **桌面** | Electron · electron-builder                                              |
 | **构建** | pnpm 9 · Turborepo · GitHub Actions CI/CD                                |
 
@@ -159,7 +158,7 @@ flowvision/
 
 ## MCP 集成
 
-FlowVision 暴露 16 个 MCP 工具，AI 客户端可直接操作流程图：
+FlowVision 暴露 27 个 MCP 工具，AI 客户端可直接操作流程图：
 
 | 工具              | 说明                       |
 | ----------------- | -------------------------- |
@@ -179,6 +178,13 @@ FlowVision 暴露 16 个 MCP 工具，AI 客户端可直接操作流程图：
 | `update_edge`     | 修改连线标签 / 类型 / 动画 |
 | `export_graph`    | 导出为 Mermaid 格式文本    |
 | `batch_add_nodes` | 批量添加多个节点           |
+| `batch_connect_nodes` | 批量创建多条连线       |
+| `auto_layout`     | 触发自动布局               |
+| `validate_graph`  | 验证图表完整性             |
+| `get_diagram_info`| 获取当前图表类型和配置     |
+| `clone_node`      | 克隆指定节点               |
+| `move_node`       | 移动节点位置               |
+| `set_diagram_type`| 设置图表类型               |
 
 <details>
 <summary><b>客户端配置</b></summary>
@@ -233,9 +239,12 @@ FlowVision 暴露 16 个 MCP 工具，AI 客户端可直接操作流程图：
 | ✅ 已完成 | 统计面板（语言 / Token / 图表分析）               |
 | ✅ 已完成 | Agent 日志详情展开                                |
 | ✅ 已完成 | 增强数据备份（单项导出 / 标签页持久化）           |
-| ✅ 已完成 | MCP 工具集完善（16 个工具）                       |
+| ✅ 已完成 | MCP 工具集完善（27 个工具，支持所有图表类型）     |
 | ✅ 已完成 | Prompt 生成支持画布与项目上下文选择               |
 | ✅ 已完成 | 模板命令（/template）                             |
+| ✅ 已完成 | 39 种节点类型（流程图/ER/类图/时序图/用例图/状态图/活动图/功能结构图） |
+| ✅ 已完成 | 15 个场景模板 + 13 种图表类型模板                 |
+| ✅ 已完成 | 增强 AI 提示词（完整节点参考、边关系、数据字段）   |
 | 规划中    | 多人协作实时编辑（WebRTC / CRDT）                 |
 | 规划中    | 流程图版本历史与对比                              |
 | 规划中    | 自定义节点模板市场                                |
@@ -268,4 +277,4 @@ FlowVision 暴露 16 个 MCP 工具，AI 客户端可直接操作流程图：
 - [Vite](https://vite.dev/) - Vite 官方文档
 - [Fastify](https://fastify.dev/) - Fastify 官方文档
 - [Model Context Protocol](https://modelcontextprotocol.io/) - MCP 官方文档
-- [pnpm](https://pnpm.io/) - pnpm 官方文档pnpm build:desktop
+- [pnpm](https://pnpm.io/) - pnpm 官方文档

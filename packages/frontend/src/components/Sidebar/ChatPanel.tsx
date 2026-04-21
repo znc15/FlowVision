@@ -53,6 +53,15 @@ const PRESET_TEMPLATES = [
   { icon: 'sync', label: '数据同步流程', prompt: '生成一个数据同步流程图，包含数据采集、清洗、转换、加载、校验' },
   { icon: 'bug_report', label: '异常处理流程', prompt: '生成一个异常处理流程图，包含错误检测、分类、处理、重试、上报' },
   { icon: 'rocket_launch', label: 'CI/CD 流程', prompt: '生成一个 CI/CD 部署流程图，包含代码提交、构建、测试、部署、监控' },
+  { icon: 'cloud', label: '微服务架构', prompt: '生成一个微服务架构图，展示 API 网关、用户服务、订单服务、支付服务、消息队列、服务注册发现等组件及调用关系' },
+  { icon: 'storage', label: '数据库表设计', prompt: '生成一个 ER 实体关系图，设计用户、订单、商品三个实体及其关系，包含主键、外键和字段' },
+  { icon: 'person_add', label: '用户注册流程', prompt: '生成一个用户注册流程图，包含填写信息、验证、发送激活邮件、激活账号、完善资料' },
+  { icon: 'payments', label: '支付系统流程', prompt: '生成一个支付系统流程图，包含创建订单、选择支付方式、支付处理、回调通知、对账结算，使用 database 节点表示数据存储' },
+  { icon: 'admin_panel_settings', label: '权限管理 RBAC', prompt: '生成一个 RBAC 权限管理流程图，展示用户、角色、权限的关联关系和鉴权流程' },
+  { icon: 'cloud_upload', label: '项目部署流程', prompt: '生成一个项目部署流程图，包含环境准备、配置管理、构建打包、部署发布、健康检查、回滚机制' },
+  { icon: 'code', label: '代码审查流程', prompt: '生成一个代码审查流程图，包含提交 MR、自动检查、人工审查、修改反馈、合并分支' },
+  { icon: 'sprint', label: '敏捷 Sprint', prompt: '生成一个敏捷开发 Sprint 流程图，包含计划会议、任务拆分、每日站会、开发测试、评审回顾' },
+  { icon: 'monitor_heart', label: '监控告警处理', prompt: '生成一个监控告警处理流程图，包含告警触发、分级分类、排查定位、处理恢复、复盘总结' },
 ];
 
 /** 流程图类型模板 */
@@ -62,7 +71,14 @@ const FLOWCHART_TYPES = [
   { icon: 'swap_horiz', label: '数据流程图', prompt: '生成一个数据流程图，使用 data 类型节点展示数据的采集、处理、转换、存储和输出的完整流向' },
   { icon: 'person_pin_circle', label: '用户旅程图', prompt: '生成一个用户旅程流程图，从用户首次访问到完成核心操作的完整路径，包含各触点和决策节点' },
   { icon: 'api', label: 'API 调用链', prompt: '生成一个 API 调用链流程图，展示客户端请求到服务端各层（路由、中间件、控制器、服务、数据库）的处理流程' },
-  { icon: 'autorenew', label: '状态机图', prompt: '生成一个状态机流程图，展示对象在各状态之间的转换条件和触发事件，使用 decision 节点表示状态' },
+  { icon: 'autorenew', label: '状态机图', prompt: '生成一个 UML 状态图，展示对象在各状态之间的转换条件和触发事件，使用 state/initial_state/final_state 节点类型，设置 diagramType 为 uml_state' },
+  { icon: 'view_list', label: 'ER 实体关系图', prompt: '生成一个 ER 实体关系图，使用 entity/attribute/relationship 节点类型，展示实体、属性和关系，支持基数标注，设置 diagramType 为 er' },
+  { icon: 'timeline', label: '时序图', prompt: '生成一个 UML 时序图，使用 lifeline/activation 节点类型和 message/return 边关系，展示对象间的消息交互，设置 diagramType 为 sequence' },
+  { icon: 'class', label: 'UML 类图', prompt: '生成一个 UML 类图，使用 class/interface/enum_node 节点类型，类节点包含 attributes 和 methods，展示继承、组合、依赖关系，设置 diagramType 为 uml_class' },
+  { icon: 'person_play', label: '用例图', prompt: '生成一个 UML 用例图，使用 actor/usecase_item/system_boundary 节点类型，展示参与者和系统功能的交互，设置 diagramType 为 usecase' },
+  { icon: 'play_circle', label: 'UML 活动图', prompt: '生成一个 UML 活动图，展示并发活动和同步控制，使用 fork_join 节点表示并行分叉汇合，设置 diagramType 为 uml_activity' },
+  { icon: 'widgets', label: '功能结构图', prompt: '生成一个功能结构图，使用 function_block/input_output/control/mechanism 节点类型，展示系统功能的层次分解，设置 diagramType 为 functional' },
+  { icon: 'lan', label: '网络拓扑图', prompt: '生成一个网络拓扑图，展示客户端、负载均衡、Web 服务器、应用服务器、数据库集群、CDN 等网络组件的连接关系' },
 ];
 
 /** 斜杠命令定义 */

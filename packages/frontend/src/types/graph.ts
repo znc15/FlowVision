@@ -11,13 +11,17 @@ export type DiagramType =
 
 // ===== 节点类型 =====
 export type FlowNodeType = 'process' | 'decision' | 'start' | 'end' | 'data' | 'group' | 'subprocess' | 'delay' | 'document' | 'manual_input' | 'annotation' | 'connector';
+export type FlowExtNodeType = 'preparation' | 'merge' | 'timer' | 'queue';
 export type ERNodeType = 'entity' | 'attribute' | 'relationship';
+export type ERExtNodeType = 'database';
 export type FunctionalNodeType = 'function_block' | 'input_output' | 'control' | 'mechanism';
 export type UseCaseNodeType = 'actor' | 'usecase_item' | 'system_boundary';
 export type SequenceNodeType = 'lifeline' | 'activation' | 'combined_fragment';
 export type UMLClassNodeType = 'class' | 'interface' | 'enum_node';
 export type UMLStateNodeType = 'state' | 'initial_state' | 'final_state' | 'choice';
-export type NodeType = FlowNodeType | ERNodeType | FunctionalNodeType | UseCaseNodeType | SequenceNodeType | UMLClassNodeType | UMLStateNodeType;
+export type UMLActivityExtNodeType = 'fork_join' | 'swimlane';
+export type UniversalNodeType = 'note';
+export type NodeType = FlowNodeType | FlowExtNodeType | ERNodeType | ERExtNodeType | FunctionalNodeType | UseCaseNodeType | SequenceNodeType | UMLClassNodeType | UMLStateNodeType | UMLActivityExtNodeType | UniversalNodeType;
 
 // ===== 节点定义 =====
 export interface GraphNode {

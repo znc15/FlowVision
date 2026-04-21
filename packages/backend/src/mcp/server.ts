@@ -9,9 +9,22 @@ import { connectNodesTool } from './tools/connectNodes.js';
 import { getGraphTool } from './tools/getGraph.js';
 import { removeNodeTool } from './tools/removeNode.js';
 import { updateNodeTool } from './tools/updateNode.js';
+import { batchConnectNodesTool } from './tools/batchConnectNodes.js';
+import { autoLayoutTool } from './tools/autoLayout.js';
+import { cloneNodeTool } from './tools/cloneNode.js';
 import { graphState } from '../state/graphState.js';
 
-const ALL_NODE_TYPES = z.enum(['process', 'decision', 'start', 'end', 'data', 'group', 'subprocess', 'delay', 'document', 'manual_input', 'annotation', 'connector']);
+const ALL_NODE_TYPES = z.enum([
+  'process', 'decision', 'start', 'end', 'data', 'group', 'subprocess', 'delay',
+  'document', 'manual_input', 'annotation', 'connector', 'preparation', 'merge', 'timer', 'queue',
+  'entity', 'attribute', 'relationship', 'database',
+  'function_block', 'input_output', 'control', 'mechanism',
+  'actor', 'usecase_item', 'system_boundary',
+  'lifeline', 'activation', 'combined_fragment',
+  'class', 'interface', 'enum_node',
+  'state', 'initial_state', 'final_state', 'choice',
+  'fork_join', 'swimlane', 'note',
+]);
 
 const server = new McpServer({
   name: 'flowvision-mcp',
@@ -388,6 +401,165 @@ async function main() {
       return {
         content: [{ type: 'text', text: JSON.stringify({ added: inputNodes.length, graph }, null, 2) }],
       };
+    }
+  );
+
+  // 批量创建连线
+  server.tool(
+    'batch_connect_nodes',
+    '批量创建多条连线',
+    {
+      edges: z.array(z.object({
+        id: z.string(),
+        source: z.string(),
+        target: z.string(),
+        label: z.string().optional(),
+        type: z.enum(['default', 'step', 'smoothstep', 'straight']).optional(),
+        relation: z.string().optional(),
+      })),
+    },
+    async ({ edges }) => {
+      const result = await batchConnectNodesTool({ edges });
+      return { content: [{ type: 'text', text: JSON.stringify(result.graph, null, 2) }] };
+    }
+  );
+
+  // 自动布局
+  server.tool(
+    'auto_layout',
+    '触发自动布局（使用 dagre 算法）',
+    {
+      direction: z.enum(['TB', 'LR', 'BT', 'RL']).optional().describe('布局方向：TB 上到下，LR 左到右'),
+      nodeSep: z.number().optional().describe('节点间距'),
+      rankSep: z.number().optional().describe('层级间距'),
+    },
+    async (input) => {
+      const result = await autoLayoutTool(input);
+      return { content: [{ type: 'text', text: JSON.stringify(result.graph, null, 2) }] };
+    }
+  );
+
+  // 验证图表
+  server.tool(
+    'validate_graph',
+    '验证图表完整性（检查孤立边、悬挂节点）',
+    {},
+    async () => {
+      const graph = graphState.getGraph();
+      const issues: string[] = [];
+
+      // 检查孤立边（source 或 target 不存在）
+      const nodeIds = new Set(graph.nodes.map((n) => n.id));
+      for (const edge of graph.edges) {
+        if (!nodeIds.has(edge.source)) {
+          issues.push(`边 ${edge.id} 的源节点 ${edge.source} 不存在`);
+        }
+        if (!nodeIds.has(edge.target)) {
+          issues.push(`边 ${edge.id} 的目标节点 ${edge.target} 不存在`);
+        }
+      }
+
+      // 检查孤立节点（无任何连接）
+      const connectedNodes = new Set<string>();
+      for (const edge of graph.edges) {
+        connectedNodes.add(edge.source);
+        connectedNodes.add(edge.target);
+      }
+      const isolatedNodes = graph.nodes.filter((n) => !connectedNodes.has(n.id));
+      if (isolatedNodes.length > 0) {
+        issues.push(`孤立节点: ${isolatedNodes.map((n) => n.id).join(', ')}`);
+      }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            valid: issues.length === 0,
+            issues,
+            stats: {
+              totalNodes: graph.nodes.length,
+              totalEdges: graph.edges.length,
+              isolatedNodeCount: isolatedNodes.length,
+            },
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  // 获取图表类型信息
+  server.tool(
+    'get_diagram_info',
+    '获取当前图表类型和配置信息',
+    {},
+    async () => {
+      const graph = graphState.getGraph();
+      const diagramType = graph.meta?.diagramType || 'flowchart';
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            diagramType,
+            meta: graph.meta,
+            nodeCount: graph.nodes.length,
+            edgeCount: graph.edges.length,
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  // 克隆节点
+  server.tool(
+    'clone_node',
+    '克隆指定节点',
+    {
+      nodeId: z.string().describe('要克隆的节点 ID'),
+      newId: z.string().optional().describe('新节点 ID（可选）'),
+      offsetX: z.number().optional().describe('X 偏移量'),
+      offsetY: z.number().optional().describe('Y 偏移量'),
+    },
+    async (input) => {
+      const result = await cloneNodeTool(input);
+      return { content: [{ type: 'text', text: JSON.stringify(result.graph, null, 2) }] };
+    }
+  );
+
+  // 移动节点
+  server.tool(
+    'move_node',
+    '移动节点到指定位置',
+    {
+      nodeId: z.string().describe('节点 ID'),
+      x: z.number().describe('新 X 坐标'),
+      y: z.number().describe('新 Y 坐标'),
+    },
+    async ({ nodeId, x, y }) => {
+      const graph = graphState.getGraph();
+      const node = graph.nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        return { content: [{ type: 'text', text: `节点不存在: ${nodeId}` }] };
+      }
+      node.position = { x, y };
+      graphState.setGraph(graph);
+      broadcaster.broadcast({ type: 'graph:replace', payload: graph });
+      return { content: [{ type: 'text', text: JSON.stringify(graph, null, 2) }] };
+    }
+  );
+
+  // 设置图表类型
+  server.tool(
+    'set_diagram_type',
+    '设置当前图表类型',
+    {
+      diagramType: z.enum(['flowchart', 'er', 'functional', 'usecase', 'sequence', 'uml_class', 'uml_activity', 'uml_state']).describe('图表类型'),
+    },
+    async ({ diagramType }) => {
+      const graph = graphState.getGraph();
+      graph.meta = { ...graph.meta, diagramType };
+      graphState.setGraph(graph);
+      broadcaster.broadcast({ type: 'graph:replace', payload: graph });
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, diagramType }, null, 2) }] };
     }
   );
 

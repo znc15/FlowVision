@@ -229,6 +229,14 @@ import StateNode from './nodes/StateNode';
 import InitialStateNode from './nodes/InitialStateNode';
 import FinalStateNode from './nodes/FinalStateNode';
 import ChoiceNode from './nodes/ChoiceNode';
+import PreparationNode from './nodes/PreparationNode';
+import MergeNode from './nodes/MergeNode';
+import TimerNode from './nodes/TimerNode';
+import QueueNode from './nodes/QueueNode';
+import DatabaseNode from './nodes/DatabaseNode';
+import ForkJoinNode from './nodes/ForkJoinNode';
+import SwimlaneNode from './nodes/SwimlaneNode';
+import NoteNode from './nodes/NoteNode';
 import FlowEdge from './edges/FlowEdge';
 import NodeEditDialog from './NodeEditDialog';
 import VersionHistoryDialog from '../VersionHistoryDialog';
@@ -269,6 +277,14 @@ const nodeTypes = {
   initial_state: InitialStateNode,
   final_state: FinalStateNode,
   choice: ChoiceNode,
+  preparation: PreparationNode,
+  merge: MergeNode,
+  timer: TimerNode,
+  queue: QueueNode,
+  database: DatabaseNode,
+  fork_join: ForkJoinNode,
+  swimlane: SwimlaneNode,
+  note: NoteNode,
 } as NodeTypes;
 
 // 注册自定义边类型
