@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GraphNode, GraphEdge, GraphData, GraphDiff } from '../types/graph';
+import { GraphNode, GraphEdge, GraphData, GraphDiff, DiagramType } from '../types/graph';
 import { applyDiff } from '../utils/graphDiff';
 import { applyAutoLayout } from '../utils/layout';
 
@@ -16,28 +16,27 @@ function cleanEdge(edge: GraphEdge): GraphEdge {
 }
 
 interface GraphStore {
-  // 状态
   nodes: GraphNode[];
   edges: GraphEdge[];
+  diagramType: DiagramType;
 
-  // 基础 CRUD
   addNode: (node: GraphNode) => void;
   removeNode: (nodeId: string) => void;
   updateNode: (nodeId: string, data: Partial<GraphNode>) => void;
   addEdge: (edge: GraphEdge) => void;
   removeEdge: (edgeId: string) => void;
 
-  // 批量操作（来自 AI 或 MCP）
   applyDiff: (diff: GraphDiff) => void;
   replaceGraph: (graph: GraphData) => void;
+  setDiagramType: (type: DiagramType) => void;
 
-  // 清空画布
   clear: () => void;
 }
 
 export const useGraphStore = create<GraphStore>((set) => ({
   nodes: [],
   edges: [],
+  diagramType: 'flowchart',
 
   addNode: (node) =>
     set((state) => ({
@@ -75,16 +74,26 @@ export const useGraphStore = create<GraphStore>((set) => ({
   replaceGraph: (graph) =>
     set(() => {
       const sanitizedEdges = graph.edges.map(cleanEdge);
-      // 对位于原点(0,0)的节点自动计算布局
       const hasUnpositioned = graph.nodes.some(
         (n) => !n.position || (n.position.x === 0 && n.position.y === 0)
       );
       if (hasUnpositioned && graph.nodes.length > 0) {
         const laid = applyAutoLayout({ nodes: graph.nodes, edges: sanitizedEdges });
-        return { nodes: laid.nodes, edges: laid.edges };
+        return {
+          nodes: laid.nodes,
+          edges: laid.edges,
+          diagramType: graph.meta?.diagramType ?? 'flowchart',
+        };
       }
-      return { nodes: graph.nodes, edges: sanitizedEdges };
+      return {
+        nodes: graph.nodes,
+        edges: sanitizedEdges,
+        diagramType: graph.meta?.diagramType ?? 'flowchart',
+      };
     }),
+
+  setDiagramType: (type) =>
+    set({ diagramType: type }),
 
   clear: () =>
     set({

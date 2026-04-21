@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 
 interface SideNavBarProps {
-  activeTab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log' | 'stats';
-  onTabChange: (tab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log' | 'stats') => void;
+  activeTab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log' | 'stats' | 'examples';
+  onTabChange: (tab: 'project' | 'chat' | 'prompt' | 'mcp' | 'log' | 'stats' | 'examples') => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenSettings?: () => void;
@@ -66,6 +66,13 @@ function SideNavBar({ activeTab, onTabChange, collapsed = false, onToggleCollaps
           label="统计"
           active={activeTab === 'stats'}
           onClick={() => onTabChange('stats')}
+          collapsed={collapsed}
+        />
+        <NavButton
+          icon="dashboard"
+          label="模板"
+          active={activeTab === 'examples'}
+          onClick={() => onTabChange('examples')}
           collapsed={collapsed}
         />
       </nav>

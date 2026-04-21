@@ -1,5 +1,23 @@
+// ===== 图表类型 =====
+export type DiagramType =
+  | 'flowchart'
+  | 'er'
+  | 'functional'
+  | 'usecase'
+  | 'sequence'
+  | 'uml_class'
+  | 'uml_activity'
+  | 'uml_state';
+
 // ===== 节点类型 =====
-export type NodeType = 'process' | 'decision' | 'start' | 'end' | 'data' | 'group' | 'subprocess' | 'delay' | 'document' | 'manual_input' | 'annotation' | 'connector';
+export type FlowNodeType = 'process' | 'decision' | 'start' | 'end' | 'data' | 'group' | 'subprocess' | 'delay' | 'document' | 'manual_input' | 'annotation' | 'connector';
+export type ERNodeType = 'entity' | 'attribute' | 'relationship';
+export type FunctionalNodeType = 'function_block' | 'input_output' | 'control' | 'mechanism';
+export type UseCaseNodeType = 'actor' | 'usecase_item' | 'system_boundary';
+export type SequenceNodeType = 'lifeline' | 'activation' | 'combined_fragment';
+export type UMLClassNodeType = 'class' | 'interface' | 'enum_node';
+export type UMLStateNodeType = 'state' | 'initial_state' | 'final_state' | 'choice';
+export type NodeType = FlowNodeType | ERNodeType | FunctionalNodeType | UseCaseNodeType | SequenceNodeType | UMLClassNodeType | UMLStateNodeType;
 
 // ===== 节点定义 =====
 export interface GraphNode {
@@ -8,29 +26,37 @@ export interface GraphNode {
   position: { x: number; y: number };
   data: {
     label: string;
-    description?: string;     // 节点详细说明
-    filePath?: string;        // 来自代码分析时的源文件路径
-    lineStart?: number;       // 源代码行号
-    color?: string;           // 自定义颜色
-    tags?: string[];          // 标签
+    description?: string;
+    filePath?: string;
+    lineStart?: number;
+    color?: string;
+    tags?: string[];
+    attributes?: string[];
+    methods?: string[];
+    stereotype?: string;
+    cardinality?: string;
   };
   width?: number;
   height?: number;
-  parentId?: string;          // 属于哪个 GroupNode
+  parentId?: string;
 }
 
 // ===== 边定义 =====
 export interface GraphEdge {
   id: string;
-  source: string;             // 源节点 ID
-  target: string;             // 目标节点 ID
-  sourceHandle?: string;      // 源节点连接点 ID (top/bottom/left/right)
-  targetHandle?: string;      // 目标节点连接点 ID (top/bottom/left/right)
-  label?: string;             // 边标签（如条件分支的条件）
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+  label?: string;
   type?: 'default' | 'step' | 'smoothstep' | 'straight' | 'bezier';
-  animated?: boolean;         // 是否显示流动动画
+  animated?: boolean;
   data?: {
-    condition?: string;       // 判断条件文字
+    condition?: string;
+    relation?: 'association' | 'include' | 'extend' | 'inheritance' | 'dependency' | 'aggregation' | 'composition' | 'message' | 'return';
+    cardinalitySource?: string;
+    cardinalityTarget?: string;
+    sequenceOrder?: number;
   };
 }
 
@@ -42,8 +68,10 @@ export interface GraphData {
     title?: string;
     description?: string;
     createdAt?: string;
-    sourceProject?: string;   // 来源项目路径
+    sourceProject?: string;
     analyzeMode?: 'module' | 'function' | 'class';
+    diagramType?: DiagramType;
+    templateId?: string;
   };
 }
 
@@ -96,6 +124,7 @@ export interface AIGenerateRequest {
   prompt: string;
   currentGraph?: GraphData;
   mode?: 'full' | 'incremental';
+  diagramType?: DiagramType;
 }
 
 export interface AIGenerateResponse {

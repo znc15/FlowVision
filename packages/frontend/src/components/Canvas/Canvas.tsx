@@ -35,6 +35,26 @@ const NODE_TEMPLATES: { type: NodeType; label: string; icon: string }[] = [
   { type: 'manual_input', label: '手动输入', icon: 'touch_app' },
   { type: 'annotation', label: '注释', icon: 'sticky_note_2' },
   { type: 'connector', label: '连接器', icon: 'radio_button_checked' },
+  { type: 'entity', label: '实体', icon: 'table_chart' },
+  { type: 'attribute', label: '属性', icon: 'label' },
+  { type: 'relationship', label: '关系', icon: 'link' },
+  { type: 'function_block', label: '功能块', icon: 'widgets' },
+  { type: 'input_output', label: '输入/输出', icon: 'input' },
+  { type: 'control', label: '控制', icon: 'tune' },
+  { type: 'mechanism', label: '机制', icon: 'settings' },
+  { type: 'actor', label: '参与者', icon: 'person' },
+  { type: 'usecase_item', label: '用例', icon: 'oval' },
+  { type: 'system_boundary', label: '系统边界', icon: 'rectangle' },
+  { type: 'lifeline', label: '生命线', icon: 'vertical_align_bottom' },
+  { type: 'activation', label: '激活', icon: 'radio_button_checked' },
+  { type: 'combined_fragment', label: '组合片段', icon: 'dashboard' },
+  { type: 'class', label: '类', icon: 'class' },
+  { type: 'interface', label: '接口', icon: 'extension' },
+  { type: 'enum_node', label: '枚举', icon: 'list' },
+  { type: 'state', label: '状态', icon: 'circle' },
+  { type: 'initial_state', label: '初始状态', icon: 'play_circle' },
+  { type: 'final_state', label: '终态', icon: 'stop_circle' },
+  { type: 'choice', label: '选择', icon: 'diamond' },
 ];
 let _nodeSeq = 0;
 
@@ -76,13 +96,32 @@ import DocumentNode from './nodes/DocumentNode';
 import ManualInputNode from './nodes/ManualInputNode';
 import AnnotationNode from './nodes/AnnotationNode';
 import ConnectorNode from './nodes/ConnectorNode';
+import EntityNode from './nodes/EntityNode';
+import AttributeNode from './nodes/AttributeNode';
+import RelationshipNode from './nodes/RelationshipNode';
+import FunctionBlockNode from './nodes/FunctionBlockNode';
+import InputOutputNode from './nodes/InputOutputNode';
+import ControlNode from './nodes/ControlNode';
+import MechanismNode from './nodes/MechanismNode';
+import ActorNode from './nodes/ActorNode';
+import UseCaseNode from './nodes/UseCaseNode';
+import SystemBoundaryNode from './nodes/SystemBoundaryNode';
+import LifelineNode from './nodes/LifelineNode';
+import ActivationNode from './nodes/ActivationNode';
+import CombinedFragmentNode from './nodes/CombinedFragmentNode';
+import ClassNode from './nodes/ClassNode';
+import InterfaceNode from './nodes/InterfaceNode';
+import EnumNode from './nodes/EnumNode';
+import StateNode from './nodes/StateNode';
+import InitialStateNode from './nodes/InitialStateNode';
+import FinalStateNode from './nodes/FinalStateNode';
+import ChoiceNode from './nodes/ChoiceNode';
 import FlowEdge from './edges/FlowEdge';
 import Toolbar from '../Toolbar/Toolbar';
 import NodeEditDialog from './NodeEditDialog';
 import VersionHistoryDialog from '../VersionHistoryDialog';
 import { CanvasContext } from './CanvasContext';
 
-// 注册自定义节点类型
 const nodeTypes = {
   process: ProcessNode,
   decision: DecisionNode,
@@ -96,6 +135,26 @@ const nodeTypes = {
   manual_input: ManualInputNode,
   annotation: AnnotationNode,
   connector: ConnectorNode,
+  entity: EntityNode,
+  attribute: AttributeNode,
+  relationship: RelationshipNode,
+  function_block: FunctionBlockNode,
+  input_output: InputOutputNode,
+  control: ControlNode,
+  mechanism: MechanismNode,
+  actor: ActorNode,
+  usecase_item: UseCaseNode,
+  system_boundary: SystemBoundaryNode,
+  lifeline: LifelineNode,
+  activation: ActivationNode,
+  combined_fragment: CombinedFragmentNode,
+  class: ClassNode,
+  interface: InterfaceNode,
+  enum_node: EnumNode,
+  state: StateNode,
+  initial_state: InitialStateNode,
+  final_state: FinalStateNode,
+  choice: ChoiceNode,
 } as NodeTypes;
 
 // 注册自定义边类型

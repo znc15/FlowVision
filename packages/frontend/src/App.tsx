@@ -7,6 +7,7 @@ import McpPanel from './components/Sidebar/McpPanel';
 import AgentLogPanel from './components/Sidebar/AgentLogPanel';
 import PromptGenerator from './components/Sidebar/PromptGenerator';
 import StatsPanel from './components/Sidebar/StatsPanel';
+import { DiagramExamplesPanel } from './features/diagrams';
 import FileExplorer from './components/Explorer/FileExplorer';
 import CodePreview from './components/CodePreview/CodePreview';
 import Canvas from './components/Canvas/Canvas';
@@ -39,7 +40,7 @@ function loadLayout(): Layout | undefined {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'project' | 'chat' | 'prompt' | 'mcp' | 'log' | 'stats'>('project');
+  const [activeTab, setActiveTab] = useState<'project' | 'chat' | 'prompt' | 'mcp' | 'log' | 'stats' | 'examples'>('project');
   const [selectedFile, setSelectedFile] = useState<string>(() => {
     try { return localStorage.getItem('flowvision-selected-file') || ''; } catch { return ''; }
   });
@@ -161,6 +162,7 @@ function App() {
               <div style={{ display: activeTab === 'mcp' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><McpPanel /></div>
               <div style={{ display: activeTab === 'log' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><AgentLogPanel /></div>
               <div style={{ display: activeTab === 'stats' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><StatsPanel /></div>
+              <div style={{ display: activeTab === 'examples' ? 'flex' : 'none' }} className="flex-1 flex-col overflow-hidden"><DiagramExamplesPanel onClose={() => setActiveTab('project')} /></div>
             </aside>
           </Panel>
 
