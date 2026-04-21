@@ -38,6 +38,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [httpProxy, setHttpProxy] = useState(store.httpProxy);
   const [maxDepth, setMaxDepth] = useState(store.maxDepth);
   const [maxSubCalls, setMaxSubCalls] = useState(store.maxSubCalls);
+  const [maxOutputTokens, setMaxOutputTokens] = useState(store.maxOutputTokens);
+  const [maxContextTokens, setMaxContextTokens] = useState(store.maxContextTokens);
   const [headerJsonText, setHeaderJsonText] = useState('{}');
   const [headerJsonError, setHeaderJsonError] = useState('');
   const [customModel, setCustomModel] = useState(false);
@@ -85,6 +87,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       setHeaderJsonText(Object.keys(store.customHeaders).length > 0 ? JSON.stringify(store.customHeaders, null, 2) : '{}');
       setHeaderJsonError('');
       setCustomModel(false);
+      setMaxOutputTokens(store.maxOutputTokens);
+      setMaxContextTokens(store.maxContextTokens);
       setActiveTab('ai');
       store.fetchModels();
 
@@ -133,6 +137,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     store.setHttpProxy(httpProxy);
     store.setMaxDepth(maxDepth);
     store.setMaxSubCalls(maxSubCalls);
+    store.setMaxOutputTokens(maxOutputTokens);
+    store.setMaxContextTokens(maxContextTokens);
     store.save();
 
     if (window.electron?.desktop) {
@@ -164,6 +170,8 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           ...(baseURL && { baseURL }),
           ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
           ...(httpProxy && { httpProxy }),
+          ...(maxOutputTokens && { maxOutputTokens }),
+          ...(maxContextTokens && { maxContextTokens }),
         }),
       });
       if (!response.ok) {
@@ -896,6 +904,55 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                       <span>500</span>
                     </div>
                     <p className="text-[10px] text-slate-400 mt-1">分析时最多收集的文件数量，越大分析越详尽但速度越慢</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Token 限制 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  Token 限制
+                </label>
+                <div className="space-y-3 p-4 rounded-xl bg-slate-50 ghost-border-soft">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[12px] font-medium text-slate-700">最大输出 Token</span>
+                      <span className="text-[11px] text-primary font-semibold">{maxOutputTokens.toLocaleString()}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1024}
+                      max={65536}
+                      step={1024}
+                      value={maxOutputTokens}
+                      onChange={(e) => setMaxOutputTokens(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                      <span>1K</span>
+                      <span>64K</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">AI 单次生成的最大 token 数，值越大输出越长但费用越高</p>
+                  </div>
+                  <div className="border-t border-slate-200 pt-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[12px] font-medium text-slate-700">最大上下文 Token</span>
+                      <span className="text-[11px] text-primary font-semibold">{maxContextTokens.toLocaleString()}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={4096}
+                      max={200000}
+                      step={4096}
+                      value={maxContextTokens}
+                      onChange={(e) => setMaxContextTokens(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                      <span>4K</span>
+                      <span>200K</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">AI 处理请求时的最大上下文窗口大小</p>
                   </div>
                 </div>
               </div>

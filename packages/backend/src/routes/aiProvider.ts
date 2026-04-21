@@ -10,6 +10,8 @@ export interface ProviderConfig {
   baseURL?: string;
   customHeaders?: Record<string, string>;
   httpProxy?: string;
+  maxOutputTokens?: number;
+  maxContextTokens?: number;
 }
 
 // 生成结果
@@ -35,6 +37,7 @@ interface AIProvider {
 class ClaudeProvider implements AIProvider {
   private client: Anthropic;
   private model: string;
+  private configMaxTokens: number;
 
   constructor(config: ProviderConfig) {
     const httpAgent = config.httpProxy ? new HttpsProxyAgent(config.httpProxy) : undefined;
@@ -45,13 +48,15 @@ class ClaudeProvider implements AIProvider {
       ...(httpAgent && { httpAgent }),
     });
     this.model = config.model || 'claude-sonnet-4-20250514';
+    this.configMaxTokens = config.maxOutputTokens || 16384;
   }
 
   private isThinkingModel(): boolean {
     return this.model.includes('3-7') || this.model.includes('3.7');
   }
 
-  async generate(system: string, userMessage: string, maxTokens = 4096): Promise<GenerateResult> {
+  async generate(system: string, userMessage: string, maxTokens?: number): Promise<GenerateResult> {
+    const effectiveMaxTokens = maxTokens || this.configMaxTokens;
     const params: any = {
       model: this.model,
       system,
@@ -60,9 +65,9 @@ class ClaudeProvider implements AIProvider {
 
     if (this.isThinkingModel()) {
       params.thinking = { type: 'enabled', budget_tokens: 2048 };
-      params.max_tokens = maxTokens + 2048;
+      params.max_tokens = effectiveMaxTokens + 2048;
     } else {
-      params.max_tokens = maxTokens;
+      params.max_tokens = effectiveMaxTokens;
     }
 
     const response = await this.client.messages.create(params);
@@ -78,7 +83,8 @@ class ClaudeProvider implements AIProvider {
     };
   }
 
-  async *generateStream(system: string, userMessage: string, maxTokens = 4096, thinking = false): AsyncIterable<{ type: 'thinking' | 'text'; content: string }> {
+  async *generateStream(system: string, userMessage: string, maxTokens?: number, thinking = false): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }> {
+    const effectiveMaxTokens = maxTokens || this.configMaxTokens;
     const params: any = {
       model: this.model,
       system,
@@ -88,9 +94,9 @@ class ClaudeProvider implements AIProvider {
     const useThinking = thinking || this.isThinkingModel();
     if (useThinking) {
       params.thinking = { type: 'enabled', budget_tokens: 4096 };
-      params.max_tokens = maxTokens + 4096;
+      params.max_tokens = effectiveMaxTokens + 4096;
     } else {
-      params.max_tokens = maxTokens;
+      params.max_tokens = effectiveMaxTokens;
     }
 
     const stream = this.client.messages.stream(params);
@@ -123,6 +129,7 @@ class ClaudeProvider implements AIProvider {
 class OpenAIProvider implements AIProvider {
   private client: OpenAI;
   private model: string;
+  private configMaxTokens: number;
 
   constructor(config: ProviderConfig) {
     const httpAgent = config.httpProxy ? new HttpsProxyAgent(config.httpProxy) : undefined;
@@ -133,6 +140,7 @@ class OpenAIProvider implements AIProvider {
       ...(httpAgent && { httpAgent }),
     });
     this.model = config.model || 'gpt-4.1';
+    this.configMaxTokens = config.maxOutputTokens || 16384;
   }
 
   /** o 系列模型使用 Responses API（支持推理能力） */
@@ -140,13 +148,14 @@ class OpenAIProvider implements AIProvider {
     return /^o\d/.test(this.model);
   }
 
-  async generate(system: string, userMessage: string, maxTokens = 4096): Promise<GenerateResult> {
+  async generate(system: string, userMessage: string, maxTokens?: number): Promise<GenerateResult> {
+    const effectiveMaxTokens = maxTokens || this.configMaxTokens;
     if (this.useResponsesApi()) {
       const response = await this.client.responses.create({
         model: this.model,
         instructions: system,
         input: userMessage,
-        ...(maxTokens && { max_output_tokens: maxTokens }),
+        ...(effectiveMaxTokens && { max_output_tokens: effectiveMaxTokens }),
       });
 
       const text = response.output_text;
@@ -162,7 +171,7 @@ class OpenAIProvider implements AIProvider {
 
     const response = await this.client.chat.completions.create({
       model: this.model,
-      max_tokens: maxTokens,
+      max_tokens: effectiveMaxTokens,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: userMessage },
@@ -180,14 +189,15 @@ class OpenAIProvider implements AIProvider {
     };
   }
 
-  async *generateStream(system: string, userMessage: string, maxTokens = 16384, _thinking = false): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }> {
+  async *generateStream(system: string, userMessage: string, maxTokens?: number, _thinking = false): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }> {
+    const effectiveMaxTokens = maxTokens || this.configMaxTokens;
     if (this.useResponsesApi()) {
       const stream = await this.client.responses.create({
         model: this.model,
         instructions: system,
         input: userMessage,
         stream: true,
-        ...(maxTokens && { max_output_tokens: maxTokens }),
+        ...(effectiveMaxTokens && { max_output_tokens: effectiveMaxTokens }),
       });
 
       for await (const event of stream) {
@@ -200,7 +210,7 @@ class OpenAIProvider implements AIProvider {
 
     const stream = await this.client.chat.completions.create({
       model: this.model,
-      max_tokens: maxTokens,
+      max_tokens: effectiveMaxTokens,
       stream: true,
       messages: [
         { role: 'system', content: system },
@@ -226,10 +236,8 @@ class OpenAIProvider implements AIProvider {
       const list = await this.client.models.list();
       const models: ModelInfo[] = [];
       for await (const model of list) {
-        // 过滤出 GPT/chatgpt 系列模型
-        if (model.id.startsWith('gpt-') || model.id.startsWith('chatgpt-') || model.id.startsWith('o')) {
-          models.push({ id: model.id, name: model.id });
-        }
+        // 返回所有模型，不再过滤
+        models.push({ id: model.id, name: model.id });
       }
       // 按名称排序
       return models.sort((a, b) => a.id.localeCompare(b.id));

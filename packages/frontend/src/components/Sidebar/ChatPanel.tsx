@@ -407,7 +407,7 @@ function ChatPanel() {
     const assistantId = addMessage({ role: 'assistant', content: '' });
     streamingMsgId.current = assistantId;
 
-    const { provider, apiKey, model, baseURL, systemPrompt: customSystemPrompt, customHeaders, httpProxy } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, systemPrompt: customSystemPrompt, customHeaders, httpProxy, maxOutputTokens, maxContextTokens } = useSettingsStore.getState();
 
     const requestBody = {
       prompt: userPrompt,
@@ -426,6 +426,8 @@ function ChatPanel() {
       ...(thinkingEnabled && { thinking: true }),
       ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
       ...(httpProxy && { httpProxy }),
+      ...(maxOutputTokens && { maxOutputTokens }),
+      ...(maxContextTokens && { maxContextTokens }),
     };
     useLogStore.getState().add('info', 'AI请求', `发送生成请求: ${provider}/${model || '默认模型'}`, JSON.stringify(requestBody, null, 2));
 
@@ -445,6 +447,8 @@ function ChatPanel() {
           ...(thinkingEnabled && { thinking: true }),
           ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
           ...(httpProxy && { httpProxy }),
+          ...(maxOutputTokens && { maxOutputTokens }),
+          ...(maxContextTokens && { maxContextTokens }),
         }),
       });
 

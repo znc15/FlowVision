@@ -130,6 +130,10 @@ interface AIGenerateRequest {
   customHeaders?: Record<string, string>;
   /** HTTP 代理地址 */
   httpProxy?: string;
+  /** 最大输出 token 数 */
+  maxOutputTokens?: number;
+  /** 最大上下文 token 数 */
+  maxContextTokens?: number;
 }
 
 function parseGraphDiff(rawText: string): GraphDiff {
@@ -169,7 +173,7 @@ export async function generateGraph(
       };
     }
 
-    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders: request.body.customHeaders, httpProxy: request.body.httpProxy });
+    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders: request.body.customHeaders, httpProxy: request.body.httpProxy, maxOutputTokens: request.body.maxOutputTokens, maxContextTokens: request.body.maxContextTokens });
     const userMessage = buildUserMessage(prompt, currentGraph, mode);
     const result = await aiProvider.generate(GRAPH_SYSTEM_PROMPT, userMessage);
 
@@ -217,7 +221,7 @@ export async function generateGraphStream(
       };
     }
 
-    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders, httpProxy });
+    const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders, httpProxy, maxOutputTokens: request.body.maxOutputTokens, maxContextTokens: request.body.maxContextTokens });
     const effectiveSystemPrompt = systemPrompt || GRAPH_SYSTEM_PROMPT;
     const userMessage = buildUserMessage(prompt, currentGraph, mode);
 

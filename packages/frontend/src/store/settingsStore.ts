@@ -20,6 +20,8 @@ interface SettingsState {
   httpProxy: string;
   maxDepth: number;
   maxSubCalls: number;
+  maxOutputTokens: number;
+  maxContextTokens: number;
   models: ModelInfo[];
   modelsLoading: boolean;
   setProvider: (provider: AIProvider) => void;
@@ -34,6 +36,8 @@ interface SettingsState {
   setHttpProxy: (proxy: string) => void;
   setMaxDepth: (depth: number) => void;
   setMaxSubCalls: (count: number) => void;
+  setMaxOutputTokens: (tokens: number) => void;
+  setMaxContextTokens: (tokens: number) => void;
   fetchModels: () => Promise<void>;
   save: () => void;
   load: () => void;
@@ -69,6 +73,8 @@ function saveToStorage(state: {
   httpProxy: string;
   maxDepth: number;
   maxSubCalls: number;
+  maxOutputTokens: number;
+  maxContextTokens: number;
 }) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -93,6 +99,8 @@ function persistState(get: () => SettingsState) {
     httpProxy: s.httpProxy,
     maxDepth: s.maxDepth,
     maxSubCalls: s.maxSubCalls,
+    maxOutputTokens: s.maxOutputTokens,
+    maxContextTokens: s.maxContextTokens,
   });
 }
 
@@ -111,6 +119,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
     httpProxy: (stored as any).httpProxy || '',
     maxDepth: (stored as any).maxDepth ?? 6,
     maxSubCalls: (stored as any).maxSubCalls ?? 200,
+    maxOutputTokens: (stored as any).maxOutputTokens ?? 16384,
+    maxContextTokens: (stored as any).maxContextTokens ?? 128000,
     models: [],
     modelsLoading: false,
 
@@ -176,6 +186,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
       persistState(get);
     },
 
+    setMaxOutputTokens: (maxOutputTokens) => {
+      set({ maxOutputTokens });
+      persistState(get);
+    },
+
+    setMaxContextTokens: (maxContextTokens) => {
+      set({ maxContextTokens });
+      persistState(get);
+    },
+
     fetchModels: async () => {
       const { provider, apiKey, baseURL } = get();
       set({ modelsLoading: true });
@@ -213,6 +233,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
           customHeaders: (stored as any).customHeaders || {},
           githubToken: (stored as any).githubToken || '',
           httpProxy: (stored as any).httpProxy || '',
+          maxDepth: (stored as any).maxDepth ?? 6,
+          maxSubCalls: (stored as any).maxSubCalls ?? 200,
+          maxOutputTokens: (stored as any).maxOutputTokens ?? 16384,
+          maxContextTokens: (stored as any).maxContextTokens ?? 128000,
         });
       }
     },

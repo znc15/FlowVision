@@ -65,6 +65,7 @@ function showOrCreateMainWindow() {
 }
 
 const DESKTOP_SETTINGS_PATH = path.join(app.getPath('userData'), 'desktop-settings.json');
+const PERSISTENT_STORAGE_PATH = path.join(app.getPath('userData'), 'persistent-storage.json');
 const DEFAULT_DESKTOP_SETTINGS = {
   closeAction: 'ask', // 'ask' | 'tray' | 'quit'
   backendHost: '127.0.0.1', // '127.0.0.1' | '0.0.0.0'
@@ -84,6 +85,25 @@ function saveDesktopSettings(next) {
     fs.writeFileSync(DESKTOP_SETTINGS_PATH, JSON.stringify(next, null, 2), 'utf8');
   } catch (error) {
     console.error('保存桌面设置失败:', error);
+  }
+}
+
+/** 加载持久化存储数据（日志、统计等） */
+function loadPersistentStorage() {
+  try {
+    const raw = fs.readFileSync(PERSISTENT_STORAGE_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+/** 保存持久化存储数据 */
+function savePersistentStorage(data) {
+  try {
+    fs.writeFileSync(PERSISTENT_STORAGE_PATH, JSON.stringify(data, null, 2), 'utf8');
+  } catch (error) {
+    console.error('保存持久化存储失败:', error);
   }
 }
 
@@ -271,6 +291,38 @@ function setupIpc() {
   });
 
   ipcMain.handle('desktop:getSettings', () => desktopSettings);
+
+  // 持久化存储 IPC：将关键数据存储到 userData 目录（重新安装不丢失）
+  ipcMain.handle('desktop:loadPersistentStorage', (_event, keys) => {
+    const data = loadPersistentStorage();
+    const result = {};
+    for (const key of keys) {
+      if (key in data) result[key] = data[key];
+    }
+    return result;
+  });
+
+  ipcMain.handle('desktop:savePersistentStorage', (_event, entries) => {
+    const data = loadPersistentStorage();
+    for (const [key, value] of Object.entries(entries)) {
+      data[key] = value;
+    }
+    savePersistentStorage(data);
+    return true;
+  });
+
+  ipcMain.handle('desktop:clearPersistentStorage', (_event, keys) => {
+    if (!keys || keys.length === 0) {
+      savePersistentStorage({});
+    } else {
+      const data = loadPersistentStorage();
+      for (const key of keys) {
+        delete data[key];
+      }
+      savePersistentStorage(data);
+    }
+    return true;
+  });
 
   ipcMain.handle('desktop:setCloseAction', (_event, action) => {
     const valid = ['ask', 'tray', 'quit'];

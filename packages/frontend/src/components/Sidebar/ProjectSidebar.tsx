@@ -131,11 +131,10 @@ function ProjectSidebar() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const { provider, apiKey, model, baseURL, customHeaders, githubToken, httpProxy } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, customHeaders, githubToken, httpProxy, maxOutputTokens, maxContextTokens } = useSettingsStore.getState();
     let fullText = '';
 
     try {
-      // 先获取项目上下文（文件树+关键文件内容）
       let fileContext = '';
       try {
         const { maxDepth, maxSubCalls } = useSettingsStore.getState();
@@ -214,6 +213,8 @@ function ProjectSidebar() {
           ...(baseURL && { baseURL }),
           ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
           ...(httpProxy && { httpProxy }),
+          ...(maxOutputTokens && { maxOutputTokens }),
+          ...(maxContextTokens && { maxContextTokens }),
         }),
         signal: controller.signal,
       });
@@ -299,7 +300,7 @@ function ProjectSidebar() {
     setStreamingCanvasText('');
     setCanvasStep(1);
 
-    const { provider, apiKey, model, baseURL, customHeaders: customHeaders2, githubToken: githubToken2, httpProxy: httpProxy2 } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, customHeaders: customHeaders2, githubToken: githubToken2, httpProxy: httpProxy2, maxOutputTokens, maxContextTokens } = useSettingsStore.getState();
   let fullText = '';
 
     // 获取项目文件上下文，为 AI 识别入口和调用链提供支撑
@@ -373,6 +374,8 @@ ${fileContextStr}
           ...(baseURL && { baseURL }),
           ...(Object.keys(customHeaders2).length > 0 && { customHeaders: customHeaders2 }),
           ...(httpProxy2 && { httpProxy: httpProxy2 }),
+          ...(maxOutputTokens && { maxOutputTokens }),
+          ...(maxContextTokens && { maxContextTokens }),
         }),
         signal: timeout.signal,
       });

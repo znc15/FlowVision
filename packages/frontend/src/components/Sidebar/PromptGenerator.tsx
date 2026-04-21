@@ -31,7 +31,7 @@ function PromptGenerator() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const { provider, apiKey, model, baseURL, customHeaders, httpProxy } = useSettingsStore.getState();
+    const { provider, apiKey, model, baseURL, customHeaders, httpProxy, maxOutputTokens, maxContextTokens } = useSettingsStore.getState();
     useLogStore.getState().add('info', 'Prompt生成', `开始生成 Prompt: ${userInput}`);
 
     const fullPrompt = userInput;
@@ -52,6 +52,8 @@ function PromptGenerator() {
           systemPrompt: META_SYSTEM_PROMPT,
           ...(Object.keys(customHeaders).length > 0 && { customHeaders }),
           ...(httpProxy && { httpProxy }),
+          ...(maxOutputTokens && { maxOutputTokens }),
+          ...(maxContextTokens && { maxContextTokens }),
         }),
       });
 

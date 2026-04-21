@@ -23,6 +23,7 @@ import { loadSharedGraph } from './utils/share';
 import { useGraphStore } from './store/graphStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useLogStore } from './store/logStore';
+import { restorePersistentData, startAutoSync } from './utils/persistentStorage';
 
 const LAYOUT_KEY = 'flowvision-layout';
 const DEFAULT_LAYOUT: Layout = {
@@ -69,9 +70,14 @@ function App() {
 
   useWebSocketSync();
 
-  // 启动时加载持久化的日志
+  // 启动时恢复持久化数据并加载日志
   useEffect(() => {
-    useLogStore.getState().load();
+    restorePersistentData().then(() => {
+      useLogStore.getState().load();
+    });
+    // 启动自动同步（将 localStorage 关键数据定期写入 Electron userData）
+    const stopSync = startAutoSync(30000);
+    return () => stopSync();
   }, []);
 
   // 持久化选中文件
