@@ -23,39 +23,6 @@ import { useHistoryStore } from '../../store/historyStore';
 import { NodeType, GraphNode } from '../../types/graph';
 import { forceRelayout } from '../../utils/layout';
 
-const NODE_TEMPLATES: { type: NodeType; label: string; icon: string }[] = [
-  { type: 'process', label: '流程', icon: 'crop_square' },
-  { type: 'decision', label: '判断', icon: 'diamond' },
-  { type: 'data', label: '数据', icon: 'database' },
-  { type: 'start', label: '开始', icon: 'play_circle' },
-  { type: 'end', label: '结束', icon: 'stop_circle' },
-  { type: 'subprocess', label: '子流程', icon: 'account_tree' },
-  { type: 'delay', label: '延迟', icon: 'hourglass_top' },
-  { type: 'document', label: '文档', icon: 'article' },
-  { type: 'manual_input', label: '手动输入', icon: 'touch_app' },
-  { type: 'annotation', label: '注释', icon: 'sticky_note_2' },
-  { type: 'connector', label: '连接器', icon: 'radio_button_checked' },
-  { type: 'entity', label: '实体', icon: 'table_chart' },
-  { type: 'attribute', label: '属性', icon: 'label' },
-  { type: 'relationship', label: '关系', icon: 'link' },
-  { type: 'function_block', label: '功能块', icon: 'widgets' },
-  { type: 'input_output', label: '输入/输出', icon: 'input' },
-  { type: 'control', label: '控制', icon: 'tune' },
-  { type: 'mechanism', label: '机制', icon: 'settings' },
-  { type: 'actor', label: '参与者', icon: 'person' },
-  { type: 'usecase_item', label: '用例', icon: 'oval' },
-  { type: 'system_boundary', label: '系统边界', icon: 'rectangle' },
-  { type: 'lifeline', label: '生命线', icon: 'vertical_align_bottom' },
-  { type: 'activation', label: '激活', icon: 'radio_button_checked' },
-  { type: 'combined_fragment', label: '组合片段', icon: 'dashboard' },
-  { type: 'class', label: '类', icon: 'class' },
-  { type: 'interface', label: '接口', icon: 'extension' },
-  { type: 'enum_node', label: '枚举', icon: 'list' },
-  { type: 'state', label: '状态', icon: 'circle' },
-  { type: 'initial_state', label: '初始状态', icon: 'play_circle' },
-  { type: 'final_state', label: '终态', icon: 'stop_circle' },
-  { type: 'choice', label: '选择', icon: 'diamond' },
-];
 let _nodeSeq = 0;
 
 /** 视图操作按钮（需在 ReactFlow 上下文内） */
@@ -121,6 +88,8 @@ import Toolbar from '../Toolbar/Toolbar';
 import NodeEditDialog from './NodeEditDialog';
 import VersionHistoryDialog from '../VersionHistoryDialog';
 import { CanvasContext } from './CanvasContext';
+import NodeToolbox from './NodeToolbox';
+import { getNodeTypeLabel } from '../../features/diagrams/diagramRegistry';
 
 const nodeTypes = {
   process: ProcessNode,
@@ -183,7 +152,7 @@ function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: Canvas
         id,
         type,
         position: { x: 100 + _nodeSeq * 30, y: 100 + _nodeSeq * 30 },
-        data: { label: `新${NODE_TEMPLATES.find((t) => t.type === type)?.label ?? '节点'}` },
+        data: { label: `新${getNodeTypeLabel(type)}` },
       };
       addNode(newNode);
       pushHistory({ nodes: [...graphNodes, newNode], edges: graphEdges });
@@ -317,20 +286,9 @@ function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: Canvas
       {/* 节点编辑对话框 */}
       <NodeEditDialog nodeId={editingNodeId} onClose={() => setEditingNodeId(null)} />
 
-      {/* 顶部工具栏 */}
+      {/* 顶部工具栏 - 只保留视图控制 */}
       <div className="absolute top-0 left-0 right-0 workbench-panel-header z-10 overflow-x-auto scrollbar-none">
         <div className="flex items-center gap-1 w-full min-w-max">
-          {NODE_TEMPLATES.map((tpl) => (
-            <button
-              key={tpl.type}
-              type="button"
-              onClick={() => handleAddNode(tpl.type)}
-              className="icon-button-soft h-8 w-8 rounded-xl shrink-0"
-              title={`添加${tpl.label}节点`}
-            >
-              <span className="material-symbols-outlined text-base">{tpl.icon}</span>
-            </button>
-          ))}
           <ViewControls isFocusMode={isFocusMode} onToggleFocusMode={onToggleFocusMode} />
           <div className="flex-1 min-w-4" />
           {/* 图例 */}
@@ -418,6 +376,9 @@ function Canvas({ isFocusMode = false, onToggleFocusMode, onNodeSelect }: Canvas
 
       {/* 版本历史对话框 */}
       <VersionHistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} />
+
+      {/* 右侧节点工具箱 */}
+      <NodeToolbox onAddNode={handleAddNode} />
 
       {/* 预览确认按钮 */}
       {isPreviewMode && (
