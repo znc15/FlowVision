@@ -69,6 +69,7 @@ const PERSISTENT_STORAGE_PATH = path.join(app.getPath('userData'), 'persistent-s
 const DEFAULT_DESKTOP_SETTINGS = {
   closeAction: 'ask', // 'ask' | 'tray' | 'quit'
   backendHost: '127.0.0.1', // '127.0.0.1' | '0.0.0.0'
+  backendPort: 3001,
 };
 
 function loadDesktopSettings() {
@@ -144,12 +145,13 @@ async function startBackend() {
 
   const backendDir = process.resourcesPath;
   const serverPath = path.join(process.resourcesPath, 'backend', 'server.bundle.mjs');
+  const port = desktopSettings.backendPort || 3001;
 
-  console.log('[desktop] 正在启动后端服务:', serverPath);
+  console.log('[desktop] 正在启动后端服务:', serverPath, '端口:', port);
 
   backendProcess = utilityProcess.fork(serverPath, [], {
     cwd: backendDir,
-    env: { ...process.env, NODE_ENV: 'production', PORT: '3001', BACKEND_HOST: desktopSettings.backendHost || '127.0.0.1' },
+    env: { ...process.env, NODE_ENV: 'production', BACKEND_PORT: String(port), BACKEND_HOST: desktopSettings.backendHost || '127.0.0.1' },
     stdio: 'pipe',
   });
 
@@ -168,7 +170,7 @@ async function startBackend() {
 
   // 等待后端健康检查通过
   try {
-    await waitForBackendReady();
+    await waitForBackendReady(port);
     console.log('[desktop] 后端服务已就绪');
   } catch (err) {
     console.error('[desktop] 等待后端就绪超时，继续启动前端:', err.message);
@@ -336,6 +338,14 @@ function setupIpc() {
     const valid = ['127.0.0.1', '0.0.0.0'];
     if (!valid.includes(host)) return desktopSettings;
     desktopSettings = { ...desktopSettings, backendHost: host };
+    saveDesktopSettings(desktopSettings);
+    return desktopSettings;
+  });
+
+  ipcMain.handle('desktop:setBackendPort', (_event, port) => {
+    const numPort = Number(port);
+    if (!Number.isInteger(numPort) || numPort < 1024 || numPort > 65535) return desktopSettings;
+    desktopSettings = { ...desktopSettings, backendPort: numPort };
     saveDesktopSettings(desktopSettings);
     return desktopSettings;
   });

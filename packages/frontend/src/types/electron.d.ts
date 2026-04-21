@@ -14,11 +14,12 @@ declare global {
         onMaximizedChanged: (callback: (value: boolean) => void) => () => void;
       };
       desktop?: {
-        getSettings: () => Promise<{ closeAction: 'ask' | 'tray' | 'quit'; backendHost: string }>;
+        getSettings: () => Promise<{ closeAction: 'ask' | 'tray' | 'quit'; backendHost: string; backendPort: number }>;
         getRuntimePaths: () => Promise<{ userData: string; sessionData: string; downloads: string }>;
         capturePage: (options: { x: number; y: number; width: number; height: number; filename?: string }) => Promise<{ path: string; width: number; height: number; size: number }>;
-        setCloseAction: (action: 'ask' | 'tray' | 'quit') => Promise<{ closeAction: 'ask' | 'tray' | 'quit'; backendHost: string }>;
-        setBackendHost: (host: '127.0.0.1' | '0.0.0.0') => Promise<{ closeAction: 'ask' | 'tray' | 'quit'; backendHost: string }>;
+        setCloseAction: (action: 'ask' | 'tray' | 'quit') => Promise<{ closeAction: 'ask' | 'tray' | 'quit'; backendHost: string; backendPort: number }>;
+        setBackendHost: (host: '127.0.0.1' | '0.0.0.0') => Promise<{ closeAction: 'ask' | 'tray' | 'quit'; backendHost: string; backendPort: number }>;
+        setBackendPort: (port: number) => Promise<{ closeAction: 'ask' | 'tray' | 'quit'; backendHost: string; backendPort: number }>;
         onCloseActionChanged: (callback: (action: 'ask' | 'tray' | 'quit') => void) => () => void;
         onCloseRequested: (callback: () => void) => () => void;
         respondClose: (response: { action: 'tray' | 'quit' | 'cancel'; remember: boolean }) => Promise<void>;

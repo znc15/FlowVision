@@ -106,6 +106,9 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           if (desktopSettings.backendHost) {
             setBackendHost(desktopSettings.backendHost);
           }
+          if (desktopSettings.backendPort) {
+            setBackendPort(desktopSettings.backendPort);
+          }
         }).catch(() => undefined);
       }
     }
@@ -154,6 +157,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
     if (window.electron?.desktop) {
       window.electron.desktop.setCloseAction(closeAction).catch(() => undefined);
+      window.electron.desktop.setBackendPort(backendPort).catch(() => undefined);
     }
 
     onClose();

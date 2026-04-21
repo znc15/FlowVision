@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electron', {
     capturePage: (options) => ipcRenderer.invoke('desktop:capturePage', options),
     setCloseAction: (action) => ipcRenderer.invoke('desktop:setCloseAction', action),
     setBackendHost: (host) => ipcRenderer.invoke('desktop:setBackendHost', host),
+    setBackendPort: (port) => ipcRenderer.invoke('desktop:setBackendPort', port),
     loadPersistentStorage: (keys) => ipcRenderer.invoke('desktop:loadPersistentStorage', keys),
     savePersistentStorage: (entries) => ipcRenderer.invoke('desktop:savePersistentStorage', entries),
     clearPersistentStorage: (keys) => ipcRenderer.invoke('desktop:clearPersistentStorage', keys),
