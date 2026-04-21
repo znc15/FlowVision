@@ -16,7 +16,7 @@ const PROVIDER_OPTIONS: { id: AIProvider; name: string; defaultModel: string }[]
   { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4.1' },
 ];
 
-type SettingsTab = 'ai' | 'prompt' | 'backup' | 'about' | 'update' | 'log' | 'status';
+type SettingsTab = 'ai' | 'prompt' | 'advanced' | 'backup' | 'about' | 'update' | 'log' | 'status';
 
 function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const store = useSettingsStore();
@@ -216,7 +216,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       const data = await res.json();
       setUpdateData(data);
       const latestVer = data.tag_name?.replace(/^v/, '') || '0.0.0';
-      const currentVer = '1.2.0';
+      const currentVer = '1.2.2';
       setUpdateStatus(latestVer === currentVer ? 'latest' : 'update');
     } catch {
       setUpdateStatus('error');
@@ -268,6 +268,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const TABS: { id: SettingsTab; icon: string; label: string }[] = [
     { id: 'ai', icon: 'smart_toy', label: 'AI 设置' },
     { id: 'prompt', icon: 'edit_note', label: '提示词' },
+    { id: 'advanced', icon: 'tune', label: '高级' },
     { id: 'backup', icon: 'backup', label: '备份' },
     { id: 'about', icon: 'info', label: '关于' },
     { id: 'update', icon: 'update', label: '更新' },
@@ -362,12 +363,12 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   </label>
                   <button
                     onClick={() => store.fetchModels()}
-                    disabled={modelsLoading}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-[10px] text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all duration-200 disabled:opacity-50"
-                    title="刷新模型列表"
+                    disabled={modelsLoading || !apiKey}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                    title={apiKey ? '从 API 获取模型列表' : '请先填写 API Key'}
                   >
-                    <span className={`material-symbols-outlined text-sm ${modelsLoading ? 'animate-spin' : ''}`}>refresh</span>
-                    刷新
+                    <span className={`material-symbols-outlined text-sm ${modelsLoading ? 'animate-spin' : ''}`}>sync</span>
+                    {modelsLoading ? '获取中...' : '获取模型'}
                   </button>
                 </div>
                 {customModel ? (
@@ -598,71 +599,6 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 </p>
               </div>
 
-              {/* GitHub Token */}
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                  GitHub Token <span className="text-slate-400 font-normal">(可选)</span>
-                </label>
-                <input
-                  type="password"
-                  value={githubToken}
-                  onChange={(e) => setGithubToken(e.target.value)}
-                  placeholder="ghp_..."
-                  className="w-full rounded-xl bg-slate-50 py-2.5 px-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25 transition-all duration-200"
-                />
-                <p className="text-[10px] text-slate-400 mt-1.5">
-                  配置后可分析私有 GitHub 仓库，支持 Personal Access Token
-                </p>
-              </div>
-
-              {/* 分析参数 */}
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                  分析参数
-                </label>
-                <div className="space-y-3 p-4 rounded-xl bg-slate-50 ghost-border-soft">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[12px] font-medium text-slate-700">最大下钻深度</span>
-                      <span className="text-[11px] text-primary font-semibold">{maxDepth} 层</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={2}
-                      max={12}
-                      value={maxDepth}
-                      onChange={(e) => setMaxDepth(Number(e.target.value))}
-                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
-                    />
-                    <div className="flex justify-between text-[9px] text-slate-400 mt-1">
-                      <span>2 层</span>
-                      <span>12 层</span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-1">控制文件结构递归遍历的最大目录层数</p>
-                  </div>
-                  <div className="border-t border-slate-200 pt-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[12px] font-medium text-slate-700">最大子调用数</span>
-                      <span className="text-[11px] text-primary font-semibold">{maxSubCalls}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={50}
-                      max={500}
-                      step={50}
-                      value={maxSubCalls}
-                      onChange={(e) => setMaxSubCalls(Number(e.target.value))}
-                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
-                    />
-                    <div className="flex justify-between text-[9px] text-slate-400 mt-1">
-                      <span>50</span>
-                      <span>500</span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-1">分析时最多收集的文件数量，越大分析越详尽但速度越慢</p>
-                  </div>
-                </div>
-              </div>
-
               {/* 模型测试 */}
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
@@ -885,6 +821,101 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
             </div>
           )}
 
+          {/* ===== 高级标签页 ===== */}
+          {activeTab === 'advanced' && (
+            <div className="space-y-5 animate-[fadeIn_200ms_ease-out]">
+              {/* GitHub Token */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  GitHub Token <span className="text-slate-400 font-normal">(可选)</span>
+                </label>
+                <input
+                  type="password"
+                  value={githubToken}
+                  onChange={(e) => setGithubToken(e.target.value)}
+                  placeholder="ghp_..."
+                  className="w-full rounded-xl bg-slate-50 py-2.5 px-4 text-sm text-slate-900 placeholder:text-slate-400 outline-none ghost-border-soft focus:ring-2 focus:ring-primary/25 transition-all duration-200"
+                />
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  配置后可分析私有 GitHub 仓库，支持 Personal Access Token
+                </p>
+              </div>
+
+              {/* 分析参数 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  分析参数
+                </label>
+                <div className="space-y-3 p-4 rounded-xl bg-slate-50 ghost-border-soft">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[12px] font-medium text-slate-700">最大下钻深度</span>
+                      <span className="text-[11px] text-primary font-semibold">{maxDepth} 层</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={2}
+                      max={12}
+                      value={maxDepth}
+                      onChange={(e) => setMaxDepth(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                      <span>2 层</span>
+                      <span>12 层</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">控制文件结构递归遍历的最大目录层数</p>
+                  </div>
+                  <div className="border-t border-slate-200 pt-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[12px] font-medium text-slate-700">最大子调用数</span>
+                      <span className="text-[11px] text-primary font-semibold">{maxSubCalls}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={50}
+                      max={500}
+                      step={50}
+                      value={maxSubCalls}
+                      onChange={(e) => setMaxSubCalls(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                      <span>50</span>
+                      <span>500</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">分析时最多收集的文件数量，越大分析越详尽但速度越慢</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* MCP 开关 */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  MCP 服务
+                </label>
+                <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 ghost-border-soft">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">启用 MCP 服务</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">允许外部工具通过 MCP 协议连接</p>
+                  </div>
+                  <button
+                    onClick={() => setMcpEnabled(!mcpEnabled)}
+                    className={`relative w-11 h-6 rounded-full transition-all duration-200 ${
+                      mcpEnabled ? 'bg-primary' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                        mcpEnabled ? 'translate-x-5' : ''
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ===== 备份标签页 ===== */}
           {activeTab === 'backup' && (
             <div className="space-y-6 animate-[fadeIn_200ms_ease-out]">
@@ -1021,7 +1052,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">FlowVision</h3>
-                <p className="text-sm text-slate-500 mt-1">v1.2.0</p>
+                <p className="text-sm text-slate-500 mt-1">v1.2.2</p>
                 <p className="text-xs text-slate-400 mt-2 max-w-xs mx-auto">
                   一键分析项目流程图 · 可视化编辑 · AI 生成 · MCP 服务器同步
                 </p>
@@ -1114,7 +1145,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">检查更新</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">当前版本: v1.2.0</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">当前版本: v1.2.2</p>
                 </div>
                 <button
                   onClick={handleCheckUpdate}
@@ -1135,7 +1166,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <span className="material-symbols-outlined text-amber-500 text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>new_releases</span>
                   <div className="flex-1">
                     <p className="text-sm text-amber-700 font-medium">发现新版本 {updateData.tag_name}</p>
-                    <p className="text-[10px] text-amber-600/70 mt-0.5">当前版本 v1.2.0</p>
+                    <p className="text-[10px] text-amber-600/70 mt-0.5">当前版本 v1.2.2</p>
                   </div>
                   <a
                     href={updateData.html_url}
