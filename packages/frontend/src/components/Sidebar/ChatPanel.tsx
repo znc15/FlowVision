@@ -160,14 +160,46 @@ function ThinkingBlock({ content, isStreaming }: { content: string; isStreaming?
 function FormattedAIMessage({ content, graphDiff, thinking, onApplyDiff, isStreaming }: { content: string; graphDiff?: any; thinking?: string; onApplyDiff?: (diff: any) => void; isStreaming?: boolean }) {
   const diff = useMemo(() => graphDiff || tryParseGraphDiff(content), [content, graphDiff]);
 
-  // 流式传输中且内容看起来像 JSON，显示加载指示器
-  if (isStreaming && !graphDiff && content.trim().startsWith('{')) {
+  // 检测内容是否包含 JSON（即使前面有自然语言描述）
+  const jsonStarted = content.trim().startsWith('{') || content.includes('{"add"') || content.includes('"add":');
+  const isGeneratingGraph = isStreaming && !graphDiff && jsonStarted;
+
+  // 流式传输中正在生成流程图 JSON —— 显示加载指示器，不输出原始 JSON
+  if (isGeneratingGraph) {
+    // 提取 JSON 之前的文字描述作为摘要
+    const jsonIndex = content.indexOf('{');
+    const description = jsonIndex > 0 ? content.slice(0, jsonIndex).trim() : '';
+    // 尝试从已接收的部分 JSON 中统计节点数
+    const nodeCount = (content.match(/"type"\s*:/g) || []).length;
+    const edgeCount = (content.match(/"source"\s*:/g) || []).length;
+
     return (
       <div>
         {thinking && <ThinkingBlock content={thinking} isStreaming={isStreaming} />}
-        <div className="flex items-center gap-2 py-3">
-          <span className="material-symbols-outlined text-sm text-primary animate-spin">progress_activity</span>
-          <span className="text-xs text-slate-500">AI 正在生成流程图...</span>
+        {description && (
+          <p className="text-xs leading-relaxed text-slate-600 mb-2">{description}</p>
+        )}
+        <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm text-primary animate-spin">progress_activity</span>
+            <span className="text-xs text-primary font-medium">正在生成流程图...</span>
+          </div>
+          {(nodeCount > 0 || edgeCount > 0) && (
+            <div className="flex items-center gap-3 text-[10px] text-slate-500">
+              {nodeCount > 0 && (
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs">crop_square</span>
+                  已接收 {nodeCount} 个节点
+                </span>
+              )}
+              {edgeCount > 0 && (
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                  已接收 {edgeCount} 条连线
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -183,43 +215,63 @@ function FormattedAIMessage({ content, graphDiff, thinking, onApplyDiff, isStrea
     );
   }
 
+  // 提取 JSON 之前的自然语言描述
+  const jsonIndex = content.indexOf('{');
+  const beforeJson = jsonIndex > 0 ? content.slice(0, jsonIndex).trim() : '';
+
   const nodes = diff.add?.nodes || [];
   const edges = diff.add?.edges || [];
+  const diagramType = diff.meta?.diagramType;
+
+  // 图表类型中文映射
+  const diagramTypeLabels: Record<string, string> = {
+    flowchart: '流程图',
+    er: 'ER 实体关系图',
+    uml_class: 'UML 类图',
+    sequence: '时序图',
+    usecase: '用例图',
+    uml_activity: '活动图',
+    uml_state: '状态图',
+    functional: '功能结构图',
+  };
 
   return (
     <div className="space-y-3">
       {/* 思考过程 */}
       {thinking && <ThinkingBlock content={thinking} isStreaming={isStreaming} />}
+      {/* 自然语言描述 */}
+      {beforeJson && (
+        <p className="text-xs leading-relaxed text-slate-600">{beforeJson}</p>
+      )}
       {/* 概要信息 */}
-      <div className="flex items-center gap-2 text-[11px] text-slate-500">
-        <span className="material-symbols-outlined text-sm text-primary">auto_awesome</span>
-        已生成 {nodes.length} 个节点、{edges.length} 条连线
+      <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
+        <div className="flex items-center gap-2 text-[11px] text-primary font-medium mb-2">
+          <span className="material-symbols-outlined text-sm">auto_awesome</span>
+          {diagramType ? `已生成${diagramTypeLabels[diagramType] || diagramType}` : '已生成图表'}
+        </div>
+        <div className="flex items-center gap-4 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-xs">crop_square</span>
+            {nodes.length} 个节点
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-xs">arrow_forward</span>
+            {edges.length} 条连线
+          </span>
+        </div>
       </div>
 
       {/* 节点卡片列表 */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {nodes.map((node: any, i: number) => {
           const meta = NODE_TYPE_META[node.type] || NODE_TYPE_META.process;
           return (
-            <div key={node.id || i} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50/80 border border-slate-100">
-              <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${meta.color}`}>
-                <span className="material-symbols-outlined text-sm">{meta.icon}</span>
+            <div key={node.id || i} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-slate-50/80 border border-slate-100 hover:bg-slate-50 transition-colors">
+              <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${meta.color}`}>
+                <span className="material-symbols-outlined text-xs">{meta.icon}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-slate-400">#{i + 1}</span>
-                  <span className="text-xs font-medium text-slate-800 truncate">{node.data?.label || node.id}</span>
-                </div>
-                {node.data?.description && (
-                  <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{node.data.description}</p>
-                )}
-                {node.data?.tags && node.data.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {node.data.tags.map((tag: string) => (
-                      <span key={tag} className="text-[9px] px-1.5 py-0.5 bg-primary/8 text-primary rounded">{tag}</span>
-                    ))}
-                  </div>
-                )}
+                <span className="text-[11px] font-medium text-slate-800 truncate">{node.data?.label || node.id}</span>
               </div>
               <span className="text-[9px] text-slate-400 shrink-0">{meta.label}</span>
             </div>
@@ -228,7 +280,7 @@ function FormattedAIMessage({ content, graphDiff, thinking, onApplyDiff, isStrea
       </div>
 
       {/* 连线信息 */}
-      {edges.length > 0 && (
+      {edges.length > 0 && edges.length <= 20 && (
         <div className="pt-2 border-t border-slate-100">
           <p className="text-[10px] text-slate-400 mb-1.5 font-medium">连线关系</p>
           <div className="flex flex-wrap gap-1.5">
