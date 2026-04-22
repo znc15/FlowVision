@@ -289,6 +289,8 @@ interface AIGenerateRequest {
   maxOutputTokens?: number;
   /** 最大上下文 token 数 */
   maxContextTokens?: number;
+  /** 对话历史消息（用于上下文连续性） */
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
 function parseGraphDiff(rawText: string): GraphDiff {
@@ -389,6 +391,7 @@ export async function generateGraphStream(
     const aiProvider = createProvider({ provider: providerName, apiKey, model, baseURL, customHeaders, httpProxy, maxOutputTokens: request.body.maxOutputTokens, maxContextTokens: request.body.maxContextTokens });
     const effectiveSystemPrompt = systemPrompt || GRAPH_SYSTEM_PROMPT;
     const userMessage = buildUserMessage(prompt, currentGraph, mode);
+    const history = request.body.history;
 
     const origin = request.headers.origin || '*';
     reply.raw.writeHead(200, {
@@ -407,7 +410,7 @@ export async function generateGraphStream(
     const useStream = aiProvider.supportsStreaming();
     if (useStream) {
       try {
-        for await (const chunk of aiProvider.generateStream(effectiveSystemPrompt, userMessage, undefined, thinking)) {
+        for await (const chunk of aiProvider.generateStream(effectiveSystemPrompt, userMessage, undefined, thinking, history)) {
           if (chunk.type === 'thinking') {
             reply.raw.write(`data: ${JSON.stringify({ type: 'thinking', text: chunk.content })}\n\n`);
           } else if (chunk.type === 'truncated') {

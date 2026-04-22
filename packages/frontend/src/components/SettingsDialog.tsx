@@ -934,42 +934,64 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[12px] font-medium text-slate-700">最大输出 Token</span>
-                      <span className="text-[11px] text-primary font-semibold">{maxOutputTokens.toLocaleString()}</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min={1024}
+                          max={1000000}
+                          step={1024}
+                          value={maxOutputTokens}
+                          onChange={(e) => setMaxOutputTokens(Math.max(1024, Number(e.target.value)))}
+                          className="w-20 px-2 py-1 text-[11px] text-right font-mono bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <span className="text-[10px] text-slate-400">tokens</span>
+                      </div>
                     </div>
                     <input
                       type="range"
                       min={1024}
-                      max={65536}
+                      max={262144}
                       step={1024}
-                      value={maxOutputTokens}
+                      value={Math.min(maxOutputTokens, 262144)}
                       onChange={(e) => setMaxOutputTokens(Number(e.target.value))}
                       className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
                     />
                     <div className="flex justify-between text-[9px] text-slate-400 mt-1">
                       <span>1K</span>
-                      <span>64K</span>
+                      <span>256K</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1">AI 单次生成的最大 token 数，值越大输出越长但费用越高</p>
+                    <p className="text-[10px] text-slate-400 mt-1">AI 单次生成的最大 token 数，值越大输出越长但费用越高。支持直接输入更大的值。</p>
                   </div>
                   <div className="border-t border-slate-200 pt-3">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[12px] font-medium text-slate-700">最大上下文 Token</span>
-                      <span className="text-[11px] text-primary font-semibold">{maxContextTokens.toLocaleString()}</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min={4096}
+                          max={2000000}
+                          step={4096}
+                          value={maxContextTokens}
+                          onChange={(e) => setMaxContextTokens(Math.max(4096, Number(e.target.value)))}
+                          className="w-24 px-2 py-1 text-[11px] text-right font-mono bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <span className="text-[10px] text-slate-400">tokens</span>
+                      </div>
                     </div>
                     <input
                       type="range"
                       min={4096}
-                      max={200000}
+                      max={1048576}
                       step={4096}
-                      value={maxContextTokens}
+                      value={Math.min(maxContextTokens, 1048576)}
                       onChange={(e) => setMaxContextTokens(Number(e.target.value))}
                       className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-primary"
                     />
                     <div className="flex justify-between text-[9px] text-slate-400 mt-1">
                       <span>4K</span>
-                      <span>200K</span>
+                      <span>1M</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1">AI 处理请求时的最大上下文窗口大小</p>
+                    <p className="text-[10px] text-slate-400 mt-1">AI 处理请求时的最大上下文窗口大小。支持直接输入更大的值（如 Claude 4 支持最高 1M）。</p>
                   </div>
                 </div>
               </div>

@@ -51,6 +51,9 @@ interface ChatStore {
 const STORAGE_KEY = 'flowvision-chat-conversations';
 const MAX_CONVERSATIONS = 50;
 
+/** 防抖保存定时器 */
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
 function loadConversations(): ChatConversation[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -233,6 +236,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
             messages: c.messages.map((m) => (m.id === id ? { ...m, content: m.content + text } : m)),
           };
         });
+        // 防抖保存：500ms 内不重复写入 localStorage
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          saveConversations(get().conversations);
+          saveTimer = null;
+        }, 500);
         return {
           conversations,
           messages: getActiveMessages(conversations, state.activeConversationId),
@@ -268,6 +277,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
             ),
           };
         });
+        // 防抖保存
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          saveConversations(get().conversations);
+          saveTimer = null;
+        }, 500);
         return {
           conversations,
           messages: getActiveMessages(conversations, state.activeConversationId),

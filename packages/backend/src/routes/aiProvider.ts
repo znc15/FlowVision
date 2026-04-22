@@ -28,8 +28,8 @@ export interface ModelInfo {
 
 // 统一 Provider 接口
 interface AIProvider {
-  generate(system: string, userMessage: string, maxTokens?: number): Promise<GenerateResult>;
-  generateStream(system: string, userMessage: string, maxTokens?: number, thinking?: boolean): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }>;
+  generate(system: string, userMessage: string, maxTokens?: number, history?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<GenerateResult>;
+  generateStream(system: string, userMessage: string, maxTokens?: number, thinking?: boolean, history?: Array<{ role: 'user' | 'assistant'; content: string }>): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }>;
   listModels(): Promise<ModelInfo[]>;
   supportsStreaming(): boolean;
 }
@@ -56,12 +56,16 @@ class ClaudeProvider implements AIProvider {
     return this.model.includes('3-7') || this.model.includes('3.7');
   }
 
-  async generate(system: string, userMessage: string, maxTokens?: number): Promise<GenerateResult> {
+  async generate(system: string, userMessage: string, maxTokens?: number, history?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<GenerateResult> {
     const effectiveMaxTokens = maxTokens || this.configMaxTokens;
+    // 构建消息数组：历史消息 + 当前用户消息
+    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = history ? [...history] : [];
+    messages.push({ role: 'user', content: userMessage });
+
     const params: any = {
       model: this.model,
       system,
-      messages: [{ role: 'user', content: userMessage }],
+      messages,
     };
 
     if (this.isThinkingModel()) {
@@ -84,12 +88,16 @@ class ClaudeProvider implements AIProvider {
     };
   }
 
-  async *generateStream(system: string, userMessage: string, maxTokens?: number, thinking = false): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }> {
+  async *generateStream(system: string, userMessage: string, maxTokens?: number, thinking = false, history?: Array<{ role: 'user' | 'assistant'; content: string }>): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }> {
     const effectiveMaxTokens = maxTokens || this.configMaxTokens;
+    // 构建消息数组：历史消息 + 当前用户消息
+    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = history ? [...history] : [];
+    messages.push({ role: 'user', content: userMessage });
+
     const params: any = {
       model: this.model,
       system,
-      messages: [{ role: 'user', content: userMessage }],
+      messages,
     };
 
     const useThinking = thinking || this.isThinkingModel();
@@ -153,9 +161,21 @@ class OpenAIProvider implements AIProvider {
     return /^o\d/.test(this.model);
   }
 
-  async generate(system: string, userMessage: string, maxTokens?: number): Promise<GenerateResult> {
+  async generate(system: string, userMessage: string, maxTokens?: number, history?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<GenerateResult> {
     const effectiveMaxTokens = maxTokens || this.configMaxTokens;
+    // 构建消息数组
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: system },
+    ];
+    if (history) {
+      for (const msg of history) {
+        messages.push(msg);
+      }
+    }
+    messages.push({ role: 'user', content: userMessage });
+
     if (this.useResponsesApi()) {
+      // Responses API 不支持历史消息，回退到只发送当前消息
       const response = await this.client.responses.create({
         model: this.model,
         instructions: system,
@@ -177,10 +197,7 @@ class OpenAIProvider implements AIProvider {
     const response = await this.client.chat.completions.create({
       model: this.model,
       max_tokens: effectiveMaxTokens,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: userMessage },
-      ],
+      messages,
     });
 
     const text = response.choices[0]?.message?.content;
@@ -194,9 +211,21 @@ class OpenAIProvider implements AIProvider {
     };
   }
 
-  async *generateStream(system: string, userMessage: string, maxTokens?: number, _thinking = false): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }> {
+  async *generateStream(system: string, userMessage: string, maxTokens?: number, _thinking = false, history?: Array<{ role: 'user' | 'assistant'; content: string }>): AsyncIterable<{ type: 'thinking' | 'text' | 'truncated'; content: string }> {
     const effectiveMaxTokens = maxTokens || this.configMaxTokens;
+    // 构建消息数组
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: system },
+    ];
+    if (history) {
+      for (const msg of history) {
+        messages.push(msg);
+      }
+    }
+    messages.push({ role: 'user', content: userMessage });
+
     if (this.useResponsesApi()) {
+      // Responses API 不支持历史消息
       const stream = await this.client.responses.create({
         model: this.model,
         instructions: system,
@@ -217,10 +246,7 @@ class OpenAIProvider implements AIProvider {
       model: this.model,
       max_tokens: effectiveMaxTokens,
       stream: true,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: userMessage },
-      ],
+      messages,
     });
 
     for await (const chunk of stream) {

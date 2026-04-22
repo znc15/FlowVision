@@ -89,6 +89,15 @@ export const useTabStore = create<TabStore>((set) => ({
   setActiveTab: (tabId) =>
     set((s) => {
       persistTabs(s.tabs, tabId);
+      // 切换标签页时通过延迟导入同步 graphStore（避免循环依赖）
+      const targetTab = s.tabs.find((t) => t.id === tabId);
+      if (targetTab?.graph) {
+        setTimeout(() => {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { useGraphStore } = require('./graphStore');
+          useGraphStore.getState().replaceGraph(targetTab.graph);
+        }, 0);
+      }
       return { activeTabId: tabId };
     }),
 

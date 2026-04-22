@@ -22,7 +22,7 @@ import { useHistoryStore } from '../../store/historyStore';
 import { useTabStore } from '../../store/tabStore';
 import { NodeType, GraphNode } from '../../types/graph';
 import { forceRelayout } from '../../utils/layout';
-import { exportJSON, exportPNG, exportMarkdown, importJSON, exportSystemPrompt } from '../../utils/export';
+import { exportJSON, exportPNG, exportMarkdown, importJSON, exportSystemPrompt, exportDrawIO, exportVisio } from '../../utils/export';
 import { shareGraph } from '../../utils/share';
 import { createPortal } from 'react-dom';
 
@@ -187,6 +187,8 @@ function ViewControls({
       <button type="button" onClick={() => exportJSON({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 JSON"><span className="material-symbols-outlined text-base">data_object</span></button>
       <button type="button" onClick={() => void handleExportPng()} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 PNG"><span className="material-symbols-outlined text-base">image</span></button>
       <button type="button" onClick={() => exportMarkdown({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 Markdown 报告"><span className="material-symbols-outlined text-base">description</span></button>
+      <button type="button" onClick={() => exportDrawIO({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 draw.io"><span className="material-symbols-outlined text-base">schema</span></button>
+      <button type="button" onClick={() => exportVisio({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导出 Visio"><span className="material-symbols-outlined text-base">view_in_ar</span></button>
       <button type="button" onClick={handleImport} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="导入 JSON"><span className="material-symbols-outlined text-base">upload_file</span></button>
       <button type="button" onClick={() => exportSystemPrompt({ nodes, edges })} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="生成系统提示词"><span className="material-symbols-outlined text-base">smart_toy</span></button>
       <button type="button" onClick={onShowHistory} className="icon-button-soft h-8 w-8 rounded-xl shrink-0" title="版本历史"><span className="material-symbols-outlined text-base">history</span></button>

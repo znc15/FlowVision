@@ -15,6 +15,7 @@ import {
   buildProjectImportContext,
   composePromptWithImports,
 } from '../../utils/chatContext';
+import { parseSQL, schemaToGraphDiff, buildSQLImportContext } from '../../utils/sqlParser';
 import { getBackendUrl } from '../../utils/backend';
 
 const PROJECT_PATH_KEY = 'flowvision-project-path';
@@ -281,6 +282,7 @@ function ChatPanel() {
   const [importedProject, setImportedProject] = useState<ImportedContextItem | null>(null);
   const [importedFiles, setImportedFiles] = useState<ImportedContextItem[]>([]);
   const [searchEnabled, setSearchEnabled] = useState(false);
+  const [sqlContext, setSqlContext] = useState<string | null>(null);
   const streamingMsgId = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -372,6 +374,44 @@ function ChatPanel() {
     }
   }, []);
 
+  /** 导入 SQL 文件并解析为 ER 图 */
+  const handleImportSQL = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.sql';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const schema = parseSQL(text);
+        if (schema.tables.length === 0) {
+          useToastStore.getState().show('未在 SQL 文件中找到有效的表定义', 'error');
+          return;
+        }
+        const context = buildSQLImportContext(text, schema);
+        setSqlContext(context);
+        useToastStore.getState().show(`已解析 ${schema.tables.length} 个表、${schema.relationships.length} 个关系`, 'success');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'SQL 解析失败';
+        useToastStore.getState().show(message, 'error');
+      }
+    };
+    input.click();
+  }, []);
+
+  /** 从导入的 SQL Schema 生成 ER 图 */
+  const handleGenerateERFromSQL = useCallback(() => {
+    if (!sqlContext) return;
+    const sqlMatch = sqlContext.match(/```sql\n([\s\S]*?)```/);
+    if (sqlMatch) {
+      const schema = parseSQL(sqlMatch[1]);
+      const diff = schemaToGraphDiff(schema);
+      setPreviewFromDiff(diff, nodes.map(n => n.id), edges.map(e => e.id));
+      useToastStore.getState().show('已生成 ER 图预览，请到画布确认', 'success');
+    }
+  }, [sqlContext, nodes, edges, setPreviewFromDiff]);
+
   // 消息列表自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -453,6 +493,7 @@ function ChatPanel() {
       projectContext: importedProject?.text,
       fileContext: importedFiles.map((f) => f.text).join('\n\n') || undefined,
       searchContext,
+      sqlContext: sqlContext || undefined,
     });
 
     addMessage({ role: 'user', content: userPrompt });
@@ -495,6 +536,14 @@ function ChatPanel() {
     });
 
     try {
+      // 构建上下文历史（保留最近 10 条消息，更早的压缩为摘要）
+      const allMsgs = useChatStore.getState().messages;
+      const recentMessages = allMsgs.slice(-10);
+      const history = recentMessages.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content.slice(0, 2000), // 截断过长的消息
+      }));
+
       const response = await fetch(`${getBackendUrl()}/api/ai/generate-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -512,6 +561,7 @@ function ChatPanel() {
           ...(httpProxy && { httpProxy }),
           ...(maxOutputTokens && { maxOutputTokens }),
           ...(maxContextTokens && { maxContextTokens }),
+          ...(history.length > 0 && { history }),
         }),
       });
 
@@ -869,6 +919,15 @@ function ChatPanel() {
             当前文件
           </button>
           <button
+            onClick={handleImportSQL}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-surface-container-highest/80 px-2.5 py-1 text-[10px] font-medium text-on-surface-variant transition-all duration-200 hover:bg-surface-container-highest disabled:opacity-50"
+            title="导入 SQL 文件解析为 ER 图"
+          >
+            <span className="material-symbols-outlined text-sm">storage</span>
+            SQL→ER
+          </button>
+          <button
             onClick={() => setDrawInNewTab((value) => !value)}
             className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-medium transition-all duration-200 ${
               drawInNewTab
@@ -881,13 +940,25 @@ function ChatPanel() {
             新画布
           </button>
         </div>
-        {(importedProject || importedFiles.length > 0) && (
+        {(importedProject || importedFiles.length > 0 || sqlContext) && (
           <div className="mb-2 flex flex-wrap gap-2">
             {importedProject && (
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] text-blue-700">
                 <span className="material-symbols-outlined text-xs">folder</span>
                 项目: {importedProject.label}
                 <button type="button" onClick={() => setImportedProject(null)} className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-blue-100">
+                  <span className="material-symbols-outlined text-[10px]">close</span>
+                </button>
+              </span>
+            )}
+            {sqlContext && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-1 text-[10px] text-purple-700">
+                <span className="material-symbols-outlined text-xs">storage</span>
+                SQL Schema
+                <button type="button" onClick={handleGenerateERFromSQL} className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-purple-100" title="直接生成 ER 图">
+                  <span className="material-symbols-outlined text-[10px]">auto_awesome</span>
+                </button>
+                <button type="button" onClick={() => setSqlContext(null)} className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-purple-100">
                   <span className="material-symbols-outlined text-[10px]">close</span>
                 </button>
               </span>

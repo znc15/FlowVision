@@ -17,6 +17,7 @@ interface PromptImportOptions {
   projectContext?: string;
   fileContext?: string;
   searchContext?: string;
+  sqlContext?: string;
 }
 
 const PROJECT_CONTEXT_LIMIT = 12000;
@@ -67,6 +68,10 @@ export function composePromptWithImports(userPrompt: string, options: PromptImpo
 
   if (options.searchContext) {
     sections.push(options.searchContext);
+  }
+
+  if (options.sqlContext) {
+    sections.push(`## 已导入 SQL Schema\n${options.sqlContext}\n\n请根据以上 SQL Schema 生成对应的 ER 实体关系图。`);
   }
 
   if (sections.length === 0) {

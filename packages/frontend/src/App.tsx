@@ -75,6 +75,8 @@ function App() {
   useEffect(() => {
     restorePersistentData().then(() => {
       useLogStore.getState().load();
+      // 从 tabStore 恢复当前标签页的画布数据
+      useGraphStore.getState().restoreFromActiveTab();
     });
     // 启动自动同步（将 localStorage 关键数据定期写入 Electron userData）
     const stopSync = startAutoSync(30000);

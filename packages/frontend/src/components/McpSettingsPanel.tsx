@@ -202,19 +202,14 @@ function McpSettingsPanel() {
                           <span className="material-symbols-outlined text-sm text-green-500">link</span>
                         </button>
                       )}
+                      {/* 所有服务器都可以编辑配置 */}
+                      <button onClick={() => handleEdit(config)} className="icon-button-soft h-7 w-7" title="编辑配置">
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                      </button>
+                      {/* 只有非内置服务器可以删除 */}
                       {!config.builtin && (
-                        <>
-                          <button onClick={() => handleEdit(config)} className="icon-button-soft h-7 w-7" title="编辑">
-                            <span className="material-symbols-outlined text-sm">edit</span>
-                          </button>
-                          <button onClick={() => removeServer(config.id)} className="icon-button-soft h-7 w-7 hover:text-red-500" title="删除">
-                            <span className="material-symbols-outlined text-sm">delete</span>
-                          </button>
-                        </>
-                      )}
-                      {!config.builtin && (
-                        <button onClick={() => handleEdit(config)} className="icon-button-soft h-7 w-7" title="编辑">
-                          <span className="material-symbols-outlined text-sm">edit</span>
+                        <button onClick={() => removeServer(config.id)} className="icon-button-soft h-7 w-7 hover:text-red-500" title="删除">
+                          <span className="material-symbols-outlined text-sm">delete</span>
                         </button>
                       )}
                     </div>
@@ -244,35 +239,51 @@ function McpSettingsPanel() {
 
       {/* 添加/编辑表单 */}
       {showAddForm && (
-        <div className="p-5 rounded-xl bg-slate-50 ghost-border-soft space-y-4 animate-[fadeIn_200ms_ease-out]">
+        <div className="p-5 rounded-xl bg-white ghost-border-soft shadow-sm space-y-4 animate-[fadeIn_200ms_ease-out]">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-800">
-              {editingId ? '编辑 MCP 服务器' : '添加 MCP 服务器'}
-            </h3>
-            <button onClick={resetForm} className="icon-button-soft h-7 w-7">
-              <span className="material-symbols-outlined text-sm">close</span>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-base text-primary">add_circle</span>
+              </div>
+              <h3 className="text-sm font-semibold text-slate-800">
+                {editingId ? '编辑 MCP 服务器' : '添加 MCP 服务器'}
+              </h3>
+            </div>
+            <button onClick={resetForm} className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors">
+              <span className="material-symbols-outlined text-sm text-slate-400">close</span>
             </button>
           </div>
 
           {/* 名称 */}
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">名称</label>
-            <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="如: GrokSearch" className="settings-input" />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-slate-400">label</span>
+              <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="如: GrokSearch" className="w-full pl-9 pr-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200 placeholder:text-slate-300" />
+            </div>
           </div>
 
           {/* 传输类型 */}
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">传输类型</label>
-            <div className="flex gap-2">
-              {(['stdio', 'sse', 'streamable-http'] as const).map((t) => (
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { value: 'stdio' as const, label: 'Stdio', desc: '子进程', icon: 'terminal' },
+                { value: 'sse' as const, label: 'SSE', desc: '服务端推送', icon: 'stream' },
+                { value: 'streamable-http' as const, label: 'HTTP', desc: '流式传输', icon: 'http' },
+              ]).map((t) => (
                 <button
-                  key={t}
-                  onClick={() => setFormTransport(t)}
-                  className={`flex-1 px-3 py-2 rounded-lg text-[11px] font-medium transition-all duration-200 ${
-                    formTransport === t ? 'bg-primary/10 text-primary ring-1 ring-primary/20' : 'bg-white text-slate-600 hover:bg-slate-100'
+                  key={t.value}
+                  onClick={() => setFormTransport(t.value)}
+                  className={`flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl text-[11px] font-medium transition-all duration-200 border ${
+                    formTransport === t.value
+                      ? 'bg-primary/5 text-primary border-primary/30 shadow-sm'
+                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
                   }`}
                 >
-                  {t === 'stdio' ? 'Stdio（子进程）' : t === 'sse' ? 'SSE' : 'HTTP'}
+                  <span className="material-symbols-outlined text-base">{t.icon}</span>
+                  <span className="font-medium">{t.label}</span>
+                  <span className="text-[9px] opacity-60">{t.desc}</span>
                 </button>
               ))}
             </div>
@@ -280,52 +291,74 @@ function McpSettingsPanel() {
 
           {/* Stdio 配置 */}
           {formTransport === 'stdio' && (
-            <>
+            <div className="space-y-3 p-3.5 rounded-xl bg-slate-50/60 border border-slate-100">
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">命令</label>
-                <input value={formCommand} onChange={(e) => setFormCommand(e.target.value)} placeholder="如: uvx 或 node" className="settings-input" />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-slate-400">chevron_right</span>
+                  <input value={formCommand} onChange={(e) => setFormCommand(e.target.value)} placeholder="如: uvx 或 node" className="w-full pl-9 pr-3 py-2.5 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200 placeholder:text-slate-300" />
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">参数（空格分隔）</label>
-                <input value={formArgs} onChange={(e) => setFormArgs(e.target.value)} placeholder="如: --from git+https://... grok-search" className="settings-input" />
+                <div className="relative">
+                  <span className="absolute left-3 top-3 material-symbols-outlined text-sm text-slate-400">code</span>
+                  <input value={formArgs} onChange={(e) => setFormArgs(e.target.value)} placeholder="如: --from git+https://... grok-search" className="w-full pl-9 pr-3 py-2.5 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200 placeholder:text-slate-300" />
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">环境变量（每行 KEY=VALUE）</label>
-                <textarea value={formEnv} onChange={(e) => setFormEnv(e.target.value)} placeholder={"API_KEY=xxx\nMODEL=gpt-4"} rows={3} className="settings-input font-mono text-[11px]" />
+                <div className="relative">
+                  <span className="absolute left-3 top-3 material-symbols-outlined text-sm text-slate-400">key</span>
+                  <textarea value={formEnv} onChange={(e) => setFormEnv(e.target.value)} placeholder={"API_KEY=xxx\nMODEL=gpt-4"} rows={3} className="w-full pl-9 pr-3 py-2.5 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200 placeholder:text-slate-300 resize-none" />
+                </div>
               </div>
-            </>
+            </div>
           )}
 
           {/* URL 配置 */}
           {(formTransport === 'sse' || formTransport === 'streamable-http') && (
-            <div>
+            <div className="p-3.5 rounded-xl bg-slate-50/60 border border-slate-100">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">服务器 URL</label>
-              <input value={formUrl} onChange={(e) => setFormUrl(e.target.value)} placeholder="http://localhost:3000/mcp" className="settings-input" />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-slate-400">link</span>
+                <input value={formUrl} onChange={(e) => setFormUrl(e.target.value)} placeholder="http://localhost:3000/mcp" className="w-full pl-9 pr-3 py-2.5 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200 placeholder:text-slate-300" />
+              </div>
             </div>
           )}
 
           {/* 描述 */}
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">描述（可选）</label>
-            <input value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="服务器用途说明" className="settings-input" />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm text-slate-400">description</span>
+              <input value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="服务器用途说明" className="w-full pl-9 pr-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200 placeholder:text-slate-300" />
+            </div>
           </div>
 
-          {/* 启用 */}
-          <div className="flex items-center gap-2">
+          {/* 启用开关 */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/60 border border-slate-100">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm text-slate-400">power_settings_new</span>
+              <span className="text-xs text-slate-600 font-medium">启用此服务器</span>
+            </div>
             <button
               onClick={() => setFormEnabled(!formEnabled)}
               className={`w-10 h-5 rounded-full transition-colors duration-200 ${formEnabled ? 'bg-primary' : 'bg-slate-300'} relative`}
             >
               <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${formEnabled ? 'left-5' : 'left-0.5'}`} />
             </button>
-            <span className="text-xs text-slate-600">启用</span>
           </div>
 
-          {/* 提交 */}
-          <div className="flex justify-end gap-2 pt-2">
-            <button onClick={resetForm} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-200 rounded-lg transition-colors">取消</button>
-            <button onClick={handleSubmit} className="px-4 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg shadow-sm transition-colors">
-              {editingId ? '更新' : '添加'}
+          {/* 提交按钮 */}
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={resetForm} className="px-4 py-2 text-xs text-slate-500 hover:bg-slate-100 rounded-xl transition-all duration-200 font-medium">取消</button>
+            <button
+              onClick={handleSubmit}
+              disabled={!formName.trim()}
+              className="px-5 py-2 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-xl shadow-sm transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98]"
+            >
+              {editingId ? '保存更改' : '添加服务器'}
             </button>
           </div>
         </div>

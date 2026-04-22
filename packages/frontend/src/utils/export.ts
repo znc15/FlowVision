@@ -560,6 +560,243 @@ function triggerDownload(blob: Blob, filename: string) {
   useToastStore.getState().show(`已下载: ${filename}`);
 }
 
+/** 将流程图导出为 draw.io XML 格式 */
+export function exportDrawIO(graph: GraphData, filename = 'flowvision-graph.drawio') {
+  const { nodes, edges } = graph;
+  const cellId = () => `cell-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // draw.io 坐标系从 0 开始，计算偏移
+  let minX = Infinity, minY = Infinity;
+  for (const n of nodes) {
+    if (n.position.x < minX) minX = n.position.x;
+    if (n.position.y < minY) minY = n.position.y;
+  }
+  const offsetX = minX === Infinity ? 0 : minX;
+  const offsetY = minY === Infinity ? 0 : minY;
+
+  // 节点类型到 draw.io 样式的映射
+  const getStyle = (type: string, _label: string): string => {
+    const baseStyle = 'html=1;whiteSpace=wrap;rounded=1;';
+    switch (type) {
+      case 'start':
+        return baseStyle + 'ellipse;fillColor=#d5e8d4;strokeColor=#82b366;';
+      case 'end':
+        return baseStyle + 'ellipse;fillColor=#f8cecc;strokeColor=#b85450;';
+      case 'decision':
+        return 'rhombus;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;';
+      case 'data':
+        return 'shape=parallelogram;html=1;whiteSpace=wrap;perimeter=parallelogramPerimeter;fillColor=#e1d5e7;strokeColor=#9673a6;';
+      case 'database':
+        return 'shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;';
+      case 'entity':
+        return baseStyle + 'fillColor=#dae8fc;strokeColor=#6c8ebf;';
+      case 'class':
+        return baseStyle + 'fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;';
+      case 'actor':
+        return 'shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;';
+      case 'state':
+        return baseStyle + 'fillColor=#f5f5f5;strokeColor=#666666;';
+      default:
+        return baseStyle + 'fillColor=#dae8fc;strokeColor=#6c8ebf;';
+    }
+  };
+
+  // 生成 mxCell 元素
+  const cells: string[] = [];
+  const nodeIdMap = new Map<string, string>();
+
+  // 根节点
+  cells.push(`<mxCell id="0" value="" style="" parent="1"/>`);
+  cells.push(`<mxCell id="1" value="" style="" parent="0"/>`);
+
+  // 节点
+  for (const node of nodes) {
+    const id = cellId();
+    nodeIdMap.set(node.id, id);
+    const x = Math.round(node.position.x - offsetX);
+    const y = Math.round(node.position.y - offsetY);
+    const w = node.width || 120;
+    const h = node.height || 60;
+    const style = getStyle(node.type, node.data?.label || '');
+    const label = escapeXml(node.data?.label || node.id);
+    cells.push(`<mxCell id="${id}" value="${label}" style="${style}" vertex="1" parent="1">`);
+    cells.push(`<mxGeometry x="${x}" y="${y}" width="${w}" height="${h}" as="geometry"/>`);
+    cells.push(`</mxCell>`);
+  }
+
+  // 边
+  for (const edge of edges) {
+    const id = cellId();
+    const source = nodeIdMap.get(edge.source);
+    const target = nodeIdMap.get(edge.target);
+    if (!source || !target) continue;
+    const label = edge.label ? escapeXml(edge.label) : '';
+    const style = 'edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;' + (edge.animated ? 'strokeColor=#FF6B6B;' : '');
+    cells.push(`<mxCell id="${id}" value="${label}" style="${style}" edge="1" parent="1" source="${source}" target="${target}">`);
+    cells.push(`<mxGeometry relative="1" as="geometry"/>`);
+    cells.push(`</mxCell>`);
+  }
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="${new Date().toISOString()}" agent="FlowVision" version="1.0">
+  <diagram name="FlowVision Export" id="flowvision-export">
+    <mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
+      <root>
+        ${cells.join('\n        ')}
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>`;
+
+  const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
+  triggerDownload(blob, filename);
+}
+
+/** 将流程图导出为 Visio VDX (XML) 格式 */
+export function exportVisio(graph: GraphData, filename = 'flowvision-graph.vdx') {
+  const { nodes, edges } = graph;
+
+  // 计算边界
+  let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
+  for (const n of nodes) {
+    if (n.position.x < minX) minX = n.position.x;
+    if (n.position.y < minY) minY = n.position.y;
+    const w = n.width || 120;
+    const h = n.height || 60;
+    if (n.position.x + w > maxX) maxX = n.position.x + w;
+    if (n.position.y + h > maxY) maxY = n.position.y + h;
+  }
+
+  const width = maxX - minX + 100;
+  const height = maxY - minY + 100;
+  const offsetX = minX === Infinity ? 0 : minX - 50;
+  const offsetY = minY === Infinity ? 0 : minY - 50;
+
+  // 生成形状
+  const shapes: string[] = [];
+  const nodeIdMap = new Map<string, number>();
+  let shapeId = 1;
+
+  for (const node of nodes) {
+    const id = shapeId++;
+    nodeIdMap.set(node.id, id);
+    const x = Math.round((node.position.x - offsetX) * 10); // VDX 使用缇 (1/20 点)
+    const y = Math.round((node.position.y - offsetY) * 10);
+    const w = (node.width || 120) * 10;
+    const h = (node.height || 60) * 10;
+    const label = escapeXml(node.data?.label || node.id);
+    const text = `<Text><cp IX='0'/>${label}</Text>`;
+
+    shapes.push(`
+    <Shape ID='${id}' Type='Shape' LineStyle='3' FillStyle='3' TextStyle='3'>
+      <Cell N='PinX' V='${(x + w/2)/10}'/>
+      <Cell N='PinY' V='${(height*10 - (y + h/2))/10}'/>
+      <Cell N='Width' V='${w/10}'/>
+      <Cell N='Height' V='${h/10}'/>
+      <Section N='Geometry'>
+        <Row T='RelMoveTo'><Cell N='X' V='0'/><Cell N='Y' V='0'/></Row>
+        <Row T='RelLineTo'><Cell N='X' V='1'/><Cell N='Y' V='0'/></Row>
+        <Row T='RelLineTo'><Cell N='X' V='1'/><Cell N='Y' V='1'/></Row>
+        <Row T='RelLineTo'><Cell N='X' V='0'/><Cell N='Y' V='1'/></Row>
+        <Row T='RelLineTo'><Cell N='X' V='0'/><Cell N='Y' V='0'/></Row>
+      </Section>
+      ${text}
+    </Shape>`);
+  }
+
+  // 连接线
+  for (const edge of edges) {
+    const sourceId = nodeIdMap.get(edge.source);
+    const targetId = nodeIdMap.get(edge.target);
+    if (!sourceId || !targetId) continue;
+    const id = shapeId++;
+    const label = edge.label ? escapeXml(edge.label) : '';
+    shapes.push(`
+    <Shape ID='${id}' Type='Shape' LineStyle='1' FillStyle='0' TextStyle='0'>
+      <Cell N='BeginX' V='0' F='Sheet.${sourceId}!PinX'/>
+      <Cell N='BeginY' V='0' F='Sheet.${sourceId}!PinY'/>
+      <Cell N='EndX' V='0' F='Sheet.${targetId}!PinX'/>
+      <Cell N='EndY' V='0' F='Sheet.${targetId}!PinY'/>
+      <Section N='Geometry'>
+        <Row T='MoveTo'><Cell N='X' V='0' F='BeginX'/><Cell N='Y' V='0' F='BeginY'/></Row>
+        <Row T='LineTo'><Cell N='X' V='0' F='EndX'/><Cell N='Y' V='0' F='EndY'/></Row>
+      </Section>
+      ${label ? `<Text><cp IX='0'/>${label}</Text>` : ''}
+    </Shape>`);
+  }
+
+  const vdx = `<?xml version="1.0" encoding="UTF-8"?>
+<VisioDocument xmlns='http://schemas.microsoft.com/visio/2003/core' Start='0'>
+  <DocumentSettings TopPage='0'/>
+  <Colors>
+    <ColorEntry IX='0' RGB='#000000'/>
+    <ColorEntry IX='1' RGB='#FFFFFF'/>
+    <ColorEntry IX='2' RGB='#FF0000'/>
+    <ColorEntry IX='3' RGB='#00FF00'/>
+    <ColorEntry IX='4' RGB='#0000FF'/>
+    <ColorEntry IX='5' RGB='#FFFF00'/>
+    <ColorEntry IX='6' RGB='#FF00FF'/>
+    <ColorEntry IX='7' RGB='#00FFFF'/>
+    <ColorEntry IX='8' RGB='#800000'/>
+    <ColorEntry IX='9' RGB='#008000'/>
+    <ColorEntry IX='10' RGB='#000080'/>
+    <ColorEntry IX='11' RGB='#808000'/>
+    <ColorEntry IX='12' RGB='#800080'/>
+    <ColorEntry IX='13' RGB='#008080'/>
+    <ColorEntry IX='14' RGB='#C0C0C0'/>
+    <ColorEntry IX='15' RGB='#E6E6E6'/>
+    <ColorEntry IX='16' RGB='#CDCDCD'/>
+    <ColorEntry IX='17' RGB='#B3B3B3'/>
+    <ColorEntry IX='18' RGB='#9A9A9A'/>
+    <ColorEntry IX='19' RGB='#808080'/>
+    <ColorEntry IX='20' RGB='#666666'/>
+    <ColorEntry IX='21' RGB='#4D4D4D'/>
+    <ColorEntry IX='22' RGB='#333333'/>
+    <ColorEntry IX='23' RGB='#1A1A1A'/>
+    <ColorEntry IX='24' RGB='#DAE8FC'/>
+    <ColorEntry IX='25' RGB='#6C8EBF'/>
+  </Colors>
+  <StyleSheets>
+    <StyleSheet ID='0' Name='Normal'>
+      <Line><Cell N='LineWeight' V='0.01'/></Line>
+      <Fill><Cell N='FillForegnd' V='#FFFFFF'/></Fill>
+      <Text><Cell N='Size' V='0.1666667'/></Text>
+    </StyleSheet>
+    <StyleSheet ID='1' Name='Connector'>
+      <Line><Cell N='LineWeight' V='0.01'/></Line>
+    </StyleSheet>
+    <StyleSheet ID='3' Name='Process'>
+      <Line><Cell N='LineWeight' V='0.01'/></Line>
+      <Fill><Cell N='FillForegnd' V='#DAE8FC'/></Fill>
+      <Text><Cell N='Size' V='0.1666667'/></Text>
+    </StyleSheet>
+  </StyleSheets>
+  <Pages>
+    <Page ID='0' Name='FlowVision Export'>
+      <PageSheet>
+        <Cell N='PageWidth' V='${width/10}'/>
+        <Cell N='PageHeight' V='${height/10}'/>
+      </PageSheet>
+      <Shapes>${shapes.join('')}
+      </Shapes>
+    </Page>
+  </Pages>
+</VisioDocument>`;
+
+  const blob = new Blob([vdx], { type: 'application/vnd.visio;charset=utf-8' });
+  triggerDownload(blob, filename);
+}
+
+/** XML 特殊字符转义 */
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 function triggerDataUrlDownload(url: string, filename: string) {
   const a = document.createElement('a');
   a.href = url;
