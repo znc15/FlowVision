@@ -1,4 +1,4 @@
-const REPO_URL = 'https://github.com/YangXiaoMian/FlowVision'
+const REPO_URL = 'https://github.com/znc15/FlowVision'
 
 const platforms = [
   {
@@ -47,10 +47,8 @@ export default function Download() {
   return (
     <section className="py-24 px-6">
       <div className="max-w-5xl mx-auto">
-        <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-          立即使用
-        </h2>
-        <p className="text-gray-500 text-center mb-16 max-w-2xl mx-auto">
+        <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">立即使用</h2>
+        <p className="text-slate-500 text-center mb-16 max-w-2xl mx-auto">
           下载桌面端或从源码构建，几分钟即可开始创作
         </p>
 
@@ -62,21 +60,21 @@ export default function Download() {
               href={p.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="card-hover flex flex-col items-center p-6 bg-white rounded-xl border border-gray-100 shadow-sm text-center"
+              className="card-hover flex flex-col items-center p-6 bg-white/90 rounded-2xl border border-slate-200 shadow-sm text-center"
             >
-              <div className="text-gray-700 mb-3">{p.icon}</div>
+              <div className="text-slate-700 mb-3">{p.icon}</div>
               <h3 className="text-lg font-semibold mb-1">{p.name}</h3>
-              <p className="text-sm text-gray-500">{p.desc}</p>
+              <p className="text-sm text-slate-500">{p.desc}</p>
             </a>
           ))}
         </div>
 
         {/* 快速开始 */}
-        <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm max-w-2xl mx-auto">
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-gray-400 text-xs font-mono">
+        <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-2xl mx-auto">
+          <div className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-400 text-xs font-mono">
             <span>终端</span>
           </div>
-          <pre className="p-5 bg-gray-900 text-green-400 text-sm font-mono overflow-x-auto leading-relaxed whitespace-pre">
+          <pre className="p-5 bg-slate-900 text-emerald-300 text-sm font-mono overflow-x-auto leading-relaxed whitespace-pre">
             {quickStart}
           </pre>
         </div>

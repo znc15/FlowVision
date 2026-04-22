@@ -16,6 +16,7 @@ export interface ProjectImportPayload {
 interface PromptImportOptions {
   projectContext?: string;
   fileContext?: string;
+  searchContext?: string;
 }
 
 const PROJECT_CONTEXT_LIMIT = 12000;
@@ -62,6 +63,10 @@ export function composePromptWithImports(userPrompt: string, options: PromptImpo
 
   if (options.fileContext) {
     sections.push(`## 已导入文件上下文\n${options.fileContext}`);
+  }
+
+  if (options.searchContext) {
+    sections.push(options.searchContext);
   }
 
   if (sections.length === 0) {

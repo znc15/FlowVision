@@ -10,6 +10,8 @@ import { generateGraph, generateGraphStream } from './routes/ai';
 import { analyzeCode } from './routes/analyze';
 import { listFiles, readFileContent, getFileContext, browseDirs, fetchGithubTree, fetchGiteeTree } from './routes/files';
 import { AVAILABLE_PROVIDERS, listModels } from './routes/aiProvider';
+import { mcpClientManager } from './mcp/mcpClientManager.js';
+import type { McpServerConfig } from './mcp/mcpClientManager.js';
 
 // 加载环境变量
 config();
@@ -221,6 +223,141 @@ server.post<{
   }
 });
 
+// ===== MCP 客户端管理 API =====
+
+/**
+ * 获取所有 MCP 服务器配置和状态
+ */
+server.get('/api/mcp/servers', async () => {
+  return {
+    success: true,
+    data: {
+      configs: mcpClientManager.getConfigs(),
+      status: mcpClientManager.getStatus(),
+    },
+  };
+});
+
+/**
+ * 获取所有已连接 MCP 服务器的工具列表
+ */
+server.get('/api/mcp/tools', async () => {
+  return {
+    success: true,
+    data: mcpClientManager.getAllTools(),
+  };
+});
+
+/**
+ * 添加/更新 MCP 服务器配置
+ */
+server.post<{ Body: McpServerConfig }>('/api/mcp/servers', async (request, reply) => {
+  try {
+    const config = request.body;
+    if (!config.id || !config.name || !config.transport) {
+      reply.code(400);
+      return { success: false, error: '缺少必填字段: id, name, transport' };
+    }
+    await mcpClientManager.setConfig(config);
+    return { success: true, data: config };
+  } catch (error: any) {
+    reply.code(500);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * 删除 MCP 服务器配置
+ */
+server.delete<{ Params: { id: string } }>('/api/mcp/servers/:id', async (request, reply) => {
+  try {
+    const { id } = request.params;
+    await mcpClientManager.removeConfig(decodeURIComponent(id));
+    return { success: true };
+  } catch (error: any) {
+    reply.code(500);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * 连接到 MCP 服务器
+ */
+server.post<{ Params: { id: string } }>('/api/mcp/servers/:id/connect', async (request, reply) => {
+  try {
+    const { id } = request.params;
+    await mcpClientManager.connect(decodeURIComponent(id));
+    return { success: true };
+  } catch (error: any) {
+    reply.code(500);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * 断开 MCP 服务器
+ */
+server.post<{ Params: { id: string } }>('/api/mcp/servers/:id/disconnect', async (request, reply) => {
+  try {
+    const { id } = request.params;
+    await mcpClientManager.disconnect(decodeURIComponent(id));
+    return { success: true };
+  } catch (error: any) {
+    reply.code(500);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * 测试 MCP 服务器连接
+ */
+server.post<{ Params: { id: string } }>('/api/mcp/servers/:id/test', async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const result = await mcpClientManager.testConnection(decodeURIComponent(id));
+    return { success: true, data: result };
+  } catch (error: any) {
+    reply.code(500);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * 调用 MCP 工具
+ */
+server.post<{ Body: { serverId: string; toolName: string; args: Record<string, any> } }>('/api/mcp/call-tool', async (request, reply) => {
+  try {
+    const { serverId, toolName, args } = request.body;
+    if (!serverId || !toolName) {
+      reply.code(400);
+      return { success: false, error: '缺少必填字段: serverId, toolName' };
+    }
+    const result = await mcpClientManager.callTool(serverId, toolName, args || {});
+    return { success: true, data: result };
+  } catch (error: any) {
+    reply.code(500);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * 智能调用工具（按名称搜索所有服务器）
+ */
+server.post<{ Body: { toolName: string; args: Record<string, any> } }>('/api/mcp/call', async (request, reply) => {
+  try {
+    const { toolName, args } = request.body;
+    if (!toolName) {
+      reply.code(400);
+      return { success: false, error: '缺少必填字段: toolName' };
+    }
+    const result = await mcpClientManager.callToolByName(toolName, args || {});
+    return { success: true, data: result };
+  } catch (error: any) {
+    reply.code(500);
+    return { success: false, error: error.message };
+  }
+});
+
 // ===== WebSocket 路由 =====
 
 /**
@@ -281,6 +418,7 @@ signals.forEach((signal) => {
   process.on(signal, async () => {
     server.log.info(`收到 ${signal} 信号，正在关闭服务器...`);
     broadcaster.closeAll();
+    await mcpClientManager.closeAll();
     await server.close();
     process.exit(0);
   });

@@ -1,0 +1,94 @@
+# 贡献指南
+
+感谢你对 FlowVision 的关注！欢迎提交 Issue 和 Pull Request。
+
+## 提交 Issue
+
+- 使用 GitHub Issues 提交 Bug 报告或功能建议
+- 请提供详细的复现步骤和环境信息
+- 对于功能建议，请描述使用场景和预期行为
+
+## 开发流程
+
+### 1. Fork 仓库
+
+```bash
+# Fork 后克隆
+git clone https://github.com/YOUR_USERNAME/FlowVision.git
+cd FlowVision
+```
+
+### 2. 创建分支
+
+```bash
+git checkout -b feature/your-feature-name
+# 或
+git checkout -b fix/your-fix-name
+```
+
+### 3. 开发
+
+```bash
+# 安装依赖
+pnpm install
+
+# 启动开发环境
+pnpm dev
+```
+
+### 4. 测试
+
+```bash
+pnpm test
+```
+
+### 5. 提交
+
+提交信息使用简体中文，格式遵循 [Conventional Commits](https://www.conventionalcommits.org/)：
+
+```
+feat: 添加 XX 功能
+fix: 修复 XX 问题
+docs: 更新 XX 文档
+refactor: 重构 XX 模块
+```
+
+### 6. 创建 PR
+
+- PR 标题和描述使用简体中文
+- 描述改动内容和原因
+- 关联相关 Issue
+
+## 代码规范
+
+### TypeScript
+
+- 严格模式（`strict: true`）
+- 所有公共 API 需要类型注解
+- 使用 `interface` 定义对象类型，`type` 定义联合类型
+
+### React
+
+- 函数组件 + Hooks
+- 使用 Zustand 管理全局状态
+- Props 使用 interface 定义
+- 使用 `useCallback` / `useMemo` 优化渲染
+
+### 样式
+
+- 使用 Tailwind CSS
+- 遵循项目既有的设计系统变量
+- 组件级样式通过 className 组合
+
+### 注释
+
+- 注释使用简体中文
+- 描述意图而非重复代码
+- 只在非显而易见的地方添加注释
+
+## 发布流程
+
+1. 更新 `package.json` 版本号
+2. 更新 `CHANGELOG`
+3. 推送版本标签：`git tag v1.x.x && git push origin v1.x.x`
+4. GitHub Actions 自动构建三平台安装包

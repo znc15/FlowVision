@@ -1,8 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --fv-ink: #11253a;
+    --fv-soft: #526070;
+    --fv-primary: #0050cb;
+    --fv-emerald: #0f8b62;
+    --fv-bg: #f4f8fc;
+    --fv-bg-grid: rgba(0, 80, 203, 0.06);
+  }
+
   html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
@@ -10,14 +20,27 @@
   }
 
   body {
-    @apply bg-white text-gray-900;
+    font-family: 'Noto Sans SC', 'Segoe UI', sans-serif;
+    color: var(--fv-ink);
+    background:
+      radial-gradient(circle at 8% -10%, rgba(0, 80, 203, 0.18), transparent 35%),
+      radial-gradient(circle at 92% -5%, rgba(15, 139, 98, 0.12), transparent 33%),
+      var(--fv-bg);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+    letter-spacing: -0.02em;
   }
 }
 
 @layer utilities {
   .gradient-text {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #0050cb 0%, #006914 50%, #0050cb 100%);
+    background-image: linear-gradient(130deg, #0050cb 0%, #0f8b62 55%, #0050cb 100%);
     background-size: 200% auto;
     animation: gradient-shift 4s ease-in-out infinite;
   }
@@ -29,23 +52,33 @@
 
   .hero-grid {
     background-image:
-      linear-gradient(rgba(0, 80, 203, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 80, 203, 0.04) 1px, transparent 1px);
+      linear-gradient(var(--fv-bg-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--fv-bg-grid) 1px, transparent 1px);
     background-size: 48px 48px;
   }
 
   .hero-glow {
     background: radial-gradient(
-      ellipse 60% 50% at 50% 40%,
-      rgba(0, 80, 203, 0.08) 0%,
+      ellipse 62% 54% at 50% 38%,
+      rgba(0, 80, 203, 0.11) 0%,
       transparent 70%
     );
+  }
+
+  .section-shell {
+    @apply rounded-3xl border border-white/70 shadow-[0_24px_65px_-34px_rgba(17,37,58,0.32)] backdrop-blur-sm;
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.66));
+  }
+
+  .noise-overlay {
+    background-image: radial-gradient(rgba(17, 37, 58, 0.05) 0.6px, transparent 0.6px);
+    background-size: 3px 3px;
   }
 
   .card-hover {
     @apply transition-all duration-300;
   }
   .card-hover:hover {
-    @apply -translate-y-1 shadow-lg;
+    @apply -translate-y-1 shadow-xl;
   }
 }

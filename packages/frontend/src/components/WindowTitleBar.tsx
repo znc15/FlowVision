@@ -1,7 +1,8 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, useMemo, type CSSProperties } from 'react';
 
 function WindowTitleBar() {
   const isElectron = Boolean(window.electron?.isElectron);
+  const isMacOS = useMemo(() => window.electron?.platform === 'darwin', []);
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
@@ -52,6 +53,23 @@ function WindowTitleBar() {
       window.close();
     }
   };
+
+  // macOS: 系统自带红绿灯按钮在左侧，隐藏自定义窗口控制按钮，品牌文字移到右侧
+  if (isMacOS) {
+    return (
+      <header className="window-titlebar">
+        {/* 左侧留白给 macOS 红绿灯 */}
+        <div className="window-titlebar-drag" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
+        {/* macOS 品牌文字放右侧 */}
+        <div className="window-titlebar-brand" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>
+          <div className="window-titlebar-logo">F</div>
+          <div className="min-w-0">
+            <div className="window-titlebar-title">FlowVision</div>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="window-titlebar">

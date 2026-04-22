@@ -1,0 +1,208 @@
+# MCP 客户端管理 API
+
+FlowVision 后端提供 REST API 用于管理外部 MCP 服务器连接。
+
+## 服务器管理
+
+### 获取所有服务器
+
+```
+GET /api/mcp/servers
+```
+
+返回所有已配置的 MCP 服务器配置和状态。
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "configs": [
+      {
+        "id": "grok-search",
+        "name": "GrokSearch",
+        "transport": "stdio",
+        "stdio": {
+          "command": "uvx",
+          "args": ["--from", "git+https://...", "grok-search"],
+          "env": { "GROK_API_KEY": "***" }
+        },
+        "enabled": true,
+        "builtin": true,
+        "description": "AI 联网搜索服务"
+      }
+    ],
+    "status": [
+      { "id": "grok-search", "name": "GrokSearch", "status": "connected", "tools": 9 }
+    ]
+  }
+}
+```
+
+### 添加/更新服务器
+
+```
+POST /api/mcp/servers
+```
+
+**请求体：**
+
+```json
+{
+  "id": "my-server",
+  "name": "自定义搜索服务",
+  "transport": "stdio",
+  "stdio": {
+    "command": "node",
+    "args": ["server.js"],
+    "env": { "API_KEY": "your-key" }
+  },
+  "enabled": true,
+  "description": "描述文字"
+}
+```
+
+对于 SSE 或 HTTP 传输：
+
+```json
+{
+  "id": "remote-server",
+  "name": "远程服务",
+  "transport": "sse",
+  "url": "http://localhost:3000/mcp/sse",
+  "enabled": true
+}
+```
+
+### 删除服务器
+
+```
+DELETE /api/mcp/servers/:id
+```
+
+### 连接服务器
+
+```
+POST /api/mcp/servers/:id/connect
+```
+
+### 断开服务器
+
+```
+POST /api/mcp/servers/:id/disconnect
+```
+
+### 测试连接
+
+```
+POST /api/mcp/servers/:id/test
+```
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "message": "连接成功，发现 9 个工具",
+    "tools": ["web_search", "web_fetch", "web_map", "..."]
+  }
+}
+```
+
+## 工具调用
+
+### 获取所有工具
+
+```
+GET /api/mcp/tools
+```
+
+返回所有已连接服务器提供的工具列表。
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "serverId": "grok-search",
+      "serverName": "GrokSearch",
+      "tools": [
+        { "name": "web_search", "description": "AI 联网搜索" },
+        { "name": "web_fetch", "description": "获取网页内容" }
+      ]
+    }
+  ]
+}
+```
+
+### 调用指定服务器的工具
+
+```
+POST /api/mcp/call-tool
+```
+
+**请求体：**
+
+```json
+{
+  "serverId": "grok-search",
+  "toolName": "web_search",
+  "args": { "query": "最新 AI 新闻" }
+}
+```
+
+### 智能调用工具
+
+按工具名称在所有已连接服务器中搜索并调用：
+
+```
+POST /api/mcp/call
+```
+
+**请求体：**
+
+```json
+{
+  "toolName": "web_search",
+  "args": { "query": "最新 AI 新闻" }
+}
+```
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "content": [
+      { "type": "text", "text": "搜索结果..." }
+    ],
+    "isError": false,
+    "serverId": "grok-search"
+  }
+}
+```
+
+## 错误处理
+
+所有 API 在失败时返回统一格式：
+
+```json
+{
+  "success": false,
+  "error": "错误描述信息"
+}
+```
+
+常见错误码：
+
+| HTTP 状态码 | 说明 |
+| ----------- | ---- |
+| 400 | 请求参数缺失或无效 |
+| 500 | 服务器内部错误（连接失败、工具调用失败等） |

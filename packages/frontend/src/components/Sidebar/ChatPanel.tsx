@@ -4,6 +4,7 @@ import { usePreviewStore } from '../../store/previewStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useChatStore } from '../../store/chatStore';
 import { useLogStore } from '../../store/logStore';
+import { useMcpStore } from '../../store/mcpStore';
 import { useToastStore } from '../../store/toastStore';
 import { useTabStore } from '../../store/tabStore';
 import { logger } from '../../utils/logger';
@@ -279,6 +280,7 @@ function ChatPanel() {
   const [importingFile, setImportingFile] = useState(false);
   const [importedProject, setImportedProject] = useState<ImportedContextItem | null>(null);
   const [importedFiles, setImportedFiles] = useState<ImportedContextItem[]>([]);
+  const [searchEnabled, setSearchEnabled] = useState(false);
   const streamingMsgId = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -419,9 +421,38 @@ function ChatPanel() {
       edges,
       ...(diagramType !== 'flowchart' && { meta: { diagramType } }),
     };
+
+    // 联网搜索：先获取搜索结果，再注入到 prompt 中
+    let searchContext: string | undefined;
+    if (searchEnabled) {
+      try {
+        useLogStore.getState().add('info', '联网搜索', `搜索: ${userPrompt.slice(0, 50)}`, undefined, {
+          status: 'running',
+          step: '调用 web_search 工具',
+          tags: ['联网搜索'],
+        });
+        const searchResult = await useMcpStore.getState().webSearch(userPrompt);
+        if (searchResult.success && searchResult.content) {
+          const texts = searchResult.content
+            .filter((c: any) => c.type === 'text')
+            .map((c: any) => c.text)
+            .join('\n');
+          if (texts) {
+            searchContext = `\n\n## 联网搜索结果\n以下是来自互联网的搜索结果，请结合这些信息回答用户问题：\n${texts}`;
+            useLogStore.getState().add('success', '联网搜索', `搜索完成，获取到 ${texts.length} 字符的搜索结果`);
+          }
+        }
+      } catch (e) {
+        useLogStore.getState().add('warn', '联网搜索', '联网搜索不可用，将使用纯 AI 回答', undefined, {
+          tags: ['联网搜索'],
+        });
+      }
+    }
+
     const effectivePrompt = composePromptWithImports(userPrompt, {
       projectContext: importedProject?.text,
       fileContext: importedFiles.map((f) => f.text).join('\n\n') || undefined,
+      searchContext,
     });
 
     addMessage({ role: 'user', content: userPrompt });
@@ -455,7 +486,13 @@ function ChatPanel() {
       ...(maxOutputTokens && { maxOutputTokens }),
       ...(maxContextTokens && { maxContextTokens }),
     };
-    useLogStore.getState().add('info', 'AI请求', `发送生成请求: ${provider}/${model || '默认模型'}`, JSON.stringify(requestBody, null, 2));
+    const startTime = performance.now();
+    const logId = useLogStore.getState().add('info', 'AI请求', `发送生成请求: ${provider}/${model || '默认模型'}`, JSON.stringify(requestBody, null, 2), {
+      status: 'running',
+      step: '连接 AI 服务',
+      stepIndex: '1/3',
+      tags: ['AI生成', provider],
+    });
 
     try {
       const response = await fetch(`${getBackendUrl()}/api/ai/generate-stream`, {
@@ -547,9 +584,24 @@ function ChatPanel() {
       if (finalMsg && !finalMsg.content) {
         updateMessage(assistantId, 'AI 未返回有效内容');
       }
+      useLogStore.getState().update(logId, {
+        status: 'completed',
+        step: '生成完成',
+        stepIndex: '3/3',
+        duration: Math.round(performance.now() - startTime),
+        level: 'success',
+        message: `AI 生成完成: ${provider}/${model || '默认模型'}`,
+      });
     } catch (error) {
       logger.error('AI 流式生成失败', error);
       updateMessage(assistantId, `生成失败：${error instanceof Error ? error.message : '请检查后端服务和 API Key 配置'}`);
+      useLogStore.getState().update(logId, {
+        status: 'failed',
+        step: '生成失败',
+        duration: Math.round(performance.now() - startTime),
+        level: 'error',
+        message: `AI 生成失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      });
     } finally {
       streamingMsgId.current = null;
       setLoading(false);
@@ -863,6 +915,17 @@ function ChatPanel() {
           >
             <span className="material-symbols-outlined text-base">psychology</span>
           </button>
+          <button
+            onClick={() => setSearchEnabled((v) => !v)}
+            className={`shrink-0 h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+              searchEnabled
+                ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-200'
+                : 'bg-surface-container-highest/60 text-on-surface-variant/50 hover:bg-surface-container-highest'
+            }`}
+            title={searchEnabled ? '关闭联网搜索' : '开启联网搜索（需要配置 GrokSearch MCP）'}
+          >
+            <span className="material-symbols-outlined text-base">travel_explore</span>
+          </button>
           <input
             type="text"
             value={input}
@@ -909,7 +972,9 @@ function ChatPanel() {
           </button>
         </div>
         <p className="text-[9px] text-on-surface-variant/60 mt-2">
-          {thinkingEnabled
+          {searchEnabled
+            ? '联网搜索已开启，AI 将结合搜索结果回答'
+            : thinkingEnabled
             ? '思考模式已开启，AI 将展示推理过程'
             : drawInNewTab
             ? '新画布模式已开启，生成结果会落到新建标签页'

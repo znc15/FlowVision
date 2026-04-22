@@ -1,66 +1,101 @@
-const REPO_URL = 'https://github.com/YangXiaoMian/FlowVision'
+const REPO_URL = 'https://github.com/znc15/FlowVision'
 
-const tags = ['一键分析', '自动生成', '可视化编辑', 'MCP 同步']
+const tags = ['桌面优先', '多模型 AI', '流程图工程化', 'MCP 实时协同']
+const stats = [
+  { value: '16', label: 'MCP 标准工具' },
+  { value: '12', label: '节点类型' },
+  { value: '4', label: '连线样式' },
+]
 
 export default function Hero() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-screen flex items-center overflow-hidden px-6 py-16 sm:py-20">
       {/* 背景网格 + 光晕 */}
       <div className="absolute inset-0 hero-grid" />
       <div className="absolute inset-0 hero-glow" />
+      <div className="absolute inset-0 noise-overlay opacity-35" />
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 text-center py-20">
-        {/* Logo */}
-        <img
-          src="logo/logo_256.png"
-          alt="FlowVision Logo"
-          className="w-24 h-24 mx-auto mb-8"
-        />
+      <div className="relative z-10 max-w-6xl mx-auto w-full section-shell p-8 sm:p-12">
+        <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-10 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-4 py-1.5 text-sm font-semibold text-primary mb-6">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+              v1.2 持续迭代中
+            </div>
 
-        {/* 标题 */}
-        <h1 className="text-6xl sm:text-7xl font-bold tracking-tight mb-4">
-          <span className="gradient-text">FlowVision</span>
-        </h1>
+            <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-4 leading-[1.05]">
+              从想法到图谱
+              <span className="gradient-text block">FlowVision 一步到位</span>
+            </h1>
 
-        {/* 副标题 */}
-        <p className="text-xl sm:text-2xl text-gray-600 mb-8 max-w-2xl mx-auto">
-          AI 驱动的智能流程图设计工具
-        </p>
+            <p className="text-lg sm:text-xl text-slate-600 mb-7 max-w-2xl leading-relaxed">
+              面向开发团队的 AI 流程图工作台。支持自然语言生成、可视化精修、项目结构分析与 MCP 同步，让设计与实现保持同频。
+            </p>
 
-        {/* 特性标签 */}
-        <div className="flex flex-wrap justify-center gap-3 mb-10">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className="px-4 py-1.5 text-sm font-medium rounded-full bg-primary/5 text-primary border border-primary/10"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+            <div className="flex flex-wrap gap-3 mb-8">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-4 py-1.5 text-sm font-medium rounded-full bg-white border border-slate-200 text-slate-700"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
 
-        {/* CTA 按钮 */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <a
-            href="https://znc15.github.io/FlowVision-Docs/quickstart"
-            className="inline-flex items-center px-8 py-3 text-base font-semibold text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors shadow-md shadow-primary/20"
-          >
-            快速开始
-            <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </a>
-          <a
-            href={REPO_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-8 py-3 text-base font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <svg className="mr-2 w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-            </svg>
-            GitHub
-          </a>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
+              <a
+                href="https://znc15.github.io/FlowVision-Docs/quickstart"
+                className="inline-flex items-center px-8 py-3 text-base font-semibold text-white bg-primary rounded-xl hover:bg-primary-dark transition-colors shadow-lg shadow-primary/25"
+              >
+                5 分钟上手
+                <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </a>
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-8 py-3 text-base font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                查看源码
+              </a>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              {stats.map((item) => (
+                <div key={item.label} className="rounded-xl bg-white/90 border border-slate-100 px-4 py-3">
+                  <p className="text-2xl font-bold text-slate-800">{item.value}</p>
+                  <p className="text-xs sm:text-sm text-slate-500">{item.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-950 text-slate-200 overflow-hidden shadow-2xl shadow-slate-900/20">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+              </div>
+              <span className="text-xs text-slate-400 font-mono">flowvision session</span>
+            </div>
+            <div className="p-5 space-y-4 text-sm leading-relaxed">
+              <p className="text-emerald-300 font-mono">$ /analyze repo --source github</p>
+              <p className="text-slate-300">已识别 24 个模块，自动生成系统流程骨架。</p>
+              <div className="h-px bg-slate-800" />
+              <p className="text-cyan-300 font-mono">$ /generate "支付审批流程 + 异常分支"</p>
+              <p className="text-slate-300">图谱已生成，可继续拖拽编辑并同步到 MCP 客户端。</p>
+            </div>
+            <img
+              src="images/main.png"
+              alt="FlowVision 主界面"
+              className="w-full border-t border-slate-800/80"
+              loading="lazy"
+            />
+          </div>
         </div>
       </div>
     </section>

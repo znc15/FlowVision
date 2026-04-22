@@ -1,0 +1,60 @@
+# 联网搜索
+
+FlowVision 支持通过 MCP 服务器为 AI 对话提供联网搜索能力。默认集成 [GrokSearch](https://github.com/GuDaStudio/GrokSearch) MCP 服务器。
+
+## 前置条件
+
+- Python 3.10+ 和 `uvx` 已安装
+- Grok API 密钥（OpenAI 兼容格式）
+
+## 配置步骤
+
+### 1. 安装 uvx
+
+```bash
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### 2. 配置环境变量
+
+在项目根目录 `.env` 文件中添加：
+
+```env
+GROK_API_URL=https://your-api-endpoint/v1
+GROK_API_KEY=your-api-key
+# 可选配置
+GROK_MODEL=grok-3-mini
+TAVILY_API_KEY=tvly-your-key  # 用于 web_fetch 和 web_map
+```
+
+### 3. 启用搜索
+
+1. 打开 **设置 → MCP 服务**
+2. 找到内置的 **GrokSearch** 服务器
+3. 点击 **连接** 按钮
+4. 可选：点击 **测试** 按钮验证连接
+
+## 使用方法
+
+1. 在 AI 对话输入框旁，点击搜索图标（🌍）开启联网搜索模式
+2. 输入问题后发送，AI 将先搜索互联网获取实时信息
+3. 搜索结果会自动注入到 AI 的上下文中，AI 结合搜索结果回答
+
+## 搜索状态
+
+搜索过程中，Agent 日志面板会记录：
+- 搜索请求发起
+- 搜索结果获取状态
+- 错误信息（如连接失败）
+
+## 故障排除
+
+| 问题 | 解决方案 |
+| ---- | -------- |
+| 连接失败 | 检查 `uvx` 是否已安装，GROK_API_KEY 是否正确 |
+| 搜索无结果 | 检查 API 端点是否可访问 |
+| 速度慢 | GrokSearch 首次启动需要下载依赖，后续会缓存 |

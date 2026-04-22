@@ -5,6 +5,7 @@ import { useGraphStore } from '../store/graphStore';
 import { useTabStore } from '../store/tabStore';
 import { getBackendUrl } from '../utils/backend';
 import { useChatStore } from '../store/chatStore';
+import McpSettingsPanel from './McpSettingsPanel';
 import { exportBackup, importBackup, backupToWebDAV, restoreFromWebDAV, exportChatHistory, exportSettings, exportCanvasTabs, exportLogs } from '../utils/export';
 
 interface SettingsDialogProps {
@@ -17,7 +18,7 @@ const PROVIDER_OPTIONS: { id: AIProvider; name: string; defaultModel: string }[]
   { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4.1' },
 ];
 
-type SettingsTab = 'ai' | 'prompt' | 'advanced' | 'backup' | 'about' | 'update' | 'log' | 'status';
+type SettingsTab = 'ai' | 'prompt' | 'advanced' | 'mcp' | 'backup' | 'about' | 'update' | 'log' | 'status';
 
 function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const store = useSettingsStore();
@@ -302,6 +303,7 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     { id: 'ai', icon: 'smart_toy', label: 'AI 设置' },
     { id: 'prompt', icon: 'edit_note', label: '提示词' },
     { id: 'advanced', icon: 'tune', label: '高级' },
+    { id: 'mcp', icon: 'hub', label: 'MCP 服务' },
     { id: 'backup', icon: 'backup', label: '备份' },
     { id: 'about', icon: 'info', label: '关于' },
     { id: 'update', icon: 'update', label: '更新' },
@@ -1013,6 +1015,11 @@ function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                 <p className="text-[10px] text-slate-400 mt-1.5">修改后需重启应用生效（默认 3001）</p>
               </div>
             </div>
+          )}
+
+          {/* ===== MCP 服务标签页 ===== */}
+          {activeTab === 'mcp' && (
+            <McpSettingsPanel />
           )}
 
           {/* ===== 备份标签页 ===== */}

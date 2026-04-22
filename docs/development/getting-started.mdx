@@ -1,0 +1,161 @@
+# 开发指南
+
+## 环境要求
+
+- **Node.js** ≥ 20
+- **pnpm** ≥ 9
+- **Python** ≥ 3.10（可选，用于 MCP 服务器如 GrokSearch）
+- **Git**
+
+## 快速开始
+
+### 1. 克隆仓库
+
+```bash
+git clone https://github.com/YangXiaoMian/FlowVision.git
+cd FlowVision
+```
+
+### 2. 安装依赖
+
+```bash
+pnpm install
+```
+
+### 3. 启动开发环境
+
+```bash
+# 启动前端 + 后端（并行）
+pnpm dev
+```
+
+前端运行在 `http://localhost:5173`（Vite HMR），后端运行在 `http://localhost:3001`（tsx watch 热重载）。
+
+### 4. 桌面端开发
+
+```bash
+# 先构建前端和后端
+pnnpm build
+
+# 然后启动 Electron
+cd packages/desktop && pnpm dev
+```
+
+## 项目结构
+
+```
+FlowVision/
+├── packages/
+│   ├── frontend/          # React 前端
+│   │   ├── src/
+│   │   │   ├── components/    # UI 组件
+│   │   │   │   ├── Canvas/        # React Flow 画布
+│   │   │   │   ├── Explorer/      # 文件浏览器
+│   │   │   │   ├── Sidebar/       # 侧边栏面板
+│   │   │   │   ├── Toolbar/       # 工具栏
+│   │   │   │   └── ...
+│   │   │   ├── store/         # Zustand 状态管理
+│   │   │   ├── hooks/         # React Hooks
+│   │   │   ├── utils/         # 工具函数
+│   │   │   ├── types/         # TypeScript 类型
+│   │   │   └── styles/        # 全局样式
+│   │   ├── package.json
+│   │   └── vite.config.ts
+│   │
+│   ├── backend/           # Fastify 后端
+│   │   ├── src/
+│   │   │   ├── routes/        # HTTP 路由
+│   │   │   ├── mcp/           # MCP 服务器 + 客户端管理
+│   │   │   ├── state/         # 图状态管理
+│   │   │   ├── ws/            # WebSocket 广播
+│   │   │   └── types/         # 共享类型
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   ├── analyzer/          # 代码分析引擎
+│   │   ├── src/
+│   │   │   ├── analyzer.ts    # 主分析函数
+│   │   │   ├── collectors/    # 文件收集器
+│   │   │   ├── prompts/       # AI 提示词
+│   │   │   └── layout/        # 自动布局
+│   │   └── package.json
+│   │
+│   └── desktop/           # Electron 桌面端
+│       ├── main.js            # 主进程
+│       ├── preload.js         # 预加载脚本
+│       └── package.json
+│
+├── docs/                  # Mintlify 文档
+├── turbo.json             # Turborepo 配置
+├── pnpm-workspace.yaml    # pnpm 工作区
+└── package.json           # 根 package.json
+```
+
+## 开发命令
+
+```bash
+# 开发
+pnpm dev                    # 启动前端 + 后端
+pnpm build                  # 构建所有包
+pnpm build:desktop          # 构建桌面应用
+
+# 测试
+pnpm test                   # 运行测试
+pnpm test:coverage          # 测试覆盖率
+
+# 代码质量
+pnpm lint                   # 代码检查（如已配置）
+```
+
+## 技术栈详情
+
+### 前端
+
+| 技术 | 版本 | 用途 |
+| ---- | ---- | ---- |
+| React | 18 | UI 框架 |
+| TypeScript | 5 | 类型安全 |
+| React Flow | v12 | 流程图渲染 |
+| Zustand | - | 状态管理 |
+| Tailwind CSS | - | 样式系统 |
+| Vite | 5 | 构建工具 |
+
+### 后端
+
+| 技术 | 用途 |
+| ---- | ---- |
+| Fastify | HTTP 服务器 |
+| WebSocket (ws) | 实时同步 |
+| @modelcontextprotocol/sdk | MCP 服务端 + 客户端 |
+| @anthropic-ai/sdk | Claude API |
+| openai | OpenAI API |
+| zod | 参数校验 |
+
+### 状态管理
+
+前端使用 Zustand，主要 Store：
+
+| Store | 文件 | 用途 |
+| ----- | ---- | ---- |
+| `useGraphStore` | `store/graphStore.ts` | 画布节点/边/撤销重做 |
+| `useChatStore` | `store/chatStore.ts` | AI 对话消息/会话 |
+| `useSettingsStore` | `store/settingsStore.ts` | AI 配置/模型设置 |
+| `useLogStore` | `store/logStore.ts` | Agent 日志 |
+| `useMcpStore` | `store/mcpStore.ts` | MCP 服务器管理 |
+| `useTabStore` | `store/tabStore.ts` | 画布标签页 |
+| `usePreviewStore` | `store/previewStore.ts` | 预览状态 |
+
+## 环境变量
+
+在 `.env` 文件中配置：
+
+| 变量 | 说明 | 默认值 |
+| ---- | ---- | ------ |
+| `ANTHROPIC_API_KEY` | Claude API 密钥 | - |
+| `OPENAI_API_KEY` | OpenAI API 密钥 | - |
+| `BACKEND_PORT` | 后端端口 | `3001` |
+| `BACKEND_HOST` | 后端监听地址 | `127.0.0.1` |
+| `GROK_API_URL` | Grok API 端点 | - |
+| `GROK_API_KEY` | Grok API 密钥 | - |
+| `GROK_MODEL` | Grok 默认模型 | `grok-3-mini` |
+| `TAVILY_API_KEY` | Tavily API 密钥 | - |

@@ -1,0 +1,98 @@
+# 项目结构详解
+
+## Monorepo 架构
+
+FlowVision 使用 pnpm workspace + Turborepo 管理 monorepo：
+
+```
+根 package.json         → 定义全局脚本
+pnpm-workspace.yaml     → 声明 packages/* 为工作区
+turbo.json              → 构建编排和缓存
+```
+
+### 包依赖关系
+
+```
+analyzer → (独立，仅被 backend 调用)
+frontend → backend (通过 HTTP/SSE/WebSocket)
+desktop  → frontend (静态文件) + backend (Node.js 进程)
+```
+
+## 数据流
+
+### AI 生成流程
+
+```
+用户输入 prompt
+  → ChatPanel.handleSend()
+  → POST /api/ai/generate-stream (SSE)
+  → aiProvider.ts (Claude/OpenAI)
+  → 流式返回文本 chunks
+  → 前端解析 GraphDiff
+  → previewStore.setPreviewFromDiff()
+  → 用户确认 → graphStore.applyDiff()
+  → WebSocket 广播 graph:replace
+```
+
+### MCP 客户端连接
+
+```
+用户配置 MCP 服务器
+  → McpSettingsPanel
+  → POST /api/mcp/servers
+  → mcpClientManager.setConfig()
+  → StdioClientTransport / SSEClientTransport
+  → Client.connect()
+  → Client.listTools()
+  → 工具可通过 /api/mcp/call-tool 调用
+```
+
+### 项目分析流程
+
+```
+用户点击 "AI 分析项目"
+  → ProjectSidebar.handleGenerate()
+  → GET /api/file-context (收集文件)
+  → POST /api/ai/generate-stream (rawMode)
+  → AI 返回 JSON 概览
+  → 前端展示分析结果
+```
+
+## 关键设计模式
+
+### GraphDiff 增量更新
+
+所有 AI 生成的图表通过 `GraphDiff` 格式返回：
+
+```typescript
+interface GraphDiff {
+  add: { nodes: Node[]; edges: Edge[] };
+  update: { nodes: Partial<Node>[]; edges: Partial<Edge>[] };
+  remove: { nodeIds: string[]; edgeIds: string[] };
+  meta?: { diagramType: string };
+}
+```
+
+### 统一 AI Provider
+
+`aiProvider.ts` 抽象了 Claude 和 OpenAI 的差异：
+
+- `ClaudeProvider`：支持 thinking 模式、流式输出
+- `OpenAIProvider`：支持 Responses API、动态模型发现
+
+### Zustand Store 持久化
+
+所有需要持久化的 Store 使用 localStorage：
+
+- `graphStore` → 画布状态
+- `chatStore` → 对话历史（最多 50 条）
+- `settingsStore` → 设置
+- `logStore` → 日志（最多 500 条）
+
+### WebSocket 实时同步
+
+`broadcaster.ts` 管理所有 WebSocket 客户端：
+
+- 图变更广播（`graph:replace`、`graph:diff`）
+- 分析进度（`analyze:progress`）
+- 错误通知（`error`）

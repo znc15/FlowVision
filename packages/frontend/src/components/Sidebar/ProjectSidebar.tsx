@@ -126,7 +126,12 @@ function ProjectSidebar() {
     setGenError('');
     setStreamingOverviewText('');
     setAnalysisStep(1);
-    useLogStore.getState().add('info', 'AI分析', `开始生成项目概览: ${projectPath}`);
+    useLogStore.getState().add('info', 'AI分析', `开始生成项目概览: ${projectPath}`, undefined, {
+      status: 'running',
+      step: '收集项目文件',
+      stepIndex: '1/4',
+      tags: ['项目分析', '概览'],
+    });
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -269,7 +274,17 @@ function ProjectSidebar() {
       setOverview(data);
       setAnalysisStep(4);
       saveCachedOverview(projectPath, data);
-      useLogStore.getState().add('success', 'AI分析', `项目概览生成完成: ${data.name}`);
+      useLogStore.getState().add('success', 'AI分析', `项目概览生成完成: ${data.name}`, undefined, {
+        status: 'completed',
+        step: '分析完成',
+        stepIndex: '4/4',
+        duration: 0,
+        tags: ['项目分析', '概览'],
+        metrics: [
+          { label: '技术栈', value: `${data.techStack?.length || 0} 项` },
+          { label: '模块数', value: `${data.modules?.length || 0} 个` },
+        ],
+      });
     } catch (e) {
       if ((e as Error).name !== 'AbortError') {
         const msg = e instanceof Error ? e.message : '生成失败';
@@ -333,7 +348,12 @@ function ProjectSidebar() {
       }
     } catch { /* 不阻断 */ }
 
-    useLogStore.getState().add('info', 'AI分析', '开始生成架构流程图和调用链');
+    useLogStore.getState().add('info', 'AI分析', '开始生成架构流程图和调用链', undefined, {
+      status: 'running',
+      step: '准备文件上下文',
+      stepIndex: '1/3',
+      tags: ['项目分析', '架构图'],
+    });
 
     setCanvasStep(2);
     // 仅在流长时间无数据时中断，避免把慢任务误判为超时
@@ -419,7 +439,16 @@ ${fileContextStr}
             }
             if (event.type === 'done' && event.graph) {
               useGraphStore.getState().replaceGraph(event.graph);
-              useLogStore.getState().add('success', 'AI分析', `架构图生成完成，${event.graph.nodes?.length || 0} 个节点`);
+              useLogStore.getState().add('success', 'AI分析', `架构图生成完成，${event.graph.nodes?.length || 0} 个节点`, undefined, {
+                status: 'completed',
+                step: '架构图已生成',
+                stepIndex: '3/3',
+                tags: ['项目分析', '架构图'],
+                metrics: [
+                  { label: '节点数', value: `${event.graph.nodes?.length || 0}` },
+                  { label: '连线数', value: `${event.graph.edges?.length || 0}` },
+                ],
+              });
             }
             // AI 返回文本而非 JSON（可能是提问或说明）
             if (event.type === 'done' && event.text && !event.graph) {
