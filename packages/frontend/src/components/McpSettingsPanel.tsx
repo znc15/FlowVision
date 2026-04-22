@@ -44,7 +44,12 @@ function McpSettingsPanel() {
     setFormTransport(config.transport);
     setFormCommand(config.stdio?.command || '');
     setFormArgs(config.stdio?.args?.join(' ') || '');
-    setFormEnv(config.stdio?.env ? Object.entries(config.stdio.env).map(([k, v]) => `${k}=${v}`).join('\n') : '');
+    // 内置服务器的 env 由后端管理，前端不显示实际值
+    if (config.builtin) {
+      setFormEnv('');
+    } else {
+      setFormEnv(config.stdio?.env ? Object.entries(config.stdio.env).map(([k, v]) => `${k}=${v}`).join('\n') : '');
+    }
     setFormUrl(config.url || '');
     setFormEnabled(config.enabled);
     setFormDescription(config.description || '');
@@ -53,19 +58,24 @@ function McpSettingsPanel() {
 
   const handleSubmit = async () => {
     const id = editingId || `mcp-${Date.now()}`;
+    const existingConfig = editingId ? configs.find((c) => c.id === editingId) : null;
     const config: McpServerConfig = {
       id,
       name: formName || '未命名服务器',
       transport: formTransport,
       enabled: formEnabled,
       description: formDescription || undefined,
+      builtin: existingConfig?.builtin,
     };
 
     if (formTransport === 'stdio') {
       config.stdio = {
         command: formCommand,
         args: formArgs ? formArgs.split(/\s+/).filter(Boolean) : undefined,
-        env: formEnv ? Object.fromEntries(formEnv.split('\n').filter((l) => l.includes('=')).map((l) => { const [k, ...v] = l.split('='); return [k.trim(), v.join('=').trim()]; })) : undefined,
+        // 内置服务器保留原有 env（由后端管理），非内置服务器使用用户填写的值
+        env: existingConfig?.builtin
+          ? existingConfig.stdio?.env
+          : (formEnv ? Object.fromEntries(formEnv.split('\n').filter((l) => l.includes('=')).map((l) => { const [k, ...v] = l.split('='); return [k.trim(), v.join('=').trim()]; })) : undefined),
       };
     } else {
       config.url = formUrl;
@@ -343,7 +353,14 @@ function McpSettingsPanel() {
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">环境变量（每行 KEY=VALUE）</label>
                 <div className="relative">
                   <span className="absolute left-3 top-3 material-symbols-outlined text-sm text-slate-400">key</span>
-                  <textarea value={formEnv} onChange={(e) => setFormEnv(e.target.value)} placeholder={"API_KEY=xxx\nMODEL=gpt-4"} rows={3} className="w-full pl-9 pr-3 py-2.5 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200 placeholder:text-slate-300 resize-none" />
+                  {editingId && configs.find((c) => c.id === editingId)?.builtin ? (
+                    <div className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+                      <p>内置服务器环境变量由系统自动管理</p>
+                      <p className="mt-1 text-[10px] text-slate-400">请通过 .env 文件或环境变量配置 API Key（如 GROK_API_URL、GROK_API_KEY）</p>
+                    </div>
+                  ) : (
+                    <textarea value={formEnv} onChange={(e) => setFormEnv(e.target.value)} placeholder={"API_KEY=xxx\nMODEL=gpt-4"} rows={3} className="w-full pl-9 pr-3 py-2.5 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200 placeholder:text-slate-300 resize-none" />
+                  )}
                 </div>
               </div>
             </div>

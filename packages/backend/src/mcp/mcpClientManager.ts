@@ -128,6 +128,32 @@ class McpClientManager {
     this.configStore.delete(id);
   }
 
+  /** 补全 stdio 环境变量：优先使用 config 中非空值，再用 process.env 补全 */
+  private resolveEnv(config: McpServerConfig): Record<string, string> {
+    const envVars: Record<string, string> = { ...process.env } as Record<string, string>;
+
+    if (config.transport === 'stdio') {
+      // 合并用户/配置中的 env（非空值覆盖 process.env）
+      if (config.stdio?.env) {
+        for (const [key, val] of Object.entries(config.stdio.env)) {
+          if (val) envVars[key] = val;
+        }
+      }
+      // 对于内置 GrokSearch，确保关键变量始终从 process.env 获取最新值
+      if (config.builtin && config.id === 'grok-search') {
+        const keys = ['GROK_API_URL', 'GROK_API_KEY', 'GROK_MODEL', 'TAVILY_API_KEY'];
+        for (const key of keys) {
+          // config 中的值可能是空字符串（默认值），此时用 process.env 覆盖
+          if (process.env[key]) {
+            envVars[key] = process.env[key]!;
+          }
+        }
+      }
+    }
+
+    return envVars;
+  }
+
   /** 连接到指定服务器 */
   async connect(id: string): Promise<void> {
     const config = this.configStore.get(id);
@@ -147,7 +173,7 @@ class McpClientManager {
         transport = new StdioClientTransport({
           command: config.stdio.command,
           args: config.stdio.args || [],
-          env: { ...process.env, ...config.stdio.env } as Record<string, string>,
+          env: this.resolveEnv(config),
           stderr: 'pipe',
         });
       } else if (config.transport === 'sse' && config.url) {
@@ -263,7 +289,7 @@ class McpClientManager {
         transport = new StdioClientTransport({
           command: config.stdio.command,
           args: config.stdio.args || [],
-          env: { ...process.env, ...config.stdio.env } as Record<string, string>,
+          env: this.resolveEnv(config),
           stderr: 'pipe',
         });
       } else if (config.transport === 'sse' && config.url) {
