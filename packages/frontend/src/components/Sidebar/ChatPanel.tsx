@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useGraphStore } from '../../store/graphStore';
 import { usePreviewStore } from '../../store/previewStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -156,6 +158,57 @@ function ThinkingBlock({ content, isStreaming }: { content: string; isStreaming?
   );
 }
 
+/** Markdown 渲染组件 */
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: ({ children }) => <h1 className="text-base font-bold text-slate-800 mb-2 mt-3 first:mt-0">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-sm font-bold text-slate-800 mb-1.5 mt-2.5 first:mt-0">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-xs font-bold text-slate-700 mb-1 mt-2 first:mt-0">{children}</h3>,
+        p: ({ children }) => <p className="text-xs leading-relaxed mb-2 last:mb-0">{children}</p>,
+        ul: ({ children }) => <ul className="list-disc list-inside text-xs mb-2 space-y-0.5 ml-1">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal list-inside text-xs mb-2 space-y-0.5 ml-1">{children}</ol>,
+        li: ({ children }) => <li className="text-xs leading-relaxed">{children}</li>,
+        code: ({ className, children }) => {
+          const isInline = !className;
+          if (isInline) {
+            return <code className="px-1 py-0.5 bg-slate-100 text-slate-700 rounded text-[11px] font-mono">{children}</code>;
+          }
+          return (
+            <code className="block bg-slate-800 text-slate-100 p-3 rounded-lg text-[11px] font-mono overflow-x-auto my-2">
+              {children}
+            </code>
+          );
+        },
+        pre: ({ children }) => <pre className="bg-transparent p-0 m-0 overflow-x-auto">{children}</pre>,
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-2 border-slate-300 pl-3 my-2 text-xs text-slate-600 italic">{children}</blockquote>
+        ),
+        strong: ({ children }) => <strong className="font-semibold text-slate-800">{children}</strong>,
+        em: ({ children }) => <em className="italic">{children}</em>,
+        a: ({ href, children }) => (
+          <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{children}</a>
+        ),
+        hr: () => <hr className="my-3 border-slate-200" />,
+        table: ({ children }) => (
+          <div className="overflow-x-auto my-2">
+            <table className="min-w-full text-xs border border-slate-200 rounded">{children}</table>
+          </div>
+        ),
+        thead: ({ children }) => <thead className="bg-slate-50">{children}</thead>,
+        tbody: ({ children }) => <tbody>{children}</tbody>,
+        tr: ({ children }) => <tr className="border-b border-slate-100">{children}</tr>,
+        th: ({ children }) => <th className="px-2 py-1.5 text-left font-semibold text-slate-700">{children}</th>,
+        td: ({ children }) => <td className="px-2 py-1.5 text-slate-600">{children}</td>,
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
 /** 格式化 AI 消息内容：将 GraphDiff 渲染为步骤卡片 */
 function FormattedAIMessage({ content, graphDiff, thinking, onApplyDiff, isStreaming }: { content: string; graphDiff?: any; thinking?: string; onApplyDiff?: (diff: any) => void; isStreaming?: boolean }) {
   const diff = useMemo(() => graphDiff || tryParseGraphDiff(content), [content, graphDiff]);
@@ -177,7 +230,7 @@ function FormattedAIMessage({ content, graphDiff, thinking, onApplyDiff, isStrea
       <div>
         {thinking && <ThinkingBlock content={thinking} isStreaming={isStreaming} />}
         {description && (
-          <p className="text-xs leading-relaxed text-slate-600 mb-2">{description}</p>
+          <div className="text-slate-600 mb-2"><MarkdownContent content={description} /></div>
         )}
         <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 space-y-2">
           <div className="flex items-center gap-2">
@@ -206,11 +259,11 @@ function FormattedAIMessage({ content, graphDiff, thinking, onApplyDiff, isStrea
   }
 
   if (!diff) {
-    // 普通文本消息
+    // 普通文本消息 - 使用 Markdown 渲染
     return (
       <div>
         {thinking && <ThinkingBlock content={thinking} isStreaming={isStreaming} />}
-        <p className="text-xs leading-relaxed whitespace-pre-wrap">{content}</p>
+        <MarkdownContent content={content} />
       </div>
     );
   }
@@ -241,7 +294,7 @@ function FormattedAIMessage({ content, graphDiff, thinking, onApplyDiff, isStrea
       {thinking && <ThinkingBlock content={thinking} isStreaming={isStreaming} />}
       {/* 自然语言描述 */}
       {beforeJson && (
-        <p className="text-xs leading-relaxed text-slate-600">{beforeJson}</p>
+        <div className="text-slate-600"><MarkdownContent content={beforeJson} /></div>
       )}
       {/* 概要信息 */}
       <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
@@ -517,26 +570,51 @@ function ChatPanel() {
     // 联网搜索：先获取搜索结果，再注入到 prompt 中
     let searchContext: string | undefined;
     if (searchEnabled) {
+      const searchLogId = useLogStore.getState().add('info', '联网搜索', `搜索: ${userPrompt.slice(0, 50)}`, undefined, {
+        status: 'running',
+        step: '调用 web_search 工具',
+        tags: ['联网搜索'],
+      });
+      const searchStartTime = performance.now();
       try {
-        useLogStore.getState().add('info', '联网搜索', `搜索: ${userPrompt.slice(0, 50)}`, undefined, {
-          status: 'running',
-          step: '调用 web_search 工具',
-          tags: ['联网搜索'],
-        });
         const searchResult = await useMcpStore.getState().webSearch(userPrompt);
         if (searchResult.success && searchResult.content) {
-          const texts = searchResult.content
-            .filter((c: any) => c.type === 'text')
-            .map((c: any) => c.text)
-            .join('\n');
+          const textContents = searchResult.content.filter((c: any) => c.type === 'text');
+          const texts = textContents.map((c: any) => c.text).join('\n');
           if (texts) {
             searchContext = `\n\n## 联网搜索结果\n以下是来自互联网的搜索结果，请结合这些信息回答用户问题：\n${texts}`;
-            useLogStore.getState().add('success', '联网搜索', `搜索完成，获取到 ${texts.length} 字符的搜索结果`);
+            useLogStore.getState().update(searchLogId, {
+              status: 'completed',
+              level: 'success',
+              step: '搜索完成',
+              message: `搜索完成，获取到 ${textContents.length} 个来源，共 ${texts.length} 字符`,
+              duration: Math.round(performance.now() - searchStartTime),
+            });
+          } else {
+            useLogStore.getState().update(searchLogId, {
+              status: 'failed',
+              level: 'warn',
+              step: '搜索无结果',
+              message: '搜索未返回有效结果',
+              duration: Math.round(performance.now() - searchStartTime),
+            });
           }
+        } else {
+          useLogStore.getState().update(searchLogId, {
+            status: 'failed',
+            level: 'warn',
+            step: '搜索失败',
+            message: '搜索请求未成功返回',
+            duration: Math.round(performance.now() - searchStartTime),
+          });
         }
       } catch (e) {
-        useLogStore.getState().add('warn', '联网搜索', '联网搜索不可用，将使用纯 AI 回答', undefined, {
-          tags: ['联网搜索'],
+        useLogStore.getState().update(searchLogId, {
+          status: 'failed',
+          level: 'warn',
+          step: '搜索异常',
+          message: '联网搜索不可用，将使用纯 AI 回答',
+          duration: Math.round(performance.now() - searchStartTime),
         });
       }
     }

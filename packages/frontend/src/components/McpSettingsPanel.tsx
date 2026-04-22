@@ -7,7 +7,7 @@ function McpSettingsPanel() {
   const { configs, status, tools, fetchServers, fetchTools, addServer, updateServer, removeServer, connectServer, disconnectServer, testServer } = useMcpStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{ id: string; success: boolean; message: string; tools?: string[] } | null>(null);
+  const [testResult, setTestResult] = useState<{ id: string; success: boolean; message: string; tools?: string[]; queryTest?: { success: boolean; message: string; sourcesCount?: number } } | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
 
   // 添加/编辑表单状态
@@ -226,6 +226,26 @@ function McpSettingsPanel() {
                           {testResult.tools.map((t) => (
                             <span key={t} className="px-1 py-0.5 bg-green-100 rounded text-green-600">{t}</span>
                           ))}
+                        </div>
+                      )}
+                      {/* 查询测试结果 */}
+                      {testResult.queryTest && (
+                        <div className={`mt-2 p-2 rounded ${testResult.queryTest.success ? 'bg-green-100/50' : 'bg-amber-100/50'}`}>
+                          <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-sm">{testResult.queryTest.success ? 'search' : 'search_off'}</span>
+                            <span className="font-medium">搜索测试：</span>
+                            {testResult.queryTest.message}
+                          </div>
+                          {testResult.queryTest.sourcesCount !== undefined && (
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-[9px] px-1.5 py-0.5 bg-white/60 rounded">
+                                sources_count: {testResult.queryTest.sourcesCount}
+                              </span>
+                              {testResult.queryTest.sourcesCount === 0 && (
+                                <span className="text-amber-600 text-[9px]">⚠ 未查询到结果，请检查 API 配置</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

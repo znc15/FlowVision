@@ -251,7 +251,7 @@ class McpClientManager {
   }
 
   /** 测试指定服务器是否可用 */
-  async testConnection(id: string): Promise<{ success: boolean; message: string; tools?: string[] }> {
+  async testConnection(id: string): Promise<{ success: boolean; message: string; tools?: string[]; queryTest?: { success: boolean; message: string; sourcesCount?: number } }> {
     const config = this.configStore.get(id);
     if (!config) return { success: false, message: `未找到配置: ${id}` };
 
@@ -281,12 +281,49 @@ class McpClientManager {
 
       await client.connect(transport);
       const { tools } = await client.listTools();
+      const toolNames = tools.map((t) => t.name);
+
+      // 对搜索类工具执行实际查询测试
+      const searchTools = ['web_search', 'search', 'webSearch', 'grok_search', 'brave_search', 'google_search'];
+      const searchTool = toolNames.find((t) => searchTools.includes(t));
+
+      let queryTest: { success: boolean; message: string; sourcesCount?: number } | undefined;
+      if (searchTool) {
+        try {
+          const result = await client.callTool({
+            name: searchTool,
+            arguments: { query: 'test' },
+          });
+          const textContents = (result.content as any[])?.filter((c: any) => c.type === 'text') || [];
+          if (result.isError || textContents.length === 0) {
+            queryTest = {
+              success: false,
+              message: `工具 ${searchTool} 调用失败：${result.isError ? '返回错误' : '无搜索结果'}`,
+              sourcesCount: 0,
+            };
+          } else {
+            queryTest = {
+              success: true,
+              message: `搜索查询测试成功，返回 ${textContents.length} 个结果`,
+              sourcesCount: textContents.length,
+            };
+          }
+        } catch (callError: any) {
+          queryTest = {
+            success: false,
+            message: `工具 ${searchTool} 调用失败: ${callError.message}`,
+            sourcesCount: 0,
+          };
+        }
+      }
+
       await client.close();
 
       return {
         success: true,
         message: `连接成功，发现 ${tools.length} 个工具`,
-        tools: tools.map((t) => t.name),
+        tools: toolNames,
+        queryTest,
       };
     } catch (error: any) {
       return {
