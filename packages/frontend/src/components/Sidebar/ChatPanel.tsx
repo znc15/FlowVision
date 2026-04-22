@@ -570,7 +570,8 @@ function ChatPanel() {
     // 联网搜索：先获取搜索结果，再注入到 prompt 中
     let searchContext: string | undefined;
     if (searchEnabled) {
-      const searchLogId = useLogStore.getState().add('info', '联网搜索', `搜索: ${userPrompt.slice(0, 50)}`, undefined, {
+      const searchQuery = userPrompt.slice(0, 100);
+      const searchLogId = useLogStore.getState().add('info', '联网搜索', `搜索: ${searchQuery}`, undefined, {
         status: 'running',
         step: '调用 web_search 工具',
         tags: ['联网搜索'],
@@ -581,14 +582,52 @@ function ChatPanel() {
         if (searchResult.success && searchResult.content) {
           const textContents = searchResult.content.filter((c: any) => c.type === 'text');
           const texts = textContents.map((c: any) => c.text).join('\n');
-          if (texts) {
+
+          // 检测返回内容是否包含错误信息
+          const errorKeywords = ['API 尚未正确设置', '配置出现了问题', 'API key', '未配置', 'error', 'failed', 'invalid'];
+          const isErrorResponse = errorKeywords.some((kw) => texts.toLowerCase().includes(kw.toLowerCase()));
+
+          if (texts && !isErrorResponse) {
             searchContext = `\n\n## 联网搜索结果\n以下是来自互联网的搜索结果，请结合这些信息回答用户问题：\n${texts}`;
+            // 提取来源摘要（取每段文本的前 200 字符作为摘要）
+            const sourceSummaries = textContents.slice(0, 5).map((c: any, i: number) => {
+              const text = c.text || '';
+              const preview = text.slice(0, 200).replace(/\n/g, ' ');
+              return `来源 ${i + 1}: ${preview}${text.length > 200 ? '...' : ''}`;
+            });
             useLogStore.getState().update(searchLogId, {
               status: 'completed',
               level: 'success',
               step: '搜索完成',
               message: `搜索完成，获取到 ${textContents.length} 个来源，共 ${texts.length} 字符`,
               duration: Math.round(performance.now() - searchStartTime),
+              detail: JSON.stringify({
+                query: searchQuery,
+                sourcesCount: textContents.length,
+                totalChars: texts.length,
+                serverId: searchResult.serverId,
+                sources: sourceSummaries,
+              }, null, 2),
+              metrics: [
+                { label: '来源数', value: String(textContents.length) },
+                { label: '总字符', value: String(texts.length) },
+                { label: '耗时', value: `${Math.round(performance.now() - searchStartTime)}ms` },
+              ],
+            });
+          } else if (isErrorResponse) {
+            // 搜索返回了错误信息
+            useLogStore.getState().update(searchLogId, {
+              status: 'failed',
+              level: 'error',
+              step: 'API 配置错误',
+              message: '搜索服务返回错误，请检查 MCP 服务器 API 配置',
+              duration: Math.round(performance.now() - searchStartTime),
+              detail: JSON.stringify({
+                query: searchQuery,
+                serverId: searchResult.serverId,
+                errorContent: texts.slice(0, 500),
+                hint: '请在设置中配置正确的 API Key（如 GROK_API_KEY 或 TAVILY_API_KEY）',
+              }, null, 2),
             });
           } else {
             useLogStore.getState().update(searchLogId, {
@@ -597,24 +636,41 @@ function ChatPanel() {
               step: '搜索无结果',
               message: '搜索未返回有效结果',
               duration: Math.round(performance.now() - searchStartTime),
+              detail: JSON.stringify({
+                query: searchQuery,
+                serverId: searchResult.serverId,
+                contentTypes: searchResult.content?.map((c: any) => c.type),
+              }, null, 2),
             });
           }
         } else {
+          const errorMsg = searchResult.isError ? '搜索服务返回错误' : '搜索请求未成功返回';
           useLogStore.getState().update(searchLogId, {
             status: 'failed',
             level: 'warn',
             step: '搜索失败',
-            message: '搜索请求未成功返回',
+            message: errorMsg,
             duration: Math.round(performance.now() - searchStartTime),
+            detail: JSON.stringify({
+              query: searchQuery,
+              success: searchResult.success,
+              isError: searchResult.isError,
+              serverId: searchResult.serverId,
+            }, null, 2),
           });
         }
-      } catch (e) {
+      } catch (e: any) {
         useLogStore.getState().update(searchLogId, {
           status: 'failed',
           level: 'warn',
           step: '搜索异常',
-          message: '联网搜索不可用，将使用纯 AI 回答',
+          message: `联网搜索失败: ${e.message || '未知错误'}`,
           duration: Math.round(performance.now() - searchStartTime),
+          detail: JSON.stringify({
+            query: searchQuery,
+            error: e.message,
+            stack: e.stack?.slice(0, 500),
+          }, null, 2),
         });
       }
     }

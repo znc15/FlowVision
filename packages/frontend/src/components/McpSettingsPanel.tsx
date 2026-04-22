@@ -168,6 +168,19 @@ function McpSettingsPanel() {
                       <p className="text-[10px] text-slate-400 mt-0.5">
                         {config.transport === 'stdio' ? `stdio: ${config.stdio?.command}` : `${config.transport}: ${config.url}`}
                       </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {config.enabled ? (
+                          <span className="text-[9px] text-primary flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[10px]">autorenew</span>
+                            自动连接
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[10px]">pause</span>
+                            手动连接
+                          </span>
+                        )}
+                      </div>
                       {config.description && (
                         <p className="text-[10px] text-slate-500 mt-1">{config.description}</p>
                       )}
@@ -187,18 +200,18 @@ function McpSettingsPanel() {
                         onClick={() => handleTest(config.id)}
                         disabled={testing === config.id}
                         className="icon-button-soft h-7 w-7"
-                        title="测试连接"
+                        title="测试连接（含搜索查询验证）"
                       >
                         <span className={`material-symbols-outlined text-sm ${testing === config.id ? 'animate-spin' : ''}`}>
                           {testing === config.id ? 'progress_activity' : 'network_check'}
                         </span>
                       </button>
                       {isConnected ? (
-                        <button onClick={() => disconnectServer(config.id)} className="icon-button-soft h-7 w-7" title="断开">
+                        <button onClick={() => disconnectServer(config.id)} className="icon-button-soft h-7 w-7" title="断开连接">
                           <span className="material-symbols-outlined text-sm text-amber-500">link_off</span>
                         </button>
                       ) : (
-                        <button onClick={() => connectServer(config.id)} className="icon-button-soft h-7 w-7" title="连接">
+                        <button onClick={() => connectServer(config.id)} className="icon-button-soft h-7 w-7" title="立即连接">
                           <span className="material-symbols-outlined text-sm text-green-500">link</span>
                         </button>
                       )}
@@ -356,11 +369,14 @@ function McpSettingsPanel() {
             </div>
           </div>
 
-          {/* 启用开关 */}
+          {/* 自动连接开关 */}
           <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/60 border border-slate-100">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm text-slate-400">power_settings_new</span>
-              <span className="text-xs text-slate-600 font-medium">启用此服务器</span>
+              <span className="material-symbols-outlined text-sm text-slate-400">autorenew</span>
+              <div>
+                <span className="text-xs text-slate-600 font-medium">软件启动时自动连接</span>
+                <p className="text-[9px] text-slate-400 mt-0.5">开启后，每次启动软件会自动连接此服务器</p>
+              </div>
             </div>
             <button
               onClick={() => setFormEnabled(!formEnabled)}
