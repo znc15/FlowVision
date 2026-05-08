@@ -43,11 +43,15 @@ Thumbs.db
 .flowpilot/
 .claude/settings.json
 .claude/worktrees/
-CLAUDE.md
-CLAUDE.md
 flow.js
 .ace-tool/
 .claude/
 design/
 packages/desktop/dist-test/*
 packages/desktop/dist-tmp/win-unpacked/resources/app.asar
+.trellis/
+.sisyphus/
+.opencode/
+.codex/
+.agents/
+skills/
